@@ -1,7 +1,7 @@
 # Copyright 2021 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-""" Library for the tls-certificates relation
+"""Library for the tls-certificates relation.
 
 This library contains the Requires and Provides classes for handling
 the tls-certificates interface.
@@ -97,7 +97,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 13
+LIBPATCH = 14
 
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
@@ -191,6 +191,8 @@ logger = logging.getLogger(__name__)
 
 
 class Cert(TypedDict):
+    """Certificate data object."""
+
     common_name: str
     cert: str
     key: str
@@ -198,18 +200,24 @@ class Cert(TypedDict):
 
 
 class CertificateAvailableEvent(EventBase):
+    """Charm Event triggered when a TLS certificate is available."""
+
     def __init__(self, handle, certificate_data: Cert):
         super().__init__(handle)
         self.certificate_data = certificate_data
 
     def snapshot(self) -> dict:
+        """Returns snapshot."""
         return {"certificate_data": self.certificate_data}
 
     def restore(self, snapshot: dict):
+        """Restores snapshot."""
         self.certificate_data = snapshot["certificate_data"]
 
 
 class CertificateRequestEvent(EventBase):
+    """Charm Event triggered when a TLS certificate is required."""
+
     def __init__(self, handle, common_name: str, sans: str, cert_type: str, relation_id: int):
         super().__init__(handle)
         self.common_name = common_name
@@ -218,6 +226,7 @@ class CertificateRequestEvent(EventBase):
         self.relation_id = relation_id
 
     def snapshot(self) -> dict:
+        """Returns snapshot."""
         return {
             "common_name": self.common_name,
             "sans": self.sans,
@@ -226,6 +235,7 @@ class CertificateRequestEvent(EventBase):
         }
 
     def restore(self, snapshot: dict):
+        """Restores snapshot."""
         self.common_name = snapshot["common_name"]
         self.sans = snapshot["sans"]
         self.cert_type = snapshot["cert_type"]
@@ -243,14 +253,19 @@ def _load_relation_data(raw_relation_data: dict) -> dict:
 
 
 class CertificatesProviderCharmEvents(CharmEvents):
+    """List of events that the TLS Certificates provider charm can leverage."""
+
     certificate_request = EventSource(CertificateRequestEvent)
 
 
 class CertificatesRequirerCharmEvents(CharmEvents):
+    """List of events that the TLS Certificates requirer charm can leverage."""
+
     certificate_available = EventSource(CertificateAvailableEvent)
 
 
 class InsecureCertificatesProvides(Object):
+    """TLS certificates provider class to be instantiated by TLS certificates providers."""
 
     on = CertificatesProviderCharmEvents()
 
@@ -264,8 +279,8 @@ class InsecureCertificatesProvides(Object):
 
     @staticmethod
     def _relation_data_is_valid(certificates_data: dict) -> bool:
-        """
-        Uses JSON schema validator to validate relation data content.
+        """Uses JSON schema validator to validate relation data content.
+
         :param certificates_data: Certificate data dictionary as retrieved from relation data.
         :return: True/False depending on whether the relation data follows the json schema.
         """
@@ -276,6 +291,11 @@ class InsecureCertificatesProvides(Object):
             return False
 
     def set_relation_certificate(self, certificate: Cert, relation_id: int):
+        """Adds certificates to relation data.
+
+        :param certificate: Certificate object
+        :param relation_id: Relation ID
+        """
         logging.info(f"Setting Certificate to {certificate} for {self.model.unit}")
         certificates_relation = self.model.get_relation(
             relation_name=self.relationship_name, relation_id=relation_id
@@ -324,6 +344,7 @@ class InsecureCertificatesProvides(Object):
 
 
 class InsecureCertificatesRequires(Object):
+    """TLS certificates requirer class to be instantiated by TLS certificates requirers."""
 
     on = CertificatesRequirerCharmEvents()
 
@@ -349,6 +370,15 @@ class InsecureCertificatesRequires(Object):
         common_name: str,
         sans: list = None,
     ):
+        """Request TLS certificate to provider charm.
+
+        :param cert_type: Certificate type: "client" or "server". Specifies if certificates are
+            flagged for server or client authentication use. See RFC 5280 Section 4.2.1.12 for
+            information about the Extended Key Usage field.
+        :param common_name: The requested CN for the certificate.
+        :param sans: Subject Alternative Name
+        :return: None
+        """
         if not sans:
             sans = []
         logger.info("Received request to create certificate")
