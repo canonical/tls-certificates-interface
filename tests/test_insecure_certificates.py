@@ -156,12 +156,14 @@ class TestInsecureCertificatesProvides(unittest.TestCase):
     ):
         class Relation:
             data: dict = {self.provider_unit: dict(), self.requirer_unit: dict()}
-
+        common_name = "whatever common name"
+        cert = "whatever certificate"
+        private_key = "whatever private key"
         certificate = Cert(
-            cert="whatever cert",
-            key="whatever key",
+            cert=cert,
+            key=private_key,
             ca="whatever ca",
-            common_name="whatever common name",
+            common_name=common_name,
         )
         relation_id = 1
         relation = Relation()
@@ -172,10 +174,38 @@ class TestInsecureCertificatesProvides(unittest.TestCase):
         )
 
         relation_data = _load_relation_data(relation.data[self.provider_unit])
-        certificate_list = relation_data["certificates"]
-        self.assertEqual(1, len(certificate_list))
-        self.assertEqual(certificate, certificate_list[0])
-        validate(relation_data, PROVIDER_JSON_SCHEMA)
+
+        expected_relation_data = {
+            "cert": cert,
+            "key": private_key
+        }
+        self.assertEqual(expected_relation_data, relation_data[common_name])
+
+    def test_given_certificate_when_set_relation_certificate_then_ca_is_added_to_relation_data(
+        self,
+    ):
+        class Relation:
+            data: dict = {self.provider_unit: dict(), self.requirer_unit: dict()}
+        common_name = "whatever common name"
+        cert = "whatever certificate"
+        private_key = "whatever private key"
+        certificate = Cert(
+            cert=cert,
+            key=private_key,
+            ca="whatever ca",
+            common_name=common_name,
+        )
+        relation_id = 1
+        relation = Relation()
+        self.charm.framework.model.get_relation.return_value = relation
+
+        self.insecure_relation_provides.set_relation_certificate(
+            certificate=certificate, relation_id=relation_id
+        )
+
+        relation_data = _load_relation_data(relation.data[self.provider_unit])
+
+        self.assertEqual(certificate["ca"], relation_data["ca"])
 
 
 class TestInsecureCertificatesRequires(unittest.TestCase):
