@@ -17,9 +17,9 @@ resources:
     description: Placeholder for OCI image
 
 provides:
-  certificates:
+  certificates-provider:
     interface: tls_certificates
 
 requires:
-  certificates:
+  certificates-requirer:
     interface: tls_certificates
