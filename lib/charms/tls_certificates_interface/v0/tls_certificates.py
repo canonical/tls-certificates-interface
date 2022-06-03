@@ -97,7 +97,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 15
+LIBPATCH = 18
 
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
@@ -162,13 +162,6 @@ PROVIDER_JSON_SCHEMA = {
         "ca": {"type": "string"},
         "chain": {"type": "string"},
         "unit_name": {"type": "string"},
-    },
-    "patternProperties": {
-        "^(?!ca|chain|unit_name).*$": {
-            "type": "object",
-            "properties": {"key": {"type": "string"}, "cert": {"type": "string"}},
-            "required": ["cert", "key"],
-        }
     },
     "required": ["ca", "chain"],
 }
@@ -289,8 +282,13 @@ class InsecureCertificatesProvides(Object):
         relation_data = certificates_relation.data[self.model.unit]  # type: ignore[union-attr]
 
         current_ca = relation_data.get("ca")
+        current_chain = relation_data.get("chain")
         if not current_ca:
             relation_data["ca"] = certificate["ca"]
+        if not current_chain:
+            relation_data["chain"] = certificate["ca"]
+        certificate_dict = {"key": certificate["key"], "cert": certificate["cert"]}
+        relation_data[certificate["common_name"]] = json.dumps(certificate_dict)
 
         certificate_dict = {"key": certificate["key"], "cert": certificate["cert"]}
         relation_data[certificate["common_name"]] = json.dumps(certificate_dict)
@@ -394,6 +392,21 @@ class InsecureCertificatesRequires(Object):
         except exceptions.ValidationError:
             return False
 
+    @staticmethod
+    def _parse_certificates_from_relation_data(relation_data: dict) -> list:
+        certificates = []
+        ca = relation_data.pop("ca")
+        relation_data.pop("chain")
+        for key in relation_data:
+            if type(relation_data[key]) == dict:
+                private_key = relation_data[key].get("key")
+                certificate = relation_data[key].get("cert")
+                if private_key and certificate:
+                    certificates.append(
+                        Cert(common_name=key, key=private_key, cert=certificate, ca=ca)
+                    )
+        return certificates
+
     def _on_relation_changed(self, event):
         if self.model.unit.is_leader():
             logger.info(f"Raw relation data: {event.relation.data}")
@@ -403,5 +416,7 @@ class InsecureCertificatesRequires(Object):
                 logger.info("Relation data did not pass JSON Schema validation - Deferring")
                 event.defer()
                 return
-            for certificate in relation_data["certificates"]:
+
+            certificates = self._parse_certificates_from_relation_data(relation_data)
+            for certificate in certificates:
                 self.on.certificate_available.emit(certificate_data=certificate)
