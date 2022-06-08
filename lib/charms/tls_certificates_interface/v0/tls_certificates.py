@@ -294,9 +294,7 @@ class InsecureCertificatesProvides(Object):
         relation_data[certificate["common_name"]] = json.dumps(certificate_dict)
 
     def _on_relation_changed(self, event):
-        logger.info(f"Raw relation data: {event.relation.data}")
         relation_data = _load_relation_data(event.relation.data[event.unit])
-        logger.info(f"Parsed relation data: {relation_data}")
         if not relation_data:
             logger.info("No relation data - Deferring")
             event.defer()
@@ -367,7 +365,6 @@ class InsecureCertificatesRequires(Object):
                 f"The certificate request can't be completed"
             )
             return
-        logger.info(f"Relation data: {relation.data}")
         relation_data = _load_relation_data(relation.data[self.model.unit])
         certificate_key_mapping = {"client": "client_cert_requests", "server": "cert_requests"}
         new_certificate_request = {"common_name": common_name, "sans": sans}
@@ -409,9 +406,7 @@ class InsecureCertificatesRequires(Object):
 
     def _on_relation_changed(self, event):
         if self.model.unit.is_leader():
-            logger.info(f"Raw relation data: {event.relation.data}")
             relation_data = _load_relation_data(event.relation.data[event.unit])
-            logger.info(f"Parsed relation data: {relation_data}")
             if not self._relation_data_is_valid(relation_data):
                 logger.info("Relation data did not pass JSON Schema validation - Deferring")
                 event.defer()

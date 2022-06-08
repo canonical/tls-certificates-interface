@@ -2,6 +2,7 @@
 # Copyright 2021 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+"""Contains examples of provider and requirer charms for the TLS certificates interface."""
 
 from charms.tls_certificates_interface.v0.tls_certificates import (
     Cert,
@@ -12,6 +13,8 @@ from ops.charm import CharmBase
 
 
 class ExampleProviderCharm(CharmBase):
+    """Example Provider Charm for TLS certificates."""
+
     def __init__(self, *args):
         super().__init__(*args)
         self.insecure_certificates = InsecureCertificatesProvides(self, "certificates")
@@ -36,6 +39,8 @@ class ExampleProviderCharm(CharmBase):
 
 
 class ExampleRequirerCharm(CharmBase):
+    """Example Requirer Charm for TLS certificates."""
+
     def __init__(self, *args):
         super().__init__(*args)
 

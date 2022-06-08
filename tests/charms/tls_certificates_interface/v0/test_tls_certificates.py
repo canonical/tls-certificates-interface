@@ -1,14 +1,16 @@
+#!/usr/bin/env python3
+# Copyright 2021 Canonical Ltd.
+# See LICENSE file for licensing details.
+
 import json
 import unittest
 from unittest.mock import Mock, PropertyMock, call, patch
 
 from charms.tls_certificates_interface.v0.tls_certificates import (
-    PROVIDER_JSON_SCHEMA,
     Cert,
     InsecureCertificatesProvides,
     InsecureCertificatesRequires,
 )
-from jsonschema import validate  # type: ignore[import]
 
 PROVIDER_UNIT_NAME = "whatever provider unit name"
 REQUIRER_UNIT_NAME = "whatever requirer unit name"
@@ -156,6 +158,7 @@ class TestInsecureCertificatesProvides(unittest.TestCase):
     ):
         class Relation:
             data: dict = {self.provider_unit: dict(), self.requirer_unit: dict()}
+
         common_name = "whatever common name"
         cert = "whatever certificate"
         private_key = "whatever private key"
@@ -175,10 +178,7 @@ class TestInsecureCertificatesProvides(unittest.TestCase):
 
         relation_data = _load_relation_data(relation.data[self.provider_unit])
 
-        expected_relation_data = {
-            "cert": cert,
-            "key": private_key
-        }
+        expected_relation_data = {"cert": cert, "key": private_key}
         self.assertEqual(expected_relation_data, relation_data[common_name])
 
     def test_given_certificate_when_set_relation_certificate_then_ca_is_added_to_relation_data(
@@ -186,6 +186,7 @@ class TestInsecureCertificatesProvides(unittest.TestCase):
     ):
         class Relation:
             data: dict = {self.provider_unit: dict(), self.requirer_unit: dict()}
+
         common_name = "whatever common name"
         cert = "whatever certificate"
         private_key = "whatever private key"
@@ -271,7 +272,7 @@ class TestInsecureCertificatesRequires(unittest.TestCase):
         new_callable=PropertyMock,
     )
     def test_given_valid_relation_data_when_on_relation_changed_then_certificate_available_event_is_emitted(  # noqa: E501
-            self, patch_emit
+        self, patch_emit
     ):
         event = Mock()
         ca = "whatever ca"
@@ -279,12 +280,12 @@ class TestInsecureCertificatesRequires(unittest.TestCase):
         private_key = "whatever private key"
         common_name = "whatever.com"
         relation_data = {
-                "ca": ca,
-                "chain": ca,
-                common_name: json.dumps({"cert": cert, "key": private_key}),
-                "whatever key": "whatever value",
-                "unit_name": "whatever unit name"
-            }
+            "ca": ca,
+            "chain": ca,
+            common_name: json.dumps({"cert": cert, "key": private_key}),
+            "whatever key": "whatever value",
+            "unit_name": "whatever unit name",
+        }
         event.unit = self.provider_unit
         event.relation.data = {
             self.requirer_unit: {},
@@ -295,12 +296,7 @@ class TestInsecureCertificatesRequires(unittest.TestCase):
 
         calls = [
             call().emit(
-                certificate_data=Cert(
-                    cert=cert,
-                    key=private_key,
-                    ca=ca,
-                    common_name=common_name
-                )
+                certificate_data=Cert(cert=cert, key=private_key, ca=ca, common_name=common_name)
             )
         ]
         patch_emit.assert_has_calls(calls, any_order=True)
