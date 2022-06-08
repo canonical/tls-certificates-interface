@@ -6,8 +6,8 @@
 
 from charms.tls_certificates_interface.v0.tls_certificates import (
     Cert,
-    InsecureCertificatesProvides,
-    InsecureCertificatesRequires,
+    TLSCertificatesProvides,
+    TLSCertificatesRequires,
 )
 from ops.charm import CharmBase
 
@@ -17,9 +17,9 @@ class ExampleProviderCharm(CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.insecure_certificates = InsecureCertificatesProvides(self, "certificates")
+        self.tls_certificates = TLSCertificatesProvides(self, "certificates")
         self.framework.observe(
-            self.insecure_certificates.on.certificates_request, self._on_certificate_request
+            self.tls_certificates.on.certificates_request, self._on_certificate_request
         )
 
     def _on_certificate_request(self, event):
@@ -28,7 +28,7 @@ class ExampleProviderCharm(CharmBase):
         cert_type = event.cert_type
         certificate = self._generate_certificate(common_name, sans, cert_type)
 
-        self.insecure_certificates.set_relation_certificate(
+        self.tls_certificates.set_relation_certificate(
             certificate=certificate, relation_id=event.relation.id
         )
 
@@ -44,11 +44,11 @@ class ExampleRequirerCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
 
-        self.insecure_certificates = InsecureCertificatesRequires(self, "certificates")
+        self.tls_certificates = TLSCertificatesRequires(self, "certificates")
         self.framework.observe(
-            self.insecure_certificates.on.certificate_available, self._on_certificate_available
+            self.tls_certificates.on.certificate_available, self._on_certificate_available
         )
-        self.insecure_certificates.request_certificate(
+        self.tls_certificates.request_certificate(
             cert_type="client",
             common_name="whatever common name",
         )

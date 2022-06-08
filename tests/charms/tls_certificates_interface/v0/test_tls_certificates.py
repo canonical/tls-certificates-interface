@@ -8,8 +8,8 @@ from unittest.mock import Mock, PropertyMock, call, patch
 
 from charms.tls_certificates_interface.v0.tls_certificates import (
     Cert,
-    InsecureCertificatesProvides,
-    InsecureCertificatesRequires,
+    TLSCertificatesProvides,
+    TLSCertificatesRequires,
 )
 
 PROVIDER_UNIT_NAME = "whatever provider unit name"
@@ -35,7 +35,7 @@ def _load_relation_data(raw_relation_data: dict) -> dict:
     return certificate_data
 
 
-class TestInsecureCertificatesProvides(unittest.TestCase):
+class TestTLSCertificatesProvides(unittest.TestCase):
     def setUp(self):
         class MockRelation:
             def relation_changed(self):
@@ -44,7 +44,7 @@ class TestInsecureCertificatesProvides(unittest.TestCase):
         relationship_name = "certificates"
         charm = Mock()
         charm.on = {"certificates": MockRelation()}
-        self.insecure_relation_provides = InsecureCertificatesProvides(
+        self.tls_relation_provides = TLSCertificatesProvides(
             charm=charm, relationship_name=relationship_name
         )
         self.charm = charm
@@ -67,7 +67,7 @@ class TestInsecureCertificatesProvides(unittest.TestCase):
         }
         event.unit = self.requirer_unit
 
-        self.insecure_relation_provides._on_relation_changed(event)
+        self.tls_relation_provides._on_relation_changed(event)
 
         self.assertTrue(event.defer.call_count == 1)
 
@@ -85,7 +85,7 @@ class TestInsecureCertificatesProvides(unittest.TestCase):
         }
         event.unit = self.requirer_unit
 
-        self.insecure_relation_provides._on_relation_changed(event)
+        self.tls_relation_provides._on_relation_changed(event)
 
         self.assertTrue(event.defer.call_count == 1)
 
@@ -122,7 +122,7 @@ class TestInsecureCertificatesProvides(unittest.TestCase):
         event.relation.id = relation_id
         event.unit = self.requirer_unit
 
-        self.insecure_relation_provides._on_relation_changed(event)
+        self.tls_relation_provides._on_relation_changed(event)
 
         calls = [
             call().emit(
@@ -172,7 +172,7 @@ class TestInsecureCertificatesProvides(unittest.TestCase):
         relation = Relation()
         self.charm.framework.model.get_relation.return_value = relation
 
-        self.insecure_relation_provides.set_relation_certificate(
+        self.tls_relation_provides.set_relation_certificate(
             certificate=certificate, relation_id=relation_id
         )
 
@@ -200,7 +200,7 @@ class TestInsecureCertificatesProvides(unittest.TestCase):
         relation = Relation()
         self.charm.framework.model.get_relation.return_value = relation
 
-        self.insecure_relation_provides.set_relation_certificate(
+        self.tls_relation_provides.set_relation_certificate(
             certificate=certificate, relation_id=relation_id
         )
 
@@ -209,7 +209,7 @@ class TestInsecureCertificatesProvides(unittest.TestCase):
         self.assertEqual(certificate["ca"], relation_data["ca"])
 
 
-class TestInsecureCertificatesRequires(unittest.TestCase):
+class TestTLSCertificatesRequires(unittest.TestCase):
     def setUp(self):
         class CharmOnMock:
             certificates = Mock()
@@ -221,7 +221,7 @@ class TestInsecureCertificatesRequires(unittest.TestCase):
         charm = Mock()
         charm.on = CharmOnMock()
         relationship_name = "certificates"
-        self.insecure_certificate_requires = InsecureCertificatesRequires(
+        self.tls_certificate_requires = TLSCertificatesRequires(
             charm=charm, relationship_name=relationship_name
         )
         self.charm = charm
@@ -239,7 +239,7 @@ class TestInsecureCertificatesRequires(unittest.TestCase):
         relation = Relation()
         self.charm.framework.model.get_relation.return_value = relation
 
-        self.insecure_certificate_requires.request_certificate(
+        self.tls_certificate_requires.request_certificate(
             cert_type="client",
             common_name=common_name,
         )
@@ -263,7 +263,7 @@ class TestInsecureCertificatesRequires(unittest.TestCase):
             self.provider_unit: {"certificates": json.dumps(bad_relation_data)},
         }
         event.unit = self.provider_unit
-        self.insecure_certificate_requires._on_relation_changed(event)
+        self.tls_certificate_requires._on_relation_changed(event)
 
         self.assertTrue(event.defer.call_count == 1)
 
@@ -292,7 +292,7 @@ class TestInsecureCertificatesRequires(unittest.TestCase):
             self.provider_unit: relation_data,
         }
 
-        self.insecure_certificate_requires._on_relation_changed(event)
+        self.tls_certificate_requires._on_relation_changed(event)
 
         calls = [
             call().emit(
