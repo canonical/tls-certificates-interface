@@ -299,7 +299,7 @@ class TLSCertificatesProvides(Object):
             logger.info("No relation data - Deferring")
             return
         if not self._relation_data_is_valid(relation_data):
-            logger.info("Relation data did not pass JSON Schema validation - Deferring")
+            logger.warning("Relation data did not pass JSON Schema validation - Deferring")
             return
         for server_cert_request in relation_data.get("cert_requests", {}):
             self.on.certificate_request.emit(
