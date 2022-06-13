@@ -8,7 +8,9 @@ provider and the requirer side of them.
 > Note: The charm located here is a placeholder charm.
 
 ## Usage
-From a charm directory where the `tls-certificates-interface` library is needed:
+
+This library can be used by any charm requiring or providing this interface. From the charm's
+root directory, run:
 
 ```bash
 charmcraft fetch-lib charms.tls_certificates_interface.v0.tls_certificates

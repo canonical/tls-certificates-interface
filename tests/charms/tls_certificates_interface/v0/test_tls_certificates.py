@@ -52,8 +52,12 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         self.requirer_unit = UnitMock(name=REQUIRER_UNIT_NAME)
         self.charm.framework.model.unit = self.provider_unit
 
-    def test_given_common_name_is_missing_from_relation_data_when_relation_changed_then_event_is_deferred(  # noqa: E501
-        self,
+    @patch(
+        "charms.tls_certificates_interface.v0.tls_certificates.CertificatesProviderCharmEvents.certificate_request",  # noqa: E501
+        new_callable=PropertyMock,
+    )
+    def test_given_common_name_is_missing_from_relation_data_when_relation_changed_then_no_certificate_request_is_made(  # noqa: E501
+        self, patch_emit
     ):
         certificate_requests = [
             {
@@ -69,10 +73,14 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         self.tls_relation_provides._on_relation_changed(event)
 
-        self.assertTrue(event.defer.call_count == 1)
+        patch_emit.assert_not_called()
 
-    def test_given_invalid_cert_requests_in_relation_data_when_relation_changed_then_event_is_deferred(  # noqa: E501
-        self,
+    @patch(
+        "charms.tls_certificates_interface.v0.tls_certificates.CertificatesProviderCharmEvents.certificate_request",  # noqa: E501
+        new_callable=PropertyMock,
+    )
+    def test_given_invalid_cert_requests_in_relation_data_when_relation_changed_then_no_certificate_request_is_made(  # noqa: E501
+        self, patch_emit
     ):
         invalid_cert_request_content = "invalid format"
         event = Mock()
@@ -87,7 +95,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         self.tls_relation_provides._on_relation_changed(event)
 
-        self.assertTrue(event.defer.call_count == 1)
+        patch_emit.assert_not_called()
 
     @patch(
         "charms.tls_certificates_interface.v0.tls_certificates.CertificatesProviderCharmEvents.certificate_request",  # noqa: E501

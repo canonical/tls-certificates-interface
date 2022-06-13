@@ -297,11 +297,9 @@ class TLSCertificatesProvides(Object):
         relation_data = _load_relation_data(event.relation.data[event.unit])
         if not relation_data:
             logger.info("No relation data - Deferring")
-            event.defer()
             return
         if not self._relation_data_is_valid(relation_data):
             logger.info("Relation data did not pass JSON Schema validation - Deferring")
-            event.defer()
             return
         for server_cert_request in relation_data.get("cert_requests", {}):
             self.on.certificate_request.emit(
@@ -360,7 +358,7 @@ class TLSCertificatesRequires(Object):
         logger.info("Received request to create certificate")
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
-            logger.info(
+            logger.error(
                 f"Relation {self.relationship_name} does not exist - "
                 f"The certificate request can't be completed"
             )
@@ -408,7 +406,7 @@ class TLSCertificatesRequires(Object):
         if self.model.unit.is_leader():
             relation_data = _load_relation_data(event.relation.data[event.unit])
             if not self._relation_data_is_valid(relation_data):
-                logger.info("Relation data did not pass JSON Schema validation - Deferring")
+                logger.warning("Relation data did not pass JSON Schema validation - Deferring")
                 event.defer()
                 return
 
