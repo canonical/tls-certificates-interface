@@ -15,6 +15,7 @@ from charms.tls_certificates_interface.v0.tls_certificates import (
 
 PROVIDER_UNIT_NAME = "whatever provider unit name"
 REQUIRER_UNIT_NAME = "whatever requirer unit name"
+CHARM_LIB_PATH = "charms.tls_certificates_interface.v0.tls_certificates"
 
 
 class UnitMock:
@@ -54,7 +55,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         self.charm.framework.model.unit = self.provider_unit
 
     @patch(
-        "charms.tls_certificates_interface.v0.tls_certificates.CertificatesProviderCharmEvents.certificate_request",  # noqa: E501
+        f"{CHARM_LIB_PATH}.CertificatesProviderCharmEvents.certificate_request",
         new_callable=PropertyMock,
     )
     def test_given_common_name_is_missing_from_relation_data_when_relation_changed_then_no_certificate_request_is_made(  # noqa: E501
@@ -77,7 +78,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         patch_emit.assert_not_called()
 
     @patch(
-        "charms.tls_certificates_interface.v0.tls_certificates.CertificatesProviderCharmEvents.certificate_request",  # noqa: E501
+        f"{CHARM_LIB_PATH}.CertificatesProviderCharmEvents.certificate_request",
         new_callable=PropertyMock,
     )
     def test_given_invalid_cert_requests_in_relation_data_when_relation_changed_then_no_certificate_request_is_made(  # noqa: E501
@@ -99,7 +100,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         patch_emit.assert_not_called()
 
     @patch(
-        "charms.tls_certificates_interface.v0.tls_certificates.CertificatesProviderCharmEvents.certificate_request",  # noqa: E501
+        f"{CHARM_LIB_PATH}.CertificatesProviderCharmEvents.certificate_request",
         new_callable=PropertyMock,
     )
     def test_given_cert_requests_in_relation_data_when_relation_changed_then_certificate_request_event_is_emitted_for_each_request(  # noqa: E501
@@ -285,7 +286,7 @@ class TestTLSCertificatesRequires(unittest.TestCase):
         self.assertTrue(event.defer.call_count == 1)
 
     @patch(
-        "charms.tls_certificates_interface.v0.tls_certificates.CertificatesRequirerCharmEvents.certificate_available",  # noqa: E501
+        f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_available",
         new_callable=PropertyMock,
     )
     def test_given_valid_relation_data_when_on_relation_changed_then_certificate_available_event_is_emitted(  # noqa: E501
