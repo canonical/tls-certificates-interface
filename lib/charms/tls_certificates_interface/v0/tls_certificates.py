@@ -97,7 +97,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 20
+LIBPATCH = 23
 
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
@@ -292,7 +292,6 @@ class TLSCertificatesProvides(Object):
         Returns:
             None
         """
-        logging.info(f"Setting Certificate to {certificate} for {self.model.unit}")
         certificates_relation = self.model.get_relation(
             relation_name=self.relationship_name, relation_id=relation_id
         )
@@ -375,9 +374,9 @@ class TLSCertificatesRequires(Object):
         """Request TLS certificate to provider charm.
 
         Args:
-            cert_type (stt): Certificate type: "client" or "server". Specifies if certificates are
-            flagged for server or client authentication use. See RFC 5280 Section 4.2.1.12 for
-            information about the Extended Key Usage field.
+            cert_type (str): Certificate type: "client" or "server".
+                Specifies if certificates are flagged for server or client authentication use.
+                See RFC 5280 Section 4.2.1.12 for information about the Extended Key Usage field.
             common_name (str): The requested CN for the certificate.
             sans (list): Subject Alternative Name
 
