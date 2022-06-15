@@ -22,7 +22,18 @@ class ExampleProviderCharm(CharmBase):
             self.tls_certificates.on.certificates_request, self._on_certificate_request
         )
 
-    def _on_certificate_request(self, event):
+    def _on_certificate_request(self, event) -> None:
+        """Handler triggerred on certificates request event.
+
+        Here insert the code that generates a TLS certificate and then use the
+        `set_relation_certificate` to pass it back to the requirer.
+
+        Args:
+            event: Juju event
+
+        Returns:
+            None
+        """
         common_name = event.common_name
         sans = event.sans
         cert_type = event.cert_type
@@ -33,6 +44,16 @@ class ExampleProviderCharm(CharmBase):
         )
 
     def _generate_certificate(self, common_name: str, sans: list, cert_type: str) -> Cert:
+        """Placeholder method to generates TLS Certificate.
+
+        Args:
+            common_name (str): Common Name
+            sans (list): Subject Alternative Names
+            cert_type (str): Certificate type ("client" or "server")
+
+        Returns:
+            Cert: Certificate object.
+        """
         return Cert(
             common_name=common_name, cert="whatever cert", key="whatever key", ca="whatever ca"
         )
@@ -41,21 +62,49 @@ class ExampleProviderCharm(CharmBase):
 class ExampleRequirerCharm(CharmBase):
     """Example Requirer Charm for TLS certificates."""
 
+    CERT_PATH = "/certs"
+    COMMON_NAME = "whatever common_name"
+
     def __init__(self, *args):
         super().__init__(*args)
-
+        self._container = self.unit.get_container(container_name="placeholder")
         self.tls_certificates = TLSCertificatesRequires(self, "certificates")
         self.framework.observe(
             self.tls_certificates.on.certificate_available, self._on_certificate_available
         )
-        self.tls_certificates.request_certificate(
-            cert_type="client",
-            common_name="whatever common name",
+        self.framework.observe(
+            self.on.certificates_relation_joined, self._on_certificates_relation_joined
         )
 
-    def _on_certificate_available(self, event):
+    def _on_certificates_relation_joined(self, event) -> None:
+        """Handler triggerred on certificates relation joined event.
+
+        Here insert the certificate request.
+
+        Args:
+            event: Juju event
+
+        Returns:
+            None
+        """
+        self.tls_certificates.request_certificate(
+            cert_type="server",
+            common_name=self.COMMON_NAME,
+        )
+
+    def _on_certificate_available(self, event) -> None:
+        """Handler triggerred on certificate available events.
+
+        Here insert the code that handles certificates (ex. push to workload container).
+
+        Args:
+            event: Juju event
+
+        Returns:
+            None
+        """
         certificate_data = event.certificate_data
-        print(certificate_data["common_name"])
-        print(certificate_data["key"])
-        print(certificate_data["ca"])
-        print(certificate_data["cert"])
+        if event.certificate_data["common_name"] == self.COMMON_NAME:
+            self._container.push(f"{self.CERT_PATH}/private_key.key", certificate_data["key"])
+            self._container.push(f"{self.CERT_PATH}/certificate.pem", certificate_data["cert"])
+            self._container.push(f"{self.CERT_PATH}/rootca.pem", certificate_data["ca"])

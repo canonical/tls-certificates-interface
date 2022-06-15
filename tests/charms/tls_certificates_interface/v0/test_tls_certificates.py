@@ -6,6 +6,7 @@ import json
 import unittest
 from unittest.mock import Mock, PropertyMock, call, patch
 
+import pytest
 from charms.tls_certificates_interface.v0.tls_certificates import (
     Cert,
     TLSCertificatesProvides,
@@ -258,6 +259,14 @@ class TestTLSCertificatesRequires(unittest.TestCase):
         )
         expected_client_cert_requests = [{"common_name": common_name, "sans": []}]
         self.assertEqual(expected_client_cert_requests, client_cert_requests)
+
+    def test_given_no_relation_when_request_certificate_then_runtime_error_is_raised(self):
+        self.charm.framework.model.get_relation.return_value = None
+
+        with pytest.raises(RuntimeError):
+            self.tls_certificate_requires.request_certificate(
+                cert_type="client", common_name="whatever common name"
+            )
 
     def test_given_non_valid_relation_data_when_on_relation_changed_then_event_is_deferred(self):
         event = Mock()
