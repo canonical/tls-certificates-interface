@@ -353,6 +353,7 @@ class TLSCertificatesRequires(Object):
         self,
         charm,
         relationship_name: str,
+        cert_type: Literal["client", "server"] = None,
         common_name: str = None,
         sans: list = None,
     ):
@@ -364,6 +365,29 @@ class TLSCertificatesRequires(Object):
         self.charm = charm
         self.common_name = common_name
         self.sans = sans
+        self.cert_type = cert_type
+
+        if cert_type is not None and common_name is not None:
+            self.framework.observe(
+                charm.on[relationship_name].relation_joined, self._on_relation_joined
+            )
+
+    def _on_relation_joined(self, event) -> None:
+        """Handler triggered on certificates relation joined event.
+
+        Here insert the certificate request.
+
+        Args:
+            event: Juju event
+
+        Returns:
+            None
+        """
+        self.request_certificate(
+            cert_type=self.cert_type,
+            common_name=self.common_name,
+            sans=self.sans,
+        )
 
     def request_certificate(
         self,
