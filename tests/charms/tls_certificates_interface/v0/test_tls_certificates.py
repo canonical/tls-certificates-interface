@@ -18,13 +18,21 @@ REQUIRER_UNIT_NAME = "whatever requirer unit name"
 CHARM_LIB_PATH = "charms.tls_certificates_interface.v0.tls_certificates"
 
 
-class UnitMock:
+class LeaderUnitMock:
     def __init__(self, name):
         self.name = name
 
     @staticmethod
     def is_leader():
         return True
+
+class NonLeaderUnitMock:
+    def __init__(self, name):
+        self.name = name
+
+    @staticmethod
+    def is_leader():
+        return False
 
 
 def _load_relation_data(raw_relation_data: dict) -> dict:
@@ -50,8 +58,8 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             charm=charm, relationship_name=relationship_name
         )
         self.charm = charm
-        self.provider_unit = UnitMock(name=PROVIDER_UNIT_NAME)
-        self.requirer_unit = UnitMock(name=REQUIRER_UNIT_NAME)
+        self.provider_unit = LeaderUnitMock(name=PROVIDER_UNIT_NAME)
+        self.requirer_unit = NonLeaderUnitMock(name=REQUIRER_UNIT_NAME)
         self.charm.framework.model.unit = self.provider_unit
 
     @patch(
@@ -235,8 +243,8 @@ class TestTLSCertificatesRequires(unittest.TestCase):
             charm=charm, relationship_name=relationship_name
         )
         self.charm = charm
-        self.provider_unit = UnitMock(name=PROVIDER_UNIT_NAME)
-        self.requirer_unit = UnitMock(name=REQUIRER_UNIT_NAME)
+        self.provider_unit = LeaderUnitMock(name=PROVIDER_UNIT_NAME)
+        self.requirer_unit = NonLeaderUnitMock(name=REQUIRER_UNIT_NAME)
         self.charm.framework.model.unit = self.requirer_unit
 
     def test_given_client_when_request_certificate_then_client_cert_request_is_added_to_relation_data(  # noqa: E501
