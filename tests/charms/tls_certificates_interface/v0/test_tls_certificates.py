@@ -21,6 +21,7 @@ CHARM_LIB_PATH = "charms.tls_certificates_interface.v0.tls_certificates"
 class UnitMock:
     def __init__(self, name):
         self.name = name
+        self.app = None
 
     @staticmethod
     def is_leader():
@@ -309,6 +310,7 @@ class TestTLSCertificatesRequires(unittest.TestCase):
             self.requirer_unit: {},
             self.provider_unit: relation_data,
         }
+        event.relation.units = [self.provider_unit]
 
         self.tls_certificate_requires._on_relation_changed(event)
 
@@ -318,3 +320,12 @@ class TestTLSCertificatesRequires(unittest.TestCase):
             )
         ]
         patch_emit.assert_has_calls(calls, any_order=True)
+
+        self.charm.framework.model.relations = {"certificates": [event.relation]}
+        data = self.tls_certificate_requires.get_certificates_for_common_name(common_name, None)
+        self.assertEqual(data, [{
+            'common_name': common_name,
+            'key': private_key,
+            'cert': cert,
+            'ca': ca,
+        }])
