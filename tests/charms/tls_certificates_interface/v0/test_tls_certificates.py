@@ -323,9 +323,14 @@ class TestTLSCertificatesRequires(unittest.TestCase):
 
         self.charm.framework.model.relations = {"certificates": [event.relation]}
         data = self.tls_certificate_requires.get_certificates_for_common_name(common_name, None)
-        self.assertEqual(data, [{
-            'common_name': common_name,
-            'key': private_key,
-            'cert': cert,
-            'ca': ca,
-        }])
+        self.assertEqual(
+            data,
+            [
+                {
+                    "common_name": common_name,
+                    "key": private_key,
+                    "cert": cert,
+                    "ca": ca,
+                }
+            ],
+        )
