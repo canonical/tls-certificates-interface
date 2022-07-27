@@ -2,7 +2,6 @@
 # Copyright 2021 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-import base64
 import json
 import unittest
 from unittest.mock import Mock, PropertyMock, call, patch
@@ -90,7 +89,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         self.tls_relation_provides._on_relation_changed(event)
 
-        calls = [call().emit(csr=csr, relation_id=relation_id)]
+        calls = [call().emit(certificate_signing_request=csr, relation_id=relation_id)]
         patch_certificate_request.assert_has_calls(calls, any_order=True)
 
     def test_given_no_data_in_relation_data_when_set_relation_certificate_then_certificate_is_added_to_relation_data(  # noqa: E501
@@ -251,15 +250,18 @@ class TestTLSCertificatesRequires(unittest.TestCase):
         charm = Mock()
         charm.on = CharmOnMock()
         relationship_name = "certificates"
+        self.private_key = b"whatever key"
+        self.private_key_password = b"whatever password"
         self.tls_certificate_requires = TLSCertificatesRequires(
-            charm=charm, relationship_name=relationship_name
+            charm=charm,
+            relationship_name=relationship_name,
         )
         self.charm = charm
         self.provider_unit = UnitMock(name=PROVIDER_UNIT_NAME)
         self.requirer_unit = UnitMock(name=REQUIRER_UNIT_NAME)
         self.charm.framework.model.unit = self.requirer_unit
 
-    @patch(f"{CHARM_LIB_PATH}.CertificateSigningRequest.generate")
+    @patch(f"{CHARM_LIB_PATH}.generate_csr")
     def test_given_common_name_when_request_certificate_then_csr_is_sent_in_relation_data(
         self, patch_generate_csr
     ):
@@ -272,19 +274,21 @@ class TestTLSCertificatesRequires(unittest.TestCase):
         relation = Relation()
         self.charm.framework.model.get_relation.return_value = relation
 
-        self.tls_certificate_requires.request_certificate(common_name=common_name)
+        self.tls_certificate_requires.request_certificate(
+            common_name=common_name,
+            private_key=b"whatever private key",
+            private_key_password=b"whatever private key password",
+        )
 
         self.assertIn("certificate_signing_requests", relation.data[self.requirer_unit])
 
         client_cert_requests = json.loads(
             relation.data[self.requirer_unit]["certificate_signing_requests"]
         )
-        expected_client_cert_requests = [
-            {"certificate_signing_request": base64.b64encode(csr).decode("utf-8")}
-        ]
+        expected_client_cert_requests = [{"certificate_signing_request": csr.decode()}]
         self.assertEqual(expected_client_cert_requests, client_cert_requests)
 
-    @patch(f"{CHARM_LIB_PATH}.CertificateSigningRequest.generate")
+    @patch(f"{CHARM_LIB_PATH}.generate_csr")
     def test_given_relation_data_already_contains_csr_when_request_certificate_then_csr_is_not_sent_again(  # noqa: E501
         self, patch_generate_csr
     ):
@@ -296,7 +300,7 @@ class TestTLSCertificatesRequires(unittest.TestCase):
                 self.provider_unit: dict(),
                 self.requirer_unit: {
                     "certificate_signing_requests": json.dumps(
-                        [{"certificate_signing_request": base64.b64encode(csr).decode("utf-8")}]
+                        [{"certificate_signing_request": csr.decode()}]
                     )
                 },
             }
@@ -305,16 +309,18 @@ class TestTLSCertificatesRequires(unittest.TestCase):
         relation = Relation()
         self.charm.framework.model.get_relation.return_value = relation
 
-        self.tls_certificate_requires.request_certificate(common_name=common_name)
+        self.tls_certificate_requires.request_certificate(
+            common_name=common_name,
+            private_key=b"whatever private key",
+            private_key_password=b"whatever private key password",
+        )
 
         self.assertIn("certificate_signing_requests", relation.data[self.requirer_unit])
 
         client_cert_requests = json.loads(
             relation.data[self.requirer_unit]["certificate_signing_requests"]
         )
-        expected_client_cert_requests = [
-            {"certificate_signing_request": base64.b64encode(csr).decode("utf-8")}
-        ]
+        expected_client_cert_requests = [{"certificate_signing_request": csr.decode()}]
         self.assertEqual(expected_client_cert_requests, client_cert_requests)
 
     @patch(f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_available")

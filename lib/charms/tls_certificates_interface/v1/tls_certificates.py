@@ -3,85 +3,150 @@
 
 """Library for the tls-certificates relation.
 
-This library contains the Requires and Provides classes for handling
-the tls-certificates interface.
+This library contains the Requires and Provides classes for handling the tls-certificates
+interface.
 
 ## Getting Started
-
 From a charm directory, fetch the library using `charmcraft`:
 
 ```shell
-charmcraft fetch-lib charms.tls_certificates_interface.v0.tls_certificates
+charmcraft fetch-lib charms.tls_certificates_interface.v1.tls_certificates
 ```
 
-You will also need to add the following library to the charm's `requirements.txt` file:
+Add the following library to the charm's `requirements.txt` file:
 - jsonschema
+- cryptography
+
+Add the following section to the charm's `charmcraft.yaml` file:
+```yaml
+parts:
+  charm:
+    build-packages:
+      - libffi-dev
+      - libssl-dev
+      - rustc
+      - cargo
+```
 
 ### Provider charm
 Example:
 ```python
-from charms.tls_certificates_interface.v0.tls_certificates import (
-    Cert,
+
+import logging
+
+from ops.charm import CharmBase, InstallEvent
+from ops.framework import StoredState
+from ops.main import main
+from ops.model import ActiveStatus
+
+from charms.tls_certificates_interface.v1.tls_certificates import (
+    CertificateRequestEvent,
     TLSCertificatesProvides,
 )
-from ops.charm import CharmBase
+
+logger = logging.getLogger(__name__)
 
 
 class ExampleProviderCharm(CharmBase):
+
+    _stored = StoredState()
+
     def __init__(self, *args):
         super().__init__(*args)
-        self.tls_certificates = TLSCertificatesProvides(self, "certificates")
+        self.certificates = TLSCertificatesProvides(self, "certificates")
+        self._stored.set_default(ca_private_key=b"", ca_certificate=b"")
         self.framework.observe(
-            self.tls_certificates.on.certificates_request, self._on_certificate_request
+            self.certificates.on.certificate_request, self._on_certificate_request
+        )
+        self.framework.observe(self.on.install, self._on_install)
+
+    def _on_install(self, event: InstallEvent) -> None:
+        self._stored.ca_private_key = generate_private_key()
+        self._stored.ca_certificate = generate_ca(
+            private_key=self._stored.ca_private_key, subject="whatever"
         )
 
-    def _on_certificate_request(self, event):
-        common_name = event.common_name
-        sans = event.sans
-        cert_type = event.cert_type
-        certificate = self._generate_certificate(common_name, sans, cert_type)
-
-        self.tls_certificates.set_relation_certificate(
-            certificate=certificate, relation_id=event.relation.id
+    def _on_certificate_request(self, event: CertificateRequestEvent) -> None:
+        certificate = generate_certificate(
+            ca=self._stored.ca_certificate,
+            ca_key=self._stored.ca_private_key,
+            csr=event.certificate_signing_request.encode()
         )
 
-    def _generate_certificate(self, common_name: str, sans: list, cert_type: str) -> Cert:
-        return Cert(
-            common_name=common_name, cert="whatever cert", key="whatever key", ca="whatever ca"
+        self.certificates.set_relation_certificate(
+            certificate=certificate.decode("utf-8"),
+            certificate_signing_request=event.certificate_signing_request,
+            ca=self._stored.ca_certificate.decode("utf-8"),
+            chain=self._stored.ca_certificate.decode("utf-8"),
+            relation_id=event.relation_id
         )
+        self.unit.status = ActiveStatus()
+
+
+if __name__ == "__main__":
+    main(ExampleProviderCharm)
 ```
 
 ### Requirer charm
 Example:
 
 ```python
-from charms.tls_certificates_interface.v0.tls_certificates import TLSCertificatesRequires
-from ops.charm import CharmBase
+import logging
+
+from charms.tls_certificates_interface.v1.tls_certificates import (
+    CertificateAvailableEvent,
+    TLSCertificatesRequires,
+    generate_private_key
+)
+from ops.framework import StoredState
+from ops.charm import CharmBase, RelationJoinedEvent
+from ops.model import ActiveStatus
+from ops.main import main
+
+
+logger = logging.getLogger(__name__)
 
 
 class ExampleRequirerCharm(CharmBase):
+
+    _stored = StoredState()
+
     def __init__(self, *args):
         super().__init__(*args)
-
-        self.tls_certificates = TLSCertificatesRequires(self, "certificates")
+        self.certificates = TLSCertificatesRequires(self, "certificates")
+        self._stored.set_default(private_key=b"", private_key_password=b"")
         self.framework.observe(
-            self.tls_certificates.on.certificate_available, self._on_certificate_available
+            self.certificates.on.certificate_available, self._on_certificate_available
         )
-        self.tls_certificates.request_certificate(
-            cert_type="client",
-            common_name="whatever common name",
+        self.framework.observe(
+            self.on.certificates_relation_joined, self._on_certificates_relation_joined
         )
+        self.framework.observe(self.on.install, self._on_install)
 
-    def _on_certificate_available(self, event):
-        certificate_data = event.certificate_data
-        print(certificate_data["common_name"])
-        print(certificate_data["key"])
-        print(certificate_data["ca"])
-        print(certificate_data["cert"])
+    def _on_install(self, event) -> None:
+        self._stored.private_key_password = b"banana"
+        self._stored.private_key = generate_private_key(password=self._stored.private_key_password)
+
+    def _on_certificates_relation_joined(self, event: RelationJoinedEvent) -> None:
+        csr = self.certificates.request_certificate(
+            private_key=self._stored.private_key,
+            private_key_password=self._stored.private_key_password,
+            common_name="banana.com",
+        )
+        logger.info(csr)
+
+    def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
+        logger.info(event.certificate)
+        logger.info(event.certificate_signing_request)
+        logger.info(event.ca)
+        logger.info(event.chain)
+        self.unit.status = ActiveStatus()
+
+
+if __name__ == "__main__":
+    main(ExampleRequirerCharm)
 ```
-
 """
-import base64
 import json
 import logging
 from typing import List, Optional
@@ -184,19 +249,28 @@ logger = logging.getLogger(__name__)
 class CertificateAvailableEvent(EventBase):
     """Charm Event triggered when a TLS certificate is available."""
 
-    def __init__(self, handle, certificate: str, ca: str, chain: str):
+    def __init__(
+        self, handle, certificate: str, certificate_signing_request: str, ca: str, chain: str
+    ):
         super().__init__(handle)
         self.certificate = certificate
+        self.certificate_signing_request = certificate_signing_request
         self.ca = ca
         self.chain = chain
 
     def snapshot(self) -> dict:
         """Returns snapshot."""
-        return {"certificate": self.certificate, "ca": self.ca, "chain": self.chain}
+        return {
+            "certificate": self.certificate,
+            "certificate_signing_request": self.certificate_signing_request,
+            "ca": self.ca,
+            "chain": self.chain,
+        }
 
     def restore(self, snapshot: dict):
         """Restores snapshot."""
         self.certificate = snapshot["certificate"]
+        self.certificate_signing_request = snapshot["certificate"]
         self.ca = snapshot["ca"]
         self.chain = snapshot["chain"]
 
@@ -204,21 +278,21 @@ class CertificateAvailableEvent(EventBase):
 class CertificateRequestEvent(EventBase):
     """Charm Event triggered when a TLS certificate is required."""
 
-    def __init__(self, handle, csr: str, relation_id: int):
+    def __init__(self, handle, certificate_signing_request: str, relation_id: int):
         super().__init__(handle)
-        self.csr = csr
+        self.certificate_signing_request = certificate_signing_request
         self.relation_id = relation_id
 
     def snapshot(self) -> dict:
         """Returns snapshot."""
         return {
-            "csr": self.csr,
+            "certificate_signing_request": self.certificate_signing_request,
             "relation_id": self.relation_id,
         }
 
     def restore(self, snapshot: dict):
         """Restores snapshot."""
-        self.csr = snapshot["csr"]
+        self.certificate_signing_request = snapshot["certificate_signing_request"]
         self.relation_id = snapshot["relation_id"]
 
 
@@ -242,65 +316,61 @@ def _load_relation_data(raw_relation_data: dict) -> dict:
     return certificate_data
 
 
-class CertificateSigningRequest:
-    """Class used to generate Certificate Signing Requests (CSR's)."""
+def generate_private_key(
+    password: bytes,
+    key_size: int = 2048,
+    public_exponent: int = 65537,
+) -> bytes:
+    """Generates a private key.
 
-    def __init__(self, private_key: Optional[bytes], private_key_password: Optional[bytes] = None):
-        if private_key:
-            self.private_key = private_key
-            self.private_key_password = private_key_password
-        else:
-            self.private_key = self._generate_private_key()
-            self.private_key_password = None
+    Args:
+        password (bytes): Password for decrypting the private key
+        key_size (int): Key size in bytes
+        public_exponent: Public exponent.
 
-    @staticmethod
-    def _generate_private_key(key_size: int = 2048, public_exponent: int = 65537) -> bytes:
-        """Generates a private key.
+    Returns:
+        bytes: Private Key
+    """
+    private_key = rsa.generate_private_key(
+        public_exponent=public_exponent,
+        key_size=key_size,
+    )
+    key_bytes = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.BestAvailableEncryption(password),
+    )
+    return key_bytes
 
-        Args:
-            key_size (int): Key size in bytes
-            public_exponent: Public exponent.
 
-        Returns:
-            bytes: Private Key
-        """
-        private_key = rsa.generate_private_key(
-            public_exponent=public_exponent,
-            key_size=key_size,
+def generate_csr(
+    private_key: bytes, private_key_password: bytes, subject: str, sans: Optional[List[str]]
+) -> bytes:
+    """Generates a CSR using private key and subject.
+
+    Args:
+        private_key (bytes): Private key
+        private_key_password (bytes): Private key password
+        subject (str): CSR Subject.
+        sans (list): List of subject alternative names
+
+    Returns:
+        bytes: CSR
+    """
+    signing_key = serialization.load_pem_private_key(private_key, password=private_key_password)
+    csr = x509.CertificateSigningRequestBuilder(
+        subject_name=x509.Name(
+            [
+                x509.NameAttribute(x509.NameOID.COMMON_NAME, subject),
+            ]
         )
-        key_bytes = private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.TraditionalOpenSSL,
-            encryption_algorithm=serialization.NoEncryption(),
+    )
+    if sans:
+        csr.add_extension(
+            x509.SubjectAlternativeName([x509.DNSName(san) for san in sans]), critical=False
         )
-        return key_bytes
-
-    def generate(self, subject: str, sans: Optional[List[str]]) -> bytes:
-        """Generates a CSR using private key and subject.
-
-        Args:
-            subject (str): CSR Subject.
-            sans (list): List of subject alternative names
-
-        Returns:
-            bytes: CSR
-        """
-        signing_key = serialization.load_pem_private_key(
-            self.private_key, password=self.private_key_password
-        )
-        csr = x509.CertificateSigningRequestBuilder(
-            subject_name=x509.Name(
-                [
-                    x509.NameAttribute(x509.NameOID.COMMON_NAME, subject),
-                ]
-            )
-        )
-        if sans:
-            csr.add_extension(
-                x509.SubjectAlternativeName([x509.DNSName(san) for san in sans]), critical=False
-            )
-        signed_certificate = csr.sign(signing_key, hashes.SHA256())  # type: ignore[arg-type]
-        return signed_certificate.public_bytes(serialization.Encoding.PEM)
+    signed_certificate = csr.sign(signing_key, hashes.SHA256())  # type: ignore[arg-type]
+    return signed_certificate.public_bytes(serialization.Encoding.PEM)
 
 
 class CertificatesProviderCharmEvents(CharmEvents):
@@ -407,7 +477,7 @@ class TLSCertificatesProvides(Object):
             return
         for certificate_request in relation_data.get("certificate_signing_requests", {}):
             self.on.certificate_request.emit(
-                csr=certificate_request.get("certificate_signing_request"),
+                certificate_signing_request=certificate_request.get("certificate_signing_request"),
                 relation_id=event.relation.id,
             )
 
@@ -421,16 +491,12 @@ class TLSCertificatesRequires(Object):
         self,
         charm: CharmBase,
         relationship_name: str,
-        private_key: bytes = None,
-        private_key_password: bytes = None,
     ):
         """Generates/use private key and observes relation changed event.
 
         Args:
             charm: Charm object
             relationship_name: Juju relation name
-            private_key: Private key in bytes
-            private_key_password: Only set when private key is set
         """
         super().__init__(charm, relationship_name)
         self.framework.observe(
@@ -438,23 +504,24 @@ class TLSCertificatesRequires(Object):
         )
         self.relationship_name = relationship_name
         self.charm = charm
-        self.csr = CertificateSigningRequest(
-            private_key=private_key, private_key_password=private_key_password
-        )
 
     def request_certificate(
         self,
+        private_key: bytes,
+        private_key_password: bytes,
         common_name: str,
         sans: list = None,
-    ) -> None:
+    ) -> bytes:
         """Request TLS certificate to provider charm.
 
         Args:
+            private_key (bytes): Private key
+            private_key_password (bytes): Private key password
             common_name (str): Common name.
             sans (list): Subject Alternative Name
 
         Returns:
-            None
+            bytes: The CSR passed in the relation data
         """
         logger.info("Received request to create certificate")
         relation = self.model.get_relation(self.relationship_name)
@@ -466,13 +533,18 @@ class TLSCertificatesRequires(Object):
             logger.error(message)
             raise RuntimeError(message)
         relation_data = _load_relation_data(relation.data[self.model.unit])
-        csr = self.csr.generate(subject=common_name, sans=sans)
-        new_certificate_request = {"certificate_signing_request": self._encode_in_base64(csr)}
+        csr = generate_csr(
+            private_key=private_key,
+            private_key_password=private_key_password,
+            subject=common_name,
+            sans=sans,
+        )
+        new_certificate_request = {"certificate_signing_request": csr.decode()}
         if "certificate_signing_requests" in relation_data:
             certificate_request_list = relation_data["certificate_signing_requests"]
             if new_certificate_request in certificate_request_list:
                 logger.info("Request was already made - Doing nothing")
-                return
+                return csr
             certificate_request_list.append(new_certificate_request)
         else:
             certificate_request_list = [new_certificate_request]
@@ -480,6 +552,7 @@ class TLSCertificatesRequires(Object):
             certificate_request_list
         )
         logger.info("Certificate request sent to provider")
+        return csr
 
     @staticmethod
     def _relation_data_is_valid(certificates_data: dict) -> bool:
@@ -506,29 +579,16 @@ class TLSCertificatesRequires(Object):
         Returns:
             None
         """
-        if self.model.unit.is_leader():
-            relation_data = _load_relation_data(event.relation.data[event.unit])
-            if not self._relation_data_is_valid(relation_data):
-                logger.warning("Relation data did not pass JSON Schema validation - Deferring")
-                event.defer()
-                return
+        relation_data = _load_relation_data(event.relation.data[event.unit])
+        if not self._relation_data_is_valid(relation_data):
+            logger.warning("Relation data did not pass JSON Schema validation - Deferring")
+            event.defer()
+            return
 
-            for certificate in relation_data["certificates"]:
-                self.on.certificate_available.emit(
-                    certificate_signing_request=certificate["certificate_signing_request"],
-                    certificate=certificate["certificate"],
-                    ca=certificate["ca"],
-                    chain=certificate["chain"],
-                )
-
-    @staticmethod
-    def _encode_in_base64(byte_like: bytes) -> str:
-        """Encodes byte-like object to base64 and converts it to a string.
-
-        Args:
-            byte_like: Byte-like object to encode in base64
-
-        Returns:
-            string: Object to return
-        """
-        return base64.b64encode(byte_like).decode("utf-8")
+        for certificate in relation_data["certificates"]:
+            self.on.certificate_available.emit(
+                certificate_signing_request=certificate["certificate_signing_request"],
+                certificate=certificate["certificate"],
+                ca=certificate["ca"],
+                chain=certificate["chain"],
+            )
