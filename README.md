@@ -5,7 +5,7 @@
 This project contains libraries for the tls-certificates relationship. It contains both the 
 provider and the requirer side of them.
 
-> Note: The charm located here is a placeholder charm.
+> **Warning**: The charm located here is a placeholder charm and shouldn't be deployed.
 
 ## Usage
 
@@ -13,7 +13,7 @@ This library can be used by any charm requiring or providing this interface. Fro
 root directory, run:
 
 ```bash
-charmcraft fetch-lib charms.tls_certificates_interface.v0.tls_certificates
+charmcraft fetch-lib charms.tls_certificates_interface.v1.tls_certificates
 ```
 
 ## Relations

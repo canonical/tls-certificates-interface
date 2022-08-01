@@ -33,54 +33,66 @@ The provider charm is the charm providing certificates to another charm that req
 
 Example:
 ```python
-
 import logging
-
-from ops.charm import CharmBase, InstallEvent
-from ops.framework import StoredState
-from ops.main import main
-from ops.model import ActiveStatus
 
 from charms.tls_certificates_interface.v1.tls_certificates import (
     CertificateRequestEvent,
     TLSCertificatesProvides,
+    generate_private_key,
 )
+from ops.charm import CharmBase, InstallEvent
+from ops.model import ActiveStatus
 
 logger = logging.getLogger(__name__)
 
 
-class ExampleProviderCharm(CharmBase):
+def generate_ca(private_key: bytes, subject: str) -> str:
+    return "whatever ca content"
 
-    _stored = StoredState()
+
+def generate_certificate(ca: str, private_key: str, csr: str) -> str:
+    return "Whatever certificate"
+
+
+class ExampleProviderCharm(CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
         self.certificates = TLSCertificatesProvides(self, "certificates")
-        self._stored.set_default(ca_private_key=b"", ca_certificate=b"")
         self.framework.observe(
             self.certificates.on.certificate_request, self._on_certificate_request
         )
         self.framework.observe(self.on.install, self._on_install)
 
     def _on_install(self, event: InstallEvent) -> None:
-        self._stored.ca_private_key = generate_private_key()
-        self._stored.ca_certificate = generate_ca(
-            private_key=self._stored.ca_private_key, subject="whatever"
+        private_key_password = b"banana"
+        private_key = generate_private_key(password=private_key_password)
+        ca_certificate = generate_ca(private_key=private_key, subject="whatever")
+        replicas = self.model.get_relation("replicas")
+        replicas.data[self.app].update(  # type: ignore[union-attr]
+            {
+                "private_key_password": "banana",
+                "private_key": private_key,
+                "ca_certificate": ca_certificate,
+            }
         )
 
     def _on_certificate_request(self, event: CertificateRequestEvent) -> None:
+        replicas = self.model.get_relation("replicas")
+        ca_certificate = replicas.data[self.app].get("ca_certificate")  # type: ignore[union-attr]
+        private_key = replicas.data[self.app].get("private_key")  # type: ignore[union-attr]
         certificate = generate_certificate(
-            ca=self._stored.ca_certificate,
-            ca_key=self._stored.ca_private_key,
-            csr=event.certificate_signing_request.encode()
+            ca=ca_certificate,
+            private_key=private_key,
+            csr=event.certificate_signing_request,
         )
 
         self.certificates.set_relation_certificate(
-            certificate=certificate.decode("utf-8"),
+            certificate=certificate,
             certificate_signing_request=event.certificate_signing_request,
-            ca=self._stored.ca_certificate.decode("utf-8"),
-            chain=self._stored.ca_certificate.decode("utf-8"),
-            relation_id=event.relation_id
+            ca=ca_certificate,
+            chain=ca_certificate,
+            relation_id=event.relation_id,
         )
         self.unit.status = ActiveStatus()
 
@@ -99,25 +111,19 @@ import logging
 from charms.tls_certificates_interface.v1.tls_certificates import (
     CertificateAvailableEvent,
     TLSCertificatesRequires,
-    generate_private_key
+    generate_private_key,
 )
-from ops.framework import StoredState
 from ops.charm import CharmBase, RelationJoinedEvent
 from ops.model import ActiveStatus
-from ops.main import main
-
 
 logger = logging.getLogger(__name__)
 
 
 class ExampleRequirerCharm(CharmBase):
 
-    _stored = StoredState()
-
     def __init__(self, *args):
         super().__init__(*args)
         self.certificates = TLSCertificatesRequires(self, "certificates")
-        self._stored.set_default(private_key=b"", private_key_password=b"")
         self.framework.observe(
             self.certificates.on.certificate_available, self._on_certificate_available
         )
@@ -127,13 +133,20 @@ class ExampleRequirerCharm(CharmBase):
         self.framework.observe(self.on.install, self._on_install)
 
     def _on_install(self, event) -> None:
-        self._stored.private_key_password = b"banana"
-        self._stored.private_key = generate_private_key(password=self._stored.private_key_password)
+        private_key_password = b"banana"
+        private_key = generate_private_key(password=private_key_password)
+        replicas = self.model.get_relation("replicas")
+        replicas.data[self.app].update(  # type: ignore[union-attr]
+            {"private_key_password": "banana", "private_key": private_key}
+        )
 
     def _on_certificates_relation_joined(self, event: RelationJoinedEvent) -> None:
+        replicas = self.model.get_relation("replicas")
+        private_key_password = replicas.data[self.app].get("private_key_password")  # type: ignore[union-attr]  # noqa: E501, W505
+        private_key = replicas.data[self.app].get("private_key")  # type: ignore[union-attr]
         csr = self.certificates.request_certificate(
-            private_key=self._stored.private_key,
-            private_key_password=self._stored.private_key_password,
+            private_key=private_key,
+            private_key_password=private_key_password,
             common_name="banana.com",
         )
         logger.info(csr)
