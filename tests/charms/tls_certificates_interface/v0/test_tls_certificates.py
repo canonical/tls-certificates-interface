@@ -26,6 +26,7 @@ class LeaderUnitMock:
     def is_leader():
         return True
 
+
 class NonLeaderUnitMock:
     def __init__(self, name):
         self.name = name
@@ -297,7 +298,7 @@ class TestTLSCertificatesRequires(unittest.TestCase):
         f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_available",
         new_callable=PropertyMock,
     )
-    def test_given_valid_relation_data_when_on_relation_changed_then_certificate_available_event_is_emitted(  # noqa: E501
+    def test_given_valid_relation_data_when_on_relation_changed_and_unit_is_not_leader_then_certificate_available_event_is_emitted(  # noqa: E501
         self, patch_emit
     ):
         event = Mock()
@@ -317,6 +318,41 @@ class TestTLSCertificatesRequires(unittest.TestCase):
             self.requirer_unit: {},
             self.provider_unit: relation_data,
         }
+
+        self.tls_certificate_requires._on_relation_changed(event)
+
+        calls = [
+            call().emit(
+                certificate_data=Cert(cert=cert, key=private_key, ca=ca, common_name=common_name)
+            )
+        ]
+        patch_emit.assert_has_calls(calls, any_order=True)
+
+    @patch(
+        f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_available",
+        new_callable=PropertyMock,
+    )
+    def test_given_valid_relation_data_when_on_relation_changed_and_unit_is_leader_then_certificate_available_event_is_emitted(  # noqa: E501
+        self, patch_emit
+    ):
+        event = Mock()
+        ca = "whatever ca"
+        cert = "whatever cert"
+        private_key = "whatever private key"
+        common_name = "whatever.com"
+        relation_data = {
+            "ca": ca,
+            "chain": ca,
+            common_name: json.dumps({"cert": cert, "key": private_key}),
+            "whatever key": "whatever value",
+            "unit_name": "whatever unit name",
+        }
+        event.unit = self.provider_unit
+        event.relation.data = {
+            self.requirer_unit: {},
+            self.provider_unit: relation_data,
+        }
+        self.charm.framework.model.unit = LeaderUnitMock(name=PROVIDER_UNIT_NAME)
 
         self.tls_certificate_requires._on_relation_changed(event)
 
