@@ -278,7 +278,13 @@ class TestTLSCertificatesRequires(unittest.TestCase):
                 cert_type="client", common_name="whatever common name"
             )
 
-    def test_given_non_valid_relation_data_when_on_relation_changed_then_event_is_deferred(self):
+    @patch(
+        f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_available",
+        new_callable=PropertyMock,
+    )
+    def test_given_non_valid_relation_data_when_on_relation_changed_then_certificate_available_event_is_not_emitted(
+        self, patch_emit
+    ):
         event = Mock()
         bad_relation_data = [
             {
@@ -292,7 +298,7 @@ class TestTLSCertificatesRequires(unittest.TestCase):
         event.unit = self.provider_unit
         self.tls_certificate_requires._on_relation_changed(event)
 
-        self.assertTrue(event.defer.call_count == 1)
+        patch_emit.assert_not_called()
 
     @patch(
         f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_available",
