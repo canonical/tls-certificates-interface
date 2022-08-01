@@ -298,7 +298,7 @@ class TestTLSCertificatesRequires(unittest.TestCase):
         f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_available",
         new_callable=PropertyMock,
     )
-    def test_given_valid_relation_data_when_on_relation_changed_and_unit_is_not_leader_then_certificate_available_event_is_emitted(  # noqa: E501
+    def test_given_valid_relation_data_and_unit_is_not_leader_when_on_relation_changed_then_certificate_available_event_is_emitted(  # noqa: E501
         self, patch_emit
     ):
         event = Mock()
@@ -332,7 +332,7 @@ class TestTLSCertificatesRequires(unittest.TestCase):
         f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_available",
         new_callable=PropertyMock,
     )
-    def test_given_valid_relation_data_when_on_relation_changed_and_unit_is_leader_then_certificate_available_event_is_emitted(  # noqa: E501
+    def test_given_valid_relation_data_and_unit_is_leader_when_on_relation_changed_then_certificate_available_event_is_emitted(  # noqa: E501
         self, patch_emit
     ):
         event = Mock()
