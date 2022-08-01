@@ -6,14 +6,64 @@ import json
 import unittest
 from unittest.mock import Mock, PropertyMock, call, patch
 
+import pytest
 from charms.tls_certificates_interface.v1.tls_certificates import (
     TLSCertificatesProvides,
     TLSCertificatesRequires,
+    generate_csr,
+    generate_private_key,
+)
+from cryptography import x509
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+
+from tests.charms.tls_certificates_interface.v1.certificates import (
+    generate_ca as generate_ca_helper,
+)
+from tests.charms.tls_certificates_interface.v1.certificates import (
+    generate_certificate as generate_certificate_helper,
+)
+from tests.charms.tls_certificates_interface.v1.certificates import (
+    generate_csr as generate_csr_helper,
+)
+from tests.charms.tls_certificates_interface.v1.certificates import (
+    generate_private_key as generate_private_key_helper,
 )
 
 PROVIDER_UNIT_NAME = "whatever provider unit name"
 REQUIRER_UNIT_NAME = "whatever requirer unit name"
 CHARM_LIB_PATH = "charms.tls_certificates_interface.v1.tls_certificates"
+
+
+class RelationMock:
+    def __init__(
+        self,
+        provider_unit,
+        requirer_unit,
+        provider_unit_data: dict = None,
+        requirer_unit_data: dict = None,
+    ):
+        if provider_unit_data:
+            self.provider_unit_data = provider_unit_data
+        else:
+            self.provider_unit_data = dict()
+
+        if requirer_unit_data:
+            self.requirer_unit_data = requirer_unit_data
+        else:
+            self.requirer_unit_data = dict()
+        self.provider_unit = provider_unit
+        self.requirer_unit = requirer_unit
+
+    @property
+    def data(self):
+        return {
+            self.provider_unit: self.provider_unit_data,
+            self.requirer_unit: self.requirer_unit_data,
+        }
+
+    @property
+    def units(self):
+        return [self.provider_unit, self.requirer_unit]
 
 
 def _load_relation_data(raw_relation_data: dict) -> dict:
@@ -47,13 +97,13 @@ class UnitMock:
 
 class TestTLSCertificatesProvides(unittest.TestCase):
     def setUp(self):
-        class MockRelation:
+        class MockRelationEvents:
             def relation_changed(self):
                 pass
 
         relationship_name = "certificates"
         charm = Mock()
-        charm.on = {"certificates": MockRelation()}
+        charm.on = {"certificates": MockRelationEvents()}
         self.tls_relation_provides = TLSCertificatesProvides(
             charm=charm, relationship_name=relationship_name
         )
@@ -66,7 +116,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         f"{CHARM_LIB_PATH}.CertificatesProviderCharmEvents.certificate_request",
         new_callable=PropertyMock,
     )
-    def test_given_when_relation_changed_then_certificate_request_is_emitted(  # noqa: E501
+    def test_given_csr_in_relation_data_when_relation_changed_then_certificate_request_is_emitted(  # noqa: E501
         self, patch_certificate_request
     ):
         csr = "whatever csr"
@@ -89,21 +139,47 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         self.tls_relation_provides._on_relation_changed(event)
 
-        calls = [call().emit(certificate_signing_request=csr, relation_id=relation_id)]
-        patch_certificate_request.assert_has_calls(calls, any_order=True)
+        patch_certificate_request.assert_has_calls(
+            [call().emit(certificate_signing_request=csr, relation_id=relation_id)]
+        )
+
+    @patch(
+        f"{CHARM_LIB_PATH}.CertificatesProviderCharmEvents.certificate_request",
+        new_callable=PropertyMock,
+    )
+    def test_given_no_csr_in_certificate_signing_request_when_relation_changed_then_certificate_request_is_not_emitted(  # noqa: E501
+        self, patch_certificate_request
+    ):
+        relation_id = "whatever id"
+        event = Mock()
+        event.relation.data = {
+            self.requirer_unit: {
+                "certificate_signing_requests": json.dumps(
+                    [
+                        {
+                            "invalid key": "invalid value",
+                        }
+                    ]
+                )
+            },
+            self.provider_unit: {},
+        }
+        event.unit = self.requirer_unit
+        event.relation.id = relation_id
+
+        self.tls_relation_provides._on_relation_changed(event)
+
+        patch_certificate_request.assert_not_called()
 
     def test_given_no_data_in_relation_data_when_set_relation_certificate_then_certificate_is_added_to_relation_data(  # noqa: E501
         self,
     ):
-        class Relation:
-            data: dict = {self.provider_unit: dict(), self.requirer_unit: dict()}
-
         ca = "whatever ca"
         chain = "whatever chain"
         certificate = "whatever certificate"
         certificate_signing_request = "whatever certificate signing request"
         relation_id = 123
-        relation = Relation()
+        relation = RelationMock(provider_unit=self.provider_unit, requirer_unit=self.requirer_unit)
         self.charm.framework.model.get_relation.return_value = relation
 
         self.tls_relation_provides.set_relation_certificate(
@@ -134,30 +210,27 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         initial_certificate_signing_request = "whatever initial csr"
         initial_ca = "whatever initial ca"
         initial_chain = "whatever initial chain"
-
-        class Relation:
-            data: dict = {
-                self.provider_unit: {
-                    "certificates": json.dumps(
-                        [
-                            {
-                                "certificate_signing_request": initial_certificate_signing_request,
-                                "certificate": initial_certificate,
-                                "ca": initial_ca,
-                                "chain": initial_chain,
-                            }
-                        ]
-                    )
-                },
-                self.requirer_unit: dict(),
-            }
-
         new_ca = "whatever new ca"
         new_chain = "whatever new chain"
         new_certificate = "whatever new certificate"
         new_certificate_signing_request = "whatever new certificate signing request"
         relation_id = 123
-        relation = Relation()
+        relation = RelationMock(
+            provider_unit=self.provider_unit,
+            requirer_unit=self.requirer_unit,
+            provider_unit_data={
+                "certificates": json.dumps(
+                    [
+                        {
+                            "certificate_signing_request": initial_certificate_signing_request,
+                            "certificate": initial_certificate,
+                            "ca": initial_ca,
+                            "chain": initial_chain,
+                        }
+                    ]
+                )
+            },
+        )
         self.charm.framework.model.get_relation.return_value = relation
 
         self.tls_relation_provides.set_relation_certificate(
@@ -194,27 +267,24 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         initial_certificate_signing_request = "whatever initial csr"
         initial_ca = "whatever initial ca"
         initial_chain = "whatever initial chain"
-
-        class Relation:
-            data: dict = {
-                self.provider_unit: {
-                    "certificates": json.dumps(
-                        [
-                            {
-                                "certificate_signing_request": initial_certificate_signing_request,
-                                "certificate": initial_certificate,
-                                "ca": initial_ca,
-                                "chain": initial_chain,
-                            }
-                        ]
-                    )
-                },
-                self.requirer_unit: dict(),
-            }
-
         new_certificate = "whatever new certificate"
         relation_id = 123
-        relation = Relation()
+        relation = RelationMock(
+            provider_unit=self.provider_unit,
+            requirer_unit=self.requirer_unit,
+            provider_unit_data={
+                "certificates": json.dumps(
+                    [
+                        {
+                            "certificate_signing_request": initial_certificate_signing_request,
+                            "certificate": initial_certificate,
+                            "ca": initial_ca,
+                            "chain": initial_chain,
+                        }
+                    ]
+                )
+            },
+        )
         self.charm.framework.model.get_relation.return_value = relation
 
         self.tls_relation_provides.set_relation_certificate(
@@ -244,6 +314,9 @@ class TestTLSCertificatesRequires(unittest.TestCase):
         class CharmOnMock:
             certificates = Mock()
 
+            def update_status(self, event):
+                pass
+
             def __getitem__(self, key):
                 return getattr(self, key)
 
@@ -265,13 +338,10 @@ class TestTLSCertificatesRequires(unittest.TestCase):
     def test_given_common_name_when_request_certificate_then_csr_is_sent_in_relation_data(
         self, patch_generate_csr
     ):
-        class Relation:
-            data: dict = {self.provider_unit: dict(), self.requirer_unit: dict()}
-
         csr = b"whatever"
         patch_generate_csr.return_value = csr
         common_name = "whatever common name"
-        relation = Relation()
+        relation = RelationMock(provider_unit=self.provider_unit, requirer_unit=self.requirer_unit)
         self.charm.framework.model.get_relation.return_value = relation
 
         self.tls_certificate_requires.request_certificate(
@@ -294,19 +364,16 @@ class TestTLSCertificatesRequires(unittest.TestCase):
     ):
         csr = b"whatever"
         patch_generate_csr.return_value = csr
-
-        class Relation:
-            data: dict = {
-                self.provider_unit: dict(),
-                self.requirer_unit: {
-                    "certificate_signing_requests": json.dumps(
-                        [{"certificate_signing_request": csr.decode()}]
-                    )
-                },
-            }
-
         common_name = "whatever common name"
-        relation = Relation()
+        relation = RelationMock(
+            provider_unit=self.provider_unit,
+            requirer_unit=self.requirer_unit,
+            requirer_unit_data={
+                "certificate_signing_requests": json.dumps(
+                    [{"certificate_signing_request": csr.decode()}]
+                )
+            },
+        )
         self.charm.framework.model.get_relation.return_value = relation
 
         self.tls_certificate_requires.request_certificate(
@@ -331,26 +398,23 @@ class TestTLSCertificatesRequires(unittest.TestCase):
         chain = "whatever chain"
         certificate_signing_request = "whatever csr"
         certificate = "whatever certificate"
-
-        class Relation:
-            data: dict = {
-                self.provider_unit: {
-                    "certificates": json.dumps(
-                        [
-                            {
-                                "certificate_signing_request": certificate_signing_request,
-                                "certificate": certificate,
-                                "ca": ca,
-                                "chain": chain,
-                            }
-                        ]
-                    ),
-                },
-                self.requirer_unit: dict(),
-            }
-
         event = Mock()
-        event.relation = Relation()
+        event.relation = RelationMock(
+            requirer_unit=self.requirer_unit,
+            provider_unit=self.provider_unit,
+            provider_unit_data={
+                "certificates": json.dumps(
+                    [
+                        {
+                            "certificate_signing_request": certificate_signing_request,
+                            "certificate": certificate,
+                            "ca": ca,
+                            "chain": chain,
+                        }
+                    ]
+                ),
+            },
+        )
         event.unit = self.provider_unit
 
         self.tls_certificate_requires._on_relation_changed(event=event)
@@ -361,3 +425,206 @@ class TestTLSCertificatesRequires(unittest.TestCase):
             ca=ca,
             chain=chain,
         )
+
+    def test_given_csr_when_revoke_certificate_then_csr_is_removed_from_relation_data(self):
+        certificate_signing_request = "whatever csr"
+        relation = RelationMock(
+            provider_unit=self.provider_unit,
+            requirer_unit=self.requirer_unit,
+            requirer_unit_data={
+                "certificate_signing_requests": json.dumps(
+                    [{"certificate_signing_request": certificate_signing_request}]
+                )
+            },
+        )
+        self.charm.framework.model.get_relation.return_value = relation
+
+        self.tls_certificate_requires.revoke_certificate(
+            certificate_signing_request=certificate_signing_request
+        )
+
+        self.assertEqual({"certificate_signing_requests": "[]"}, relation.data[self.requirer_unit])
+
+    def test_given_no_csr_in_relation_data_when_revoke_certificate_then_nothing_is_done(self):
+        certificate_signing_request = "whatever csr"
+        relation = RelationMock(provider_unit=self.provider_unit, requirer_unit=self.requirer_unit)
+        self.charm.framework.model.get_relation.return_value = relation
+
+        self.tls_certificate_requires.revoke_certificate(
+            certificate_signing_request=certificate_signing_request
+        )
+
+        self.assertEqual(dict(), relation.data[self.requirer_unit])
+
+    @patch(f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_almost_expired")
+    def test_given_certificate_has_more_than_7days_before_expiry_when_when_update_status_then_certificate_almost_expired_event_not_emitted(  # noqa: E501
+        self, certificate_almost_expired_patch
+    ):
+        days_before_expiry = 6
+        private_key_password = b"whatever1"
+        ca_private_key_password = b"whatever2"
+        private_key = generate_private_key_helper(password=private_key_password)
+        ca_key = generate_private_key_helper(password=ca_private_key_password)
+        certificate_signing_request = generate_csr_helper(
+            private_key=private_key, private_key_password=private_key_password, subject="whatever"
+        )
+        ca_certificate = chain = generate_ca_helper(
+            private_key=ca_key, private_key_password=ca_private_key_password, subject="whatever"
+        )
+        certificate = generate_certificate_helper(
+            ca=ca_certificate,
+            ca_key=ca_key,
+            csr=certificate_signing_request,
+            ca_key_password=ca_private_key_password,
+            validity=days_before_expiry,
+        )
+        relation = RelationMock(
+            provider_unit=self.provider_unit,
+            requirer_unit=self.requirer_unit,
+            provider_unit_data={
+                "certificates": json.dumps(
+                    [
+                        {
+                            "certificate_signing_request": certificate_signing_request.decode(),
+                            "certificate": certificate.decode(),
+                            "ca": ca_certificate.decode(),
+                            "chain": chain.decode(),
+                        }
+                    ]
+                ),
+            },
+        )
+        self.charm.framework.model.get_relation.return_value = relation
+
+        self.tls_certificate_requires._on_update_status(event=Mock())
+
+        certificate_almost_expired_patch.emit.assert_called_with(
+            certificate=certificate.decode(),
+        )
+
+    @patch(f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_expired")
+    def test_given_certificate_is_expired_when_update_status_then_certificate_expired_event_emitted(  # noqa: E501
+        self, certificate_expired_patch
+    ):
+        days_before_expiry = -1
+        private_key_password = b"whatever1"
+        ca_private_key_password = b"whatever2"
+        private_key = generate_private_key_helper(password=private_key_password)
+        ca_key = generate_private_key_helper(password=ca_private_key_password)
+        certificate_signing_request = generate_csr_helper(
+            private_key=private_key, private_key_password=private_key_password, subject="whatever"
+        )
+        ca_certificate = chain = generate_ca_helper(
+            private_key=ca_key, private_key_password=ca_private_key_password, subject="whatever"
+        )
+        certificate = generate_certificate_helper(
+            ca=ca_certificate,
+            ca_key=ca_key,
+            csr=certificate_signing_request,
+            ca_key_password=ca_private_key_password,
+            validity=days_before_expiry,
+        )
+        relation = RelationMock(
+            provider_unit=self.provider_unit,
+            requirer_unit=self.requirer_unit,
+            provider_unit_data={
+                "certificates": json.dumps(
+                    [
+                        {
+                            "certificate_signing_request": certificate_signing_request.decode(),
+                            "certificate": certificate.decode(),
+                            "ca": ca_certificate.decode(),
+                            "chain": chain.decode(),
+                        }
+                    ]
+                ),
+            },
+        )
+        self.charm.framework.model.get_relation.return_value = relation
+
+        self.tls_certificate_requires._on_update_status(event=Mock())
+
+        certificate_expired_patch.emit.assert_called_with(certificate=certificate.decode())
+
+    def test_given_certificate_is_expired_when_when_update_status_then_certificate_is_removed_from_relation(
+        self,
+    ):
+        pass
+
+    @patch(f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_almost_expired")
+    def test_given_certificate_has_less_than_7days_before_expiry_when_update_status_then_certificate_almost_expired_event_emitted(  # noqa: E501
+        self, certificate_almost_expired_patch
+    ):
+        days_before_expiry = 6
+        private_key_password = b"whatever1"
+        ca_private_key_password = b"whatever2"
+        private_key = generate_private_key_helper(password=private_key_password)
+        ca_key = generate_private_key_helper(password=ca_private_key_password)
+        certificate_signing_request = generate_csr_helper(
+            private_key=private_key, private_key_password=private_key_password, subject="whatever"
+        )
+        ca_certificate = chain = generate_ca_helper(
+            private_key=ca_key, private_key_password=ca_private_key_password, subject="whatever"
+        )
+        certificate = generate_certificate_helper(
+            ca=ca_certificate,
+            ca_key=ca_key,
+            csr=certificate_signing_request,
+            ca_key_password=ca_private_key_password,
+            validity=days_before_expiry,
+        )
+        relation = RelationMock(
+            provider_unit=self.provider_unit,
+            requirer_unit=self.requirer_unit,
+            provider_unit_data={
+                "certificates": json.dumps(
+                    [
+                        {
+                            "certificate_signing_request": certificate_signing_request.decode(),
+                            "certificate": certificate.decode(),
+                            "ca": ca_certificate.decode(),
+                            "chain": chain.decode(),
+                        }
+                    ]
+                ),
+            },
+        )
+        self.charm.framework.model.get_relation.return_value = relation
+
+        self.tls_certificate_requires._on_update_status(event=Mock())
+
+        certificate_almost_expired_patch.emit.assert_called_with(
+            certificate=certificate.decode(),
+        )
+
+
+def test_given_subject_and_private_key_when_generate_csr_then_csr_is_generated_with_provided_subject():  # noqa: E501
+    subject = "whatever"
+    private_key_password = b"whatever"
+    private_key = generate_private_key_helper(password=private_key_password)
+
+    csr = generate_csr(
+        private_key=private_key, private_key_password=private_key_password, subject=subject
+    )
+
+    csr_object = x509.load_pem_x509_csr(data=csr)
+    assert csr_object.subject == x509.Name(
+        [
+            x509.NameAttribute(x509.NameOID.COMMON_NAME, subject),
+        ]
+    )
+
+
+def test_given_password_when_generate_private_key_then_private_key_is_generated_and_loadable():
+    private_key_password = b"whatever"
+    private_key = generate_private_key(password=private_key_password)
+
+    load_pem_private_key(data=private_key, password=private_key_password)
+
+
+def test_given_generated_private_key_when_load_with_bad_password_then_error_is_thrown():
+    private_key_password = b"whatever"
+    private_key = generate_private_key(password=private_key_password)
+
+    with pytest.raises(ValueError):
+        load_pem_private_key(data=private_key, password=b"bad password")

@@ -29,6 +29,8 @@ parts:
 ```
 
 ### Provider charm
+The provider charm is the charm providing certificates to another charm that requires them.
+
 Example:
 ```python
 
@@ -88,8 +90,9 @@ if __name__ == "__main__":
 ```
 
 ### Requirer charm
-Example:
+The requirer charm is the charm requiring certificates from another charm that provides them.
 
+Example:
 ```python
 import logging
 
@@ -147,15 +150,17 @@ if __name__ == "__main__":
     main(ExampleRequirerCharm)
 ```
 """
+
 import json
 import logging
+from datetime import datetime
 from typing import List, Optional
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jsonschema import exceptions, validate  # type: ignore[import]
-from ops.charm import CharmBase, CharmEvents
+from ops.charm import CharmBase, CharmEvents, RelationChangedEvent, UpdateStatusEvent
 from ops.framework import EventBase, EventSource, Object
 
 # The unique Charmhub library identifier, never change it
@@ -170,18 +175,18 @@ LIBPATCH = 0
 
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "$id": "https://canonical.github.io/charm-relation-interfaces/tls_certificates/v1/schemas/requirer.json",  # noqa: E501
+    "$id": "https://canonical.github.io/charm-relation-interfaces/tls_certificates/v1/schemas/requirer.json",
     "type": "object",
     "title": "`tls_certificates` requirer root schema",
-    "description": "The `tls_certificates` root schema comprises the entire requirer databag for this interface.",  # noqa: E501
+    "description": "The `tls_certificates` root schema comprises the entire requirer databag for this interface.",
     "examples": [
         {
             "certificate_signing_requests": [
                 {
-                    "certificate_signing_request": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQ2FUQ0NBVkVDQVFBd0pERUxNQWtHQTFVRUJoTUNWVk14RlRBVEJnTlZCQU1NRENvdVltRnVZVzVoTG1OdgpiVENDQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DZ2dFQkFNaDQxVkdjajJ1c2F1L3R6amd3CkVCcEoxM3lCWDYvQUZjL25Na1R4VTYxT2JycldkVjkwQlcwbS9ZVWdxN0VRNWR3UkJIOFB3L3ZFN3NaN0FoVk0KOENncllKTzQxYWxmRTlFcjU2aFNxSlVpeFV2VXNtWUppcUtwTVpjT3QzSW14cnNHRkh2MXBoN0NoL3R1bCtXNgpNY3RXZnYrNWIreGhEYWZMcC8rMUZSQWhYTHlqZkd0ZCsrUTJISzV6ZS9qQUN4YzF3a3pFNmpwTkxwNHJGL1h5CjFKVXdkZDVYVURkWjVmL1JrWWNKaEJ2OHpWbjd0WEYvZ0FOVDc2bHI4ZS82VWZHK0FQUURvL1UrMUdpeG4yL0sKdHVnYVBNRFlBZ2xLYm9JQVh3em9HbEpIR1crcEZZTGU2eGhHTE15RWhCRmJ0a1BKNGRDS0l5Tnh1T29rSHp3Ygp5aDhDQXdFQUFhQUFNQTBHQ1NxR1NJYjNEUUVCQ3dVQUE0SUJBUUNZa0g1aVNhT0dGSnREWHhCd0xRNldxc0JhCnU3VkxhMHJubksrbCtmUjNwV2Q5UThqOG5PTXI4d2szb2FNQ2JFQ3RaSitqYjZEN2Y0aS9IN1BOOElOVzl6S0IKVjltVTh0YnhhRTdub2x0UW9XQTgwU3hSN3BhWWF3Tit0NnNWUTN3aTJyZ3F2aGpGVEJKQStiYmZsQjZRM3FzYgpOSDAwYUo3eTdrU1d1MWxxNkhERnh4L0FlMEZLVUNqQVNrWnhsU0taUEJYcWF1UG9tU3hCMVhGN1pWN244eGtOCjNIcU1UdnhiUDR5bU1RQ1hxaktzN2hBQUVmK0I3UjNHYzdmbnhQRDNMMGREU3dGanJXL2tvZy8wSTRNa1RiaGUKT29FRGdpT09UQmlHaDcvZ3RXTXVXcHBmYys0ckloR1FEMGRLR1NpUVFjL2tPMlExZmNyME1YM0Z0dnUwCi0tLS0tRU5EIENFUlRJRklDQVRFIFJFUVVFU1QtLS0tLQo="  # noqa: E501
+                    "certificate_signing_request": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQ2FUQ0NBVkVDQVFBd0pERUxNQWtHQTFVRUJoTUNWVk14RlRBVEJnTlZCQU1NRENvdVltRnVZVzVoTG1OdgpiVENDQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DZ2dFQkFNaDQxVkdjajJ1c2F1L3R6amd3CkVCcEoxM3lCWDYvQUZjL25Na1R4VTYxT2JycldkVjkwQlcwbS9ZVWdxN0VRNWR3UkJIOFB3L3ZFN3NaN0FoVk0KOENncllKTzQxYWxmRTlFcjU2aFNxSlVpeFV2VXNtWUppcUtwTVpjT3QzSW14cnNHRkh2MXBoN0NoL3R1bCtXNgpNY3RXZnYrNWIreGhEYWZMcC8rMUZSQWhYTHlqZkd0ZCsrUTJISzV6ZS9qQUN4YzF3a3pFNmpwTkxwNHJGL1h5CjFKVXdkZDVYVURkWjVmL1JrWWNKaEJ2OHpWbjd0WEYvZ0FOVDc2bHI4ZS82VWZHK0FQUURvL1UrMUdpeG4yL0sKdHVnYVBNRFlBZ2xLYm9JQVh3em9HbEpIR1crcEZZTGU2eGhHTE15RWhCRmJ0a1BKNGRDS0l5Tnh1T29rSHp3Ygp5aDhDQXdFQUFhQUFNQTBHQ1NxR1NJYjNEUUVCQ3dVQUE0SUJBUUNZa0g1aVNhT0dGSnREWHhCd0xRNldxc0JhCnU3VkxhMHJubksrbCtmUjNwV2Q5UThqOG5PTXI4d2szb2FNQ2JFQ3RaSitqYjZEN2Y0aS9IN1BOOElOVzl6S0IKVjltVTh0YnhhRTdub2x0UW9XQTgwU3hSN3BhWWF3Tit0NnNWUTN3aTJyZ3F2aGpGVEJKQStiYmZsQjZRM3FzYgpOSDAwYUo3eTdrU1d1MWxxNkhERnh4L0FlMEZLVUNqQVNrWnhsU0taUEJYcWF1UG9tU3hCMVhGN1pWN244eGtOCjNIcU1UdnhiUDR5bU1RQ1hxaktzN2hBQUVmK0I3UjNHYzdmbnhQRDNMMGREU3dGanJXL2tvZy8wSTRNa1RiaGUKT29FRGdpT09UQmlHaDcvZ3RXTXVXcHBmYys0ckloR1FEMGRLR1NpUVFjL2tPMlExZmNyME1YM0Z0dnUwCi0tLS0tRU5EIENFUlRJRklDQVRFIFJFUVVFU1QtLS0tLQo="
                 },
                 {
-                    "certificate_signing_request": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQ2FEQ0NBVkFDQVFBd0l6RUxNQWtHQTFVRUJoTUNWVk14RkRBU0JnTlZCQU1NQ3lvdVltRnVZVzVoTG1OaApNSUlCSWpBTkJna3Foa2lHOXcwQkFRRUZBQU9DQVE4QU1JSUJDZ0tDQVFFQXNKRFFiY0IxZVNwYjRjUmpEZXNWCm1lbmMvT0ZXMEZrcUQ3aUtDVVZmakFjSjdVOGowTTZmZC9FL3o1OFRrY0htQmRqbGlqcitoTStmVWRKMXhpQ3gKanlEMTkwZjU0N2s1RmZkYUFkcFhkaHpQZVJmVWt5MFlwTUY0M1BPVnc3MXhCQm8wQXgvK1RGNE9zd2tBa1J3egpFQVhpZkZTdlhPcUFnNG9BVG9MbVYrclh4cmFidFlBM1VFcGxxRTc2ZVdCdVdJbWpGZ2IzbDVWb25Sc1pPUXE1CjlVNE1aSzhoMi9LeEVqMUpGcFpSNnJteDdiUEZxOUNzbjhYb1V2MlRoRFBvNlNWRXJxUWxSdGNXVVFGSG9Ic2UKK0JUUmI5Q255WW5hdFF5YThaU0Y3QnZ4RFIrY0hyV04vNHhIeW1YdkU2VDJ4STFSN3pqQkZvQ3hISEVaY3MwTgowUUlEQVFBQm9BQXdEUVlKS29aSWh2Y05BUUVMQlFBRGdnRUJBSmNlTTY2SnpwaFVwZm9NY1VNd3NhYU1YczVQCjFEQTFnYkMzOE9sZEkrU2NtMkJxeWlkVmNRVXBaclhBSTdhdUJ1ZzVQUlJmcEpVSWZKSExxYlUraTJJODRwQlAKOG4xR0RKeTg0dGllM2RaVlcvakhzVGQ4QVpNTGJVZkFPZUgxREVWRzdFK0dXWlRtd25UZnJKZnNNSy9mN3Y0YwpxemdsTGpBd29Cbjl5QWhvdVBpU1JZY0Vhdng2bzhVbFpLZFBuQ0tzb240WGV5RUh1cjUwLzlmS05sWlhRMENvCndmQ3E2MzJkQ2Q2L0VyRkpOQTVEemRzVnp3aDZiWXJIU3R0UlFMN012NThpaEEzeVBwN3dUYVg3UTBxK1hvZTEKYksvU1gvT3U3V1pGUXFzZy8raENHZHBxL3NUYy9RaGRBcjNaMTk1NmpiS2k5bjg2d2FzZTdwYjhGcGc9Ci0tLS0tRU5EIENFUlRJRklDQVRFIFJFUVVFU1QtLS0tLQo="  # noqa: E501
+                    "certificate_signing_request": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQ2FEQ0NBVkFDQVFBd0l6RUxNQWtHQTFVRUJoTUNWVk14RkRBU0JnTlZCQU1NQ3lvdVltRnVZVzVoTG1OaApNSUlCSWpBTkJna3Foa2lHOXcwQkFRRUZBQU9DQVE4QU1JSUJDZ0tDQVFFQXNKRFFiY0IxZVNwYjRjUmpEZXNWCm1lbmMvT0ZXMEZrcUQ3aUtDVVZmakFjSjdVOGowTTZmZC9FL3o1OFRrY0htQmRqbGlqcitoTStmVWRKMXhpQ3gKanlEMTkwZjU0N2s1RmZkYUFkcFhkaHpQZVJmVWt5MFlwTUY0M1BPVnc3MXhCQm8wQXgvK1RGNE9zd2tBa1J3egpFQVhpZkZTdlhPcUFnNG9BVG9MbVYrclh4cmFidFlBM1VFcGxxRTc2ZVdCdVdJbWpGZ2IzbDVWb25Sc1pPUXE1CjlVNE1aSzhoMi9LeEVqMUpGcFpSNnJteDdiUEZxOUNzbjhYb1V2MlRoRFBvNlNWRXJxUWxSdGNXVVFGSG9Ic2UKK0JUUmI5Q255WW5hdFF5YThaU0Y3QnZ4RFIrY0hyV04vNHhIeW1YdkU2VDJ4STFSN3pqQkZvQ3hISEVaY3MwTgowUUlEQVFBQm9BQXdEUVlKS29aSWh2Y05BUUVMQlFBRGdnRUJBSmNlTTY2SnpwaFVwZm9NY1VNd3NhYU1YczVQCjFEQTFnYkMzOE9sZEkrU2NtMkJxeWlkVmNRVXBaclhBSTdhdUJ1ZzVQUlJmcEpVSWZKSExxYlUraTJJODRwQlAKOG4xR0RKeTg0dGllM2RaVlcvakhzVGQ4QVpNTGJVZkFPZUgxREVWRzdFK0dXWlRtd25UZnJKZnNNSy9mN3Y0YwpxemdsTGpBd29Cbjl5QWhvdVBpU1JZY0Vhdng2bzhVbFpLZFBuQ0tzb240WGV5RUh1cjUwLzlmS05sWlhRMENvCndmQ3E2MzJkQ2Q2L0VyRkpOQTVEemRzVnp3aDZiWXJIU3R0UlFMN012NThpaEEzeVBwN3dUYVg3UTBxK1hvZTEKYksvU1gvT3U3V1pGUXFzZy8raENHZHBxL3NUYy9RaGRBcjNaMTk1NmpiS2k5bjg2d2FzZTdwYjhGcGc9Ci0tLS0tRU5EIENFUlRJRklDQVRFIFJFUVVFU1QtLS0tLQo="
                 },
             ]
         }
@@ -192,11 +197,13 @@ REQUIRER_JSON_SCHEMA = {
             "items": {
                 "type": "object",
                 "properties": {"certificate_signing_request": {"type": "string"}},
+                "required": ["certificate_signing_request"],
             },
         }
     },
+    "required": ["certificate_signing_requests"],
+    "additionalProperties": True,
 }
-
 
 PROVIDER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
@@ -242,7 +249,6 @@ PROVIDER_JSON_SCHEMA = {
     "required": ["certificates"],
 }
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -273,6 +279,47 @@ class CertificateAvailableEvent(EventBase):
         self.certificate_signing_request = snapshot["certificate"]
         self.ca = snapshot["ca"]
         self.chain = snapshot["chain"]
+
+
+class CertificateAlmostExpiredEvent(EventBase):
+    """Charm Event triggered when a TLS certificate is almost expired."""
+
+    def __init__(self, handle, certificate: str, expiry: int):
+        """CertificateAlmostExpiredEvent.
+
+        Args:
+            handle (Handle): Juju framework handle
+            certificate (str): TLS Certificate
+            expiry (int): Days before expiry
+        """
+        super().__init__(handle)
+        self.certificate = certificate
+        self.expiry = expiry
+
+    def snapshot(self) -> dict:
+        """Returns snapshot."""
+        return {"certificate": self.certificate, "expiry": self.expiry}
+
+    def restore(self, snapshot: dict):
+        """Restores snapshot."""
+        self.certificate = snapshot["certificate"]
+        self.expiry = snapshot["expiry"]
+
+
+class CertificateExpiredEvent(EventBase):
+    """Charm Event triggered when a TLS certificate is expired."""
+
+    def __init__(self, handle, certificate: str):
+        super().__init__(handle)
+        self.certificate = certificate
+
+    def snapshot(self) -> dict:
+        """Returns snapshot."""
+        return {"certificate": self.certificate}
+
+    def restore(self, snapshot: dict):
+        """Restores snapshot."""
+        self.certificate = snapshot["certificate"]
 
 
 class CertificateRequestEvent(EventBase):
@@ -344,7 +391,7 @@ def generate_private_key(
 
 
 def generate_csr(
-    private_key: bytes, private_key_password: bytes, subject: str, sans: Optional[List[str]]
+    private_key: bytes, private_key_password: bytes, subject: str, sans: Optional[List[str]] = None
 ) -> bytes:
     """Generates a CSR using private key and subject.
 
@@ -383,6 +430,8 @@ class CertificatesRequirerCharmEvents(CharmEvents):
     """List of events that the TLS Certificates requirer charm can leverage."""
 
     certificate_available = EventSource(CertificateAvailableEvent)
+    certificate_almost_expired = EventSource(CertificateAlmostExpiredEvent)
+    certificate_expired = EventSource(CertificateExpiredEvent)
 
 
 class TLSCertificatesProvides(Object):
@@ -499,11 +548,12 @@ class TLSCertificatesRequires(Object):
             relationship_name: Juju relation name
         """
         super().__init__(charm, relationship_name)
+        self.relationship_name = relationship_name
+        self.charm = charm
         self.framework.observe(
             charm.on[relationship_name].relation_changed, self._on_relation_changed
         )
-        self.relationship_name = relationship_name
-        self.charm = charm
+        self.framework.observe(charm.on.update_status, self._on_update_status)
 
     def request_certificate(
         self,
@@ -554,6 +604,45 @@ class TLSCertificatesRequires(Object):
         logger.info("Certificate request sent to provider")
         return csr
 
+    def revoke_certificate(self, certificate_signing_request: str) -> None:
+        """Removes CSR from relation data.
+
+        The provider of this relation is then expected to remove certificates associated to this
+        CSR from the relation data as well and emit a revoke_certificate event for the provider
+        charm to interpret.
+
+        Args:
+            certificate_signing_request: Certificate Signing Request
+
+        Returns:
+            None
+        """
+        relation = self.model.get_relation(self.relationship_name)
+        if not relation:
+            message = (
+                f"Relation {self.relationship_name} does not exist - "
+                f"The certificate request can't be completed"
+            )
+            logger.error(message)
+            raise RuntimeError(message)
+        print(self.model.unit)
+        relation_data = _load_relation_data(relation.data[self.model.unit])
+        certificate_request_list = relation_data.get("certificate_signing_requests")
+        if not certificate_request_list:
+            logger.info("No CSR in relation data.")
+            return
+        for i in range(len(certificate_request_list)):
+            if (
+                certificate_request_list[i]["certificate_signing_request"]
+                == certificate_signing_request
+            ):
+                certificate_request_list.pop()
+
+        relation.data[self.model.unit]["certificate_signing_requests"] = json.dumps(
+            certificate_request_list
+        )
+        logger.info("Certificate revocation sent to provider")
+
     @staticmethod
     def _relation_data_is_valid(certificates_data: dict) -> bool:
         """Checks whether relation data is valid based on json schema.
@@ -570,7 +659,7 @@ class TLSCertificatesRequires(Object):
         except exceptions.ValidationError:
             return False
 
-    def _on_relation_changed(self, event) -> None:
+    def _on_relation_changed(self, event: RelationChangedEvent) -> None:
         """Handler triggerred on relation changed events.
 
         Args:
@@ -592,3 +681,43 @@ class TLSCertificatesRequires(Object):
                 ca=certificate["ca"],
                 chain=certificate["chain"],
             )
+
+    def _on_update_status(self, event: UpdateStatusEvent) -> None:
+        """Triggered on update status event.
+
+        Goes through each certificate in the "certificates" relation and checks their expiry date.
+        If they are close to expire (<7 days), emits a CertificateAlmostExpiredEvent event and if
+        they are expired, emits a CertificateExpiredEvent.
+
+        Args:
+            event (UpdateStatusEvent): Juju event
+
+        Returns:
+            None
+        """
+        logger.info("Update status event")
+        relation = self.model.get_relation("certificates")
+        if not relation:
+            return
+        for unit in relation.units:
+            relation_data = _load_relation_data(relation.data[unit])
+            if self._relation_data_is_valid(relation_data):
+                logger.info("Relation data is valid")
+                certificates = relation_data.get("certificates")
+                if not certificates:
+                    continue
+                for certificate_dict in certificates:
+                    certificate = certificate_dict["certificate"]
+                    logger.info(type(certificate_dict))
+                    certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
+                    logger.info(certificate_object.not_valid_after)
+                    logger.info(datetime.now())
+                    time_difference = certificate_object.not_valid_after - datetime.now()
+                    if time_difference.days < 0:
+                        logger.info("Certificate is expired")
+                        self.on.certificate_expired.emit(certificate=certificate)
+                        self.revoke_certificate(certificate)
+                        continue
+                    if time_difference.days < 7:
+                        logger.info("Certificate almost expired")
+                        self.on.certificate_almost_expired.emit(certificate=certificate)
