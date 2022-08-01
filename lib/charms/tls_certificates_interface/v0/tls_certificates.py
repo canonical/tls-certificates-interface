@@ -323,10 +323,10 @@ class TLSCertificatesProvides(Object):
         """
         relation_data = _load_relation_data(event.relation.data[event.unit])
         if not relation_data:
-            logger.info("No relation data - Deferring")
+            logger.info("No relation data")
             return
         if not self._relation_data_is_valid(relation_data):
-            logger.warning("Relation data did not pass JSON Schema validation - Deferring")
+            logger.warning("Relation data did not pass JSON Schema validation")
             return
         for server_cert_request in relation_data.get("cert_requests", {}):
             self.on.certificate_request.emit(
@@ -459,9 +459,11 @@ class TLSCertificatesRequires(Object):
             None
         """
         relation_data = _load_relation_data(event.relation.data[event.unit])
+        if not relation_data:
+            logger.info("No relation data")
+            return
         if not self._relation_data_is_valid(relation_data):
-            logger.warning("Relation data did not pass JSON Schema validation - Deferring")
-            event.defer()
+            logger.warning("Relation data did not pass JSON Schema validation")
             return
 
         certificates = self._parse_certificates_from_relation_data(relation_data)
