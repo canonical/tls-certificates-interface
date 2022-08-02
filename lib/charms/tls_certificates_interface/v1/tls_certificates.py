@@ -688,7 +688,10 @@ class TLSCertificatesRequires(Object):
         Returns:
             None
         """
-        relation_data = _load_relation_data(event.relation.data[event.unit])
+        relation_data = _load_relation_data(event.relation.data[event.unit])  # type: ignore[index]
+        if not relation_data:
+            logger.info("No relation data")
+            return
         if not self._relation_data_is_valid(relation_data):
             logger.warning("Relation data did not pass JSON Schema validation")
             return
