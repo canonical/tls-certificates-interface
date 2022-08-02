@@ -320,16 +320,15 @@ class TestTLSCertificatesRequires(unittest.TestCase):
             def __getitem__(self, key):
                 return getattr(self, key)
 
-        charm = Mock()
-        charm.on = CharmOnMock()
-        relationship_name = "certificates"
+        self.charm = Mock()
+        self.charm.on = CharmOnMock()
+        self.relationship_name = "certificates"
         self.private_key = b"whatever key"
         self.private_key_password = b"whatever password"
         self.tls_certificate_requires = TLSCertificatesRequires(
-            charm=charm,
-            relationship_name=relationship_name,
+            charm=self.charm,
+            relationship_name=self.relationship_name,
         )
-        self.charm = charm
         self.provider_unit = UnitMock(name=PROVIDER_UNIT_NAME)
         self.requirer_unit = UnitMock(name=REQUIRER_UNIT_NAME)
         self.charm.framework.model.unit = self.requirer_unit
@@ -465,11 +464,17 @@ class TestTLSCertificatesRequires(unittest.TestCase):
 
         self.assertEqual(dict(), relation.data[self.requirer_unit])
 
-    @patch(f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_almost_expired")
-    def test_given_certificate_has_more_than_7days_before_expiry_when_when_update_status_then_certificate_almost_expired_event_not_emitted(  # noqa: E501
-        self, certificate_almost_expired_patch
+    @patch(f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_expiring")
+    def test_given_certificate_expires_in_shorter_amount_of_time_than_expiry_notification_time_when_update_status_then_certificate_expiring_is_emitted(  # noqa: E501
+        self, certificate_expired_patch
     ):
-        days_before_expiry = 6
+        expiry_notification_time = 5
+        certificate_expires_in_nb_hrs = 1
+        tls_certificate_requires = TLSCertificatesRequires(
+            charm=self.charm,
+            relationship_name=self.relationship_name,
+            expiry_notification_time=expiry_notification_time,
+        )
         private_key_password = b"whatever1"
         ca_private_key_password = b"whatever2"
         private_key = generate_private_key_helper(password=private_key_password)
@@ -485,8 +490,10 @@ class TestTLSCertificatesRequires(unittest.TestCase):
             ca_key=ca_key,
             csr=certificate_signing_request,
             ca_key_password=ca_private_key_password,
-            validity=days_before_expiry,
+            validity=certificate_expires_in_nb_hrs,
         )
+        certificate_object = x509.load_pem_x509_certificate(data=certificate)
+
         relation = RelationMock(
             provider_unit=self.provider_unit,
             requirer_unit=self.requirer_unit,
@@ -505,17 +512,23 @@ class TestTLSCertificatesRequires(unittest.TestCase):
         )
         self.charm.framework.model.get_relation.return_value = relation
 
-        self.tls_certificate_requires._on_update_status(event=Mock())
+        tls_certificate_requires._on_update_status(event=Mock())
 
-        certificate_almost_expired_patch.emit.assert_called_with(
-            certificate=certificate.decode(),
+        certificate_expired_patch.emit.assert_called_with(
+            certificate=certificate.decode(), expiry=certificate_object.not_valid_after
         )
 
-    @patch(f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_expired")
-    def test_given_certificate_is_expired_when_update_status_then_certificate_expired_event_emitted(  # noqa: E501
+    @patch(f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_expiring")
+    def test_given_certificate_expires_in_longer_amount_of_time_than_expiry_notification_time_when_update_status_then_certificate_expiring_is_not_emitted(  # noqa: E501
         self, certificate_expired_patch
     ):
-        days_before_expiry = -1
+        expiry_notification_time = 1
+        certificate_expires_in_nb_hrs = 5
+        tls_certificate_requires = TLSCertificatesRequires(
+            charm=self.charm,
+            relationship_name=self.relationship_name,
+            expiry_notification_time=expiry_notification_time,
+        )
         private_key_password = b"whatever1"
         ca_private_key_password = b"whatever2"
         private_key = generate_private_key_helper(password=private_key_password)
@@ -531,7 +544,52 @@ class TestTLSCertificatesRequires(unittest.TestCase):
             ca_key=ca_key,
             csr=certificate_signing_request,
             ca_key_password=ca_private_key_password,
-            validity=days_before_expiry,
+            validity=certificate_expires_in_nb_hrs,
+        )
+
+        relation = RelationMock(
+            provider_unit=self.provider_unit,
+            requirer_unit=self.requirer_unit,
+            provider_unit_data={
+                "certificates": json.dumps(
+                    [
+                        {
+                            "certificate_signing_request": certificate_signing_request.decode(),
+                            "certificate": certificate.decode(),
+                            "ca": ca_certificate.decode(),
+                            "chain": chain.decode(),
+                        }
+                    ]
+                ),
+            },
+        )
+        self.charm.framework.model.get_relation.return_value = relation
+
+        tls_certificate_requires._on_update_status(event=Mock())
+
+        certificate_expired_patch.emit.assert_not_called()
+
+    @patch(f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_expired")
+    def test_given_certificate_is_expired_when_update_status_then_certificate_expired_event_emitted(  # noqa: E501
+        self, certificate_expired_patch
+    ):
+        hours_before_expiry = -1
+        private_key_password = b"whatever1"
+        ca_private_key_password = b"whatever2"
+        private_key = generate_private_key_helper(password=private_key_password)
+        ca_key = generate_private_key_helper(password=ca_private_key_password)
+        certificate_signing_request = generate_csr_helper(
+            private_key=private_key, private_key_password=private_key_password, subject="whatever"
+        )
+        ca_certificate = chain = generate_ca_helper(
+            private_key=ca_key, private_key_password=ca_private_key_password, subject="whatever"
+        )
+        certificate = generate_certificate_helper(
+            ca=ca_certificate,
+            ca_key=ca_key,
+            csr=certificate_signing_request,
+            ca_key_password=ca_private_key_password,
+            validity=hours_before_expiry,
         )
         relation = RelationMock(
             provider_unit=self.provider_unit,
@@ -555,16 +613,11 @@ class TestTLSCertificatesRequires(unittest.TestCase):
 
         certificate_expired_patch.emit.assert_called_with(certificate=certificate.decode())
 
-    def test_given_certificate_is_expired_when_when_update_status_then_certificate_is_removed_from_relation(
-        self,
+    @patch(f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_expired")
+    def test_given_certificate_is_not_expired_when_update_status_then_certificate_expired_event_is_not_emitted(  # noqa: E501
+        self, certificate_expired_patch
     ):
-        pass
-
-    @patch(f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_almost_expired")
-    def test_given_certificate_has_less_than_7days_before_expiry_when_update_status_then_certificate_almost_expired_event_emitted(  # noqa: E501
-        self, certificate_almost_expired_patch
-    ):
-        days_before_expiry = 6
+        hours_before_expiry = 1
         private_key_password = b"whatever1"
         ca_private_key_password = b"whatever2"
         private_key = generate_private_key_helper(password=private_key_password)
@@ -580,7 +633,7 @@ class TestTLSCertificatesRequires(unittest.TestCase):
             ca_key=ca_key,
             csr=certificate_signing_request,
             ca_key_password=ca_private_key_password,
-            validity=days_before_expiry,
+            validity=hours_before_expiry,
         )
         relation = RelationMock(
             provider_unit=self.provider_unit,
@@ -602,9 +655,7 @@ class TestTLSCertificatesRequires(unittest.TestCase):
 
         self.tls_certificate_requires._on_update_status(event=Mock())
 
-        certificate_almost_expired_patch.emit.assert_called_with(
-            certificate=certificate.decode(),
-        )
+        certificate_expired_patch.emit.assert_not_called()
 
 
 def test_given_subject_and_private_key_when_generate_csr_then_csr_is_generated_with_provided_subject():  # noqa: E501

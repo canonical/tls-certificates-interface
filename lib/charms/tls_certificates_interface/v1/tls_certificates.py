@@ -103,7 +103,7 @@ The requirer charm is the charm requiring certificates from another charm that p
 Example:
 ```python
 from charms.tls_certificates_interface.v1.tls_certificates import (
-    CertificateAlmostExpiredEvent,
+    CertificateExpiringEvent,
     CertificateAvailableEvent,
     TLSCertificatesRequires,
     generate_csr,
@@ -156,7 +156,7 @@ class ExampleRequirerCharm(CharmBase):
             replicas.data[self.app].update({"chain": event.chain})  # type: ignore[union-attr]  # noqa: E501, W505
             self.unit.status = ActiveStatus()
 
-    def _on_certificate_almost_expired(self, event: CertificateAlmostExpiredEvent) -> None:
+    def _on_certificate_almost_expired(self, event: CertificateExpiringEvent) -> None:
         replicas = self.model.get_relation("replicas")
         private_key_password = replicas.data[self.app].get(  # type: ignore[union-attr]  # noqa: E501, W505
             "private_key_password"
@@ -309,16 +309,17 @@ class CertificateAvailableEvent(EventBase):
         self.chain = snapshot["chain"]
 
 
-class CertificateAlmostExpiredEvent(EventBase):
+class CertificateExpiringEvent(EventBase):
     """Charm Event triggered when a TLS certificate is almost expired."""
 
-    def __init__(self, handle, certificate: str, expiry: int):
-        """CertificateAlmostExpiredEvent.
+    def __init__(self, handle, certificate: str, expiry: datetime):
+        """CertificateExpiringEvent.
 
         Args:
             handle (Handle): Juju framework handle
             certificate (str): TLS Certificate
-            expiry (int): Days before expiry
+            expiry (datetime): Datetime object reprensenting the time at which the certificate
+                won't be valid anymore.
         """
         super().__init__(handle)
         self.certificate = certificate
@@ -467,7 +468,7 @@ class CertificatesRequirerCharmEvents(CharmEvents):
     """List of events that the TLS Certificates requirer charm can leverage."""
 
     certificate_available = EventSource(CertificateAvailableEvent)
-    certificate_almost_expired = EventSource(CertificateAlmostExpiredEvent)
+    certificate_expiring = EventSource(CertificateExpiringEvent)
     certificate_expired = EventSource(CertificateExpiredEvent)
 
 
@@ -577,16 +578,20 @@ class TLSCertificatesRequires(Object):
         self,
         charm: CharmBase,
         relationship_name: str,
+        expiry_notification_time: int = 168,
     ):
         """Generates/use private key and observes relation changed event.
 
         Args:
             charm: Charm object
             relationship_name: Juju relation name
+            expiry_notification_time (int): Time difference between now and expiry. Used to
+                trigger the CertificateExpiring event.
         """
         super().__init__(charm, relationship_name)
         self.relationship_name = relationship_name
         self.charm = charm
+        self.expiry_notification_time = expiry_notification_time
         self.framework.observe(
             charm.on[relationship_name].relation_changed, self._on_relation_changed
         )
@@ -699,7 +704,7 @@ class TLSCertificatesRequires(Object):
         """Triggered on update status event.
 
         Goes through each certificate in the "certificates" relation and checks their expiry date.
-        If they are close to expire (<7 days), emits a CertificateAlmostExpiredEvent event and if
+        If they are close to expire (<7 days), emits a CertificateExpiringEvent event and if
         they are expired, emits a CertificateExpiredEvent.
 
         Args:
@@ -720,12 +725,14 @@ class TLSCertificatesRequires(Object):
                 for certificate_dict in certificates:
                     certificate = certificate_dict["certificate"]
                     certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
-                    time_difference = certificate_object.not_valid_after - datetime.now()
-                    if time_difference.days < 0:
+                    time_difference = certificate_object.not_valid_after - datetime.utcnow()
+                    if time_difference.total_seconds() < 0:
                         logger.warning("Certificate is expired")
                         self.on.certificate_expired.emit(certificate=certificate)
                         self.revoke_certificate(certificate)
                         continue
-                    if time_difference.days < 7:
+                    if time_difference.total_seconds() < (self.expiry_notification_time * 60 * 60):
                         logger.info("Certificate almost expired")
-                        self.on.certificate_almost_expired.emit(certificate=certificate)
+                        self.on.certificate_expiring.emit(
+                            certificate=certificate, expiry=certificate_object.not_valid_after
+                        )

@@ -71,16 +71,16 @@ def generate_certificate(
     ca: bytes,
     ca_key: bytes,
     ca_key_password: bytes,
-    validity: int = 365,
+    validity: int = 24 * 365,
 ) -> bytes:
     """Generates a TLS certificate based on a CSR.
 
     Args:
         csr (bytes): CSR
-        ca (bytes): CA Certificate.
-        ca_key (bytes): CA private key.
-        validity (int): Certificate validity (in days)
-        alt_names: Certificate Subject alternative names
+        ca (bytes): CA Certificate
+        ca_key (bytes): CA private key
+        ca_key_password (bytes): CA Private key password
+        validity (int): Certificate validity (in hours)
 
     Returns:
         bytes: Certificate
@@ -92,8 +92,10 @@ def generate_certificate(
 
     if validity > 0:
         not_valid_before = datetime.datetime.utcnow()
+        not_valid_after = datetime.datetime.utcnow() + datetime.timedelta(hours=validity)
     else:
-        not_valid_before = datetime.datetime.utcnow() + datetime.timedelta(days=validity)
+        not_valid_before = datetime.datetime.utcnow() + datetime.timedelta(hours=validity)
+        not_valid_after = datetime.datetime.utcnow() - datetime.timedelta(seconds=1)
     certificate_builder = (
         x509.CertificateBuilder()
         .subject_name(subject)
@@ -101,7 +103,7 @@ def generate_certificate(
         .public_key(csr_object.public_key())
         .serial_number(x509.random_serial_number())
         .not_valid_before(not_valid_before)
-        .not_valid_after(datetime.datetime.utcnow() + datetime.timedelta(days=validity))
+        .not_valid_after(not_valid_after)
     )
 
     certificate_builder._version = x509.Version.v1
@@ -119,13 +121,14 @@ def generate_ca(
     """Generates a CA Certificate.
 
     Args:
-        private_key (bytes): Private key.
+        private_key (bytes): Private key
+        private_key_password (bytes): Private key password
         subject (str): Certificate subject.
         validity (int): Certificate validity time (in days)
-        country (str): Certificate Issuing country.
+        country (str): Certificate Issuing country
 
     Returns:
-        bytes: CA Certificate.
+        bytes: CA Certificate
     """
     private_key_object = serialization.load_pem_private_key(
         private_key, password=private_key_password

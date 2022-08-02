@@ -5,8 +5,8 @@
 """Contains examples of provider and requirer charms for the TLS certificates interface."""
 
 from charms.tls_certificates_interface.v1.tls_certificates import (
-    CertificateAlmostExpiredEvent,
     CertificateAvailableEvent,
+    CertificateExpiringEvent,
     CertificateRequestEvent,
     TLSCertificatesProvides,
     TLSCertificatesRequires,
@@ -116,7 +116,7 @@ class ExampleRequirerCharm(CharmBase):
             replicas.data[self.app].update({"chain": event.chain})  # type: ignore[union-attr]  # noqa: E501
             self.unit.status = ActiveStatus()
 
-    def _on_certificate_almost_expired(self, event: CertificateAlmostExpiredEvent) -> None:
+    def _on_certificate_almost_expired(self, event: CertificateExpiringEvent) -> None:
         replicas = self.model.get_relation("replicas")
         private_key_password = replicas.data[self.app].get(  # type: ignore[union-attr]  # noqa: E501
             "private_key_password"
