@@ -4,19 +4,17 @@
 
 """Contains examples of provider and requirer charms for the TLS certificates interface."""
 
-import logging
-
 from charms.tls_certificates_interface.v1.tls_certificates import (
+    CertificateAlmostExpiredEvent,
     CertificateAvailableEvent,
     CertificateRequestEvent,
     TLSCertificatesProvides,
     TLSCertificatesRequires,
+    generate_csr,
     generate_private_key,
 )
 from ops.charm import CharmBase, InstallEvent, RelationJoinedEvent
 from ops.model import ActiveStatus
-
-logger = logging.getLogger(__name__)
 
 
 def generate_ca(private_key: bytes, subject: str) -> str:
@@ -93,23 +91,43 @@ class ExampleRequirerCharm(CharmBase):
         private_key = generate_private_key(password=private_key_password)
         replicas = self.model.get_relation("replicas")
         replicas.data[self.app].update(  # type: ignore[union-attr]
-            {"private_key_password": "banana", "private_key": private_key}
+            {"private_key_password": "banana", "private_key": private_key.decode()}
         )
 
     def _on_certificates_relation_joined(self, event: RelationJoinedEvent) -> None:
         replicas = self.model.get_relation("replicas")
         private_key_password = replicas.data[self.app].get("private_key_password")  # type: ignore[union-attr]  # noqa: E501
         private_key = replicas.data[self.app].get("private_key")  # type: ignore[union-attr]
-        csr = self.certificates.request_certificate(
-            private_key=private_key,
-            private_key_password=private_key_password,
-            common_name="banana.com",
+        csr = generate_csr(
+            private_key=private_key.encode(),
+            private_key_password=private_key_password.encode(),
+            subject="whatever",
         )
-        logger.info(csr)
+        replicas.data[self.app].update({"csr": csr.decode()})  # type: ignore[union-attr]
+        self.certificates.request_certificate(csr=csr)
 
     def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
-        logger.info(event.certificate)
-        logger.info(event.certificate_signing_request)
-        logger.info(event.ca)
-        logger.info(event.chain)
-        self.unit.status = ActiveStatus()
+        replicas = self.model.get_relation("replicas")
+        event_csr = event.certificate_signing_request
+        stored_csr = replicas.data[self.app].get("csr")  # type: ignore[union-attr]
+        if stored_csr == event_csr:
+            replicas.data[self.app].update({"certificate": event.certificate})  # type: ignore[union-attr]  # noqa: E501
+            replicas.data[self.app].update({"ca": event.ca})  # type: ignore[union-attr]  # noqa: E501
+            replicas.data[self.app].update({"chain": event.chain})  # type: ignore[union-attr]  # noqa: E501
+            self.unit.status = ActiveStatus()
+
+    def _on_certificate_almost_expired(self, event: CertificateAlmostExpiredEvent) -> None:
+        replicas = self.model.get_relation("replicas")
+        private_key_password = replicas.data[self.app].get(  # type: ignore[union-attr]  # noqa: E501
+            "private_key_password"
+        )
+        private_key = replicas.data[self.app].get("private_key")  # type: ignore[union-attr]
+        new_csr = generate_csr(
+            private_key=private_key.encode(),
+            private_key_password=private_key_password.encode(),
+            subject="whatever",
+        )
+        self.certificates.request_certificate(csr=new_csr)
+        existing_csr = replicas.data[self.app].get("csr")  # type: ignore[union-attr]
+        self.certificates.revoke_certificate(certificate_signing_request=existing_csr.encode())
+        replicas.data[self.app].update({"csr": new_csr.decode()})  # type: ignore[union-attr]
