@@ -334,21 +334,24 @@ class TestTLSCertificatesRequires(unittest.TestCase):
         self.requirer_unit = UnitMock(name=REQUIRER_UNIT_NAME)
         self.charm.framework.model.unit = self.requirer_unit
 
-    @patch(f"{CHARM_LIB_PATH}.generate_csr")
-    def test_given_common_name_when_request_certificate_then_csr_is_sent_in_relation_data(
-        self, patch_generate_csr
-    ):
-        csr = b"whatever"
-        patch_generate_csr.return_value = csr
-        common_name = "whatever common name"
+    def test_given_no_relation_when_request_certificate_then_runtime_error_is_raised(self):
+        self.charm.framework.model.get_relation.return_value = None
+
+        with pytest.raises(RuntimeError):
+            self.tls_certificate_requires.request_certificate(csr=b"whatever csr")
+
+    def test_given_csr_when_request_certificate_then_csr_is_sent_in_relation_data(self):
         relation = RelationMock(provider_unit=self.provider_unit, requirer_unit=self.requirer_unit)
         self.charm.framework.model.get_relation.return_value = relation
-
-        self.tls_certificate_requires.request_certificate(
-            common_name=common_name,
-            private_key=b"whatever private key",
-            private_key_password=b"whatever private key password",
+        private_key_password = b"whatever"
+        private_key = generate_private_key_helper(password=private_key_password)
+        csr = generate_csr_helper(
+            private_key=private_key,
+            private_key_password=private_key_password,
+            subject="whatver subject",
         )
+
+        self.tls_certificate_requires.request_certificate(csr=csr)
 
         self.assertIn("certificate_signing_requests", relation.data[self.requirer_unit])
 
@@ -358,13 +361,15 @@ class TestTLSCertificatesRequires(unittest.TestCase):
         expected_client_cert_requests = [{"certificate_signing_request": csr.decode()}]
         self.assertEqual(expected_client_cert_requests, client_cert_requests)
 
-    @patch(f"{CHARM_LIB_PATH}.generate_csr")
     def test_given_relation_data_already_contains_csr_when_request_certificate_then_csr_is_not_sent_again(  # noqa: E501
-        self, patch_generate_csr
+        self,
     ):
-        csr = b"whatever"
-        patch_generate_csr.return_value = csr
         common_name = "whatever common name"
+        private_key_password = b"whatever"
+        private_key = generate_private_key_helper(password=private_key_password)
+        csr = generate_csr_helper(
+            private_key=private_key, private_key_password=private_key_password, subject=common_name
+        )
         relation = RelationMock(
             provider_unit=self.provider_unit,
             requirer_unit=self.requirer_unit,
@@ -376,11 +381,7 @@ class TestTLSCertificatesRequires(unittest.TestCase):
         )
         self.charm.framework.model.get_relation.return_value = relation
 
-        self.tls_certificate_requires.request_certificate(
-            common_name=common_name,
-            private_key=b"whatever private key",
-            private_key_password=b"whatever private key password",
-        )
+        self.tls_certificate_requires.request_certificate(csr=csr)
 
         self.assertIn("certificate_signing_requests", relation.data[self.requirer_unit])
 
@@ -426,14 +427,22 @@ class TestTLSCertificatesRequires(unittest.TestCase):
             chain=chain,
         )
 
+    def test_given_when_revoke_certificate_then_runtime_error_is_raised(self):
+        self.charm.framework.model.get_relation.return_value = None
+
+        with pytest.raises(RuntimeError):
+            self.tls_certificate_requires.revoke_certificate(
+                certificate_signing_request=b"whatever csr"
+            )
+
     def test_given_csr_when_revoke_certificate_then_csr_is_removed_from_relation_data(self):
-        certificate_signing_request = "whatever csr"
+        certificate_signing_request = b"whatever csr"
         relation = RelationMock(
             provider_unit=self.provider_unit,
             requirer_unit=self.requirer_unit,
             requirer_unit_data={
                 "certificate_signing_requests": json.dumps(
-                    [{"certificate_signing_request": certificate_signing_request}]
+                    [{"certificate_signing_request": certificate_signing_request.decode()}]
                 )
             },
         )
@@ -446,7 +455,7 @@ class TestTLSCertificatesRequires(unittest.TestCase):
         self.assertEqual({"certificate_signing_requests": "[]"}, relation.data[self.requirer_unit])
 
     def test_given_no_csr_in_relation_data_when_revoke_certificate_then_nothing_is_done(self):
-        certificate_signing_request = "whatever csr"
+        certificate_signing_request = b"whatever csr"
         relation = RelationMock(provider_unit=self.provider_unit, requirer_unit=self.requirer_unit)
         self.charm.framework.model.get_relation.return_value = relation
 
@@ -613,6 +622,34 @@ def test_given_subject_and_private_key_when_generate_csr_then_csr_is_generated_w
             x509.NameAttribute(x509.NameOID.COMMON_NAME, subject),
         ]
     )
+
+
+def test_given_additional_critical_extensions_when_generate_csr_then_extensions_are_added_to_csr():
+    subject = "whatever"
+    private_key_password = b"whatever"
+    private_key = generate_private_key_helper(password=private_key_password)
+    additional_critical_extension = x509.KeyUsage(
+        digital_signature=False,
+        content_commitment=False,
+        key_encipherment=False,
+        data_encipherment=False,
+        key_agreement=False,
+        key_cert_sign=True,
+        crl_sign=True,
+        encipher_only=False,
+        decipher_only=False,
+    )
+
+    csr = generate_csr(
+        private_key=private_key,
+        private_key_password=private_key_password,
+        subject=subject,
+        additional_critical_extensions=[additional_critical_extension],
+    )
+
+    csr_object = x509.load_pem_x509_csr(data=csr)
+    assert csr_object.extensions[0].critical is True
+    assert csr_object.extensions[0].value == additional_critical_extension
 
 
 def test_given_password_when_generate_private_key_then_private_key_is_generated_and_loadable():

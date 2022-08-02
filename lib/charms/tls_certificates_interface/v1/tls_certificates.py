@@ -33,8 +33,6 @@ The provider charm is the charm providing certificates to another charm that req
 
 Example:
 ```python
-import logging
-
 from charms.tls_certificates_interface.v1.tls_certificates import (
     CertificateRequestEvent,
     TLSCertificatesProvides,
@@ -42,8 +40,6 @@ from charms.tls_certificates_interface.v1.tls_certificates import (
 )
 from ops.charm import CharmBase, InstallEvent
 from ops.model import ActiveStatus
-
-logger = logging.getLogger(__name__)
 
 
 def generate_ca(private_key: bytes, subject: str) -> str:
@@ -106,17 +102,15 @@ The requirer charm is the charm requiring certificates from another charm that p
 
 Example:
 ```python
-import logging
-
 from charms.tls_certificates_interface.v1.tls_certificates import (
+    CertificateAlmostExpiredEvent,
     CertificateAvailableEvent,
     TLSCertificatesRequires,
+    generate_csr,
     generate_private_key,
 )
 from ops.charm import CharmBase, RelationJoinedEvent
 from ops.model import ActiveStatus
-
-logger = logging.getLogger(__name__)
 
 
 class ExampleRequirerCharm(CharmBase):
@@ -137,26 +131,46 @@ class ExampleRequirerCharm(CharmBase):
         private_key = generate_private_key(password=private_key_password)
         replicas = self.model.get_relation("replicas")
         replicas.data[self.app].update(  # type: ignore[union-attr]
-            {"private_key_password": "banana", "private_key": private_key}
+            {"private_key_password": "banana", "private_key": private_key.decode()}
         )
 
     def _on_certificates_relation_joined(self, event: RelationJoinedEvent) -> None:
         replicas = self.model.get_relation("replicas")
         private_key_password = replicas.data[self.app].get("private_key_password")  # type: ignore[union-attr]  # noqa: E501, W505
         private_key = replicas.data[self.app].get("private_key")  # type: ignore[union-attr]
-        csr = self.certificates.request_certificate(
-            private_key=private_key,
-            private_key_password=private_key_password,
-            common_name="banana.com",
+        csr = generate_csr(
+            private_key=private_key.encode(),
+            private_key_password=private_key_password.encode(),
+            subject="whatever",
         )
-        logger.info(csr)
+        replicas.data[self.app].update({"csr": csr.decode()})  # type: ignore[union-attr]
+        self.certificates.request_certificate(csr=csr)
 
     def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
-        logger.info(event.certificate)
-        logger.info(event.certificate_signing_request)
-        logger.info(event.ca)
-        logger.info(event.chain)
-        self.unit.status = ActiveStatus()
+        replicas = self.model.get_relation("replicas")
+        event_csr = event.certificate_signing_request
+        stored_csr = replicas.data[self.app].get("csr")  # type: ignore[union-attr]
+        if stored_csr == event_csr:
+            replicas.data[self.app].update({"certificate": event.certificate})  # type: ignore[union-attr]  # noqa: E501, W505
+            replicas.data[self.app].update({"ca": event.ca})  # type: ignore[union-attr]  # noqa: E501, W505
+            replicas.data[self.app].update({"chain": event.chain})  # type: ignore[union-attr]  # noqa: E501, W505
+            self.unit.status = ActiveStatus()
+
+    def _on_certificate_almost_expired(self, event: CertificateAlmostExpiredEvent) -> None:
+        replicas = self.model.get_relation("replicas")
+        private_key_password = replicas.data[self.app].get(  # type: ignore[union-attr]  # noqa: E501, W505
+            "private_key_password"
+        )
+        private_key = replicas.data[self.app].get("private_key")  # type: ignore[union-attr]
+        new_csr = generate_csr(
+            private_key=private_key.encode(),
+            private_key_password=private_key_password.encode(),
+            subject="whatever",
+        )
+        self.certificates.request_certificate(csr=new_csr)
+        existing_csr = replicas.data[self.app].get("csr")  # type: ignore[union-attr]
+        self.certificates.revoke_certificate(certificate_signing_request=existing_csr.encode())
+        replicas.data[self.app].update({"csr": new_csr.decode()})  # type: ignore[union-attr]
 
 
 if __name__ == "__main__":
@@ -188,18 +202,18 @@ LIBPATCH = 0
 
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "$id": "https://canonical.github.io/charm-relation-interfaces/tls_certificates/v1/schemas/requirer.json",
+    "$id": "https://canonical.github.io/charm-relation-interfaces/tls_certificates/v1/schemas/requirer.json",  # noqa: E501
     "type": "object",
     "title": "`tls_certificates` requirer root schema",
-    "description": "The `tls_certificates` root schema comprises the entire requirer databag for this interface.",
+    "description": "The `tls_certificates` root schema comprises the entire requirer databag for this interface.",  # noqa: E501
     "examples": [
         {
             "certificate_signing_requests": [
                 {
-                    "certificate_signing_request": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQ2FUQ0NBVkVDQVFBd0pERUxNQWtHQTFVRUJoTUNWVk14RlRBVEJnTlZCQU1NRENvdVltRnVZVzVoTG1OdgpiVENDQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DZ2dFQkFNaDQxVkdjajJ1c2F1L3R6amd3CkVCcEoxM3lCWDYvQUZjL25Na1R4VTYxT2JycldkVjkwQlcwbS9ZVWdxN0VRNWR3UkJIOFB3L3ZFN3NaN0FoVk0KOENncllKTzQxYWxmRTlFcjU2aFNxSlVpeFV2VXNtWUppcUtwTVpjT3QzSW14cnNHRkh2MXBoN0NoL3R1bCtXNgpNY3RXZnYrNWIreGhEYWZMcC8rMUZSQWhYTHlqZkd0ZCsrUTJISzV6ZS9qQUN4YzF3a3pFNmpwTkxwNHJGL1h5CjFKVXdkZDVYVURkWjVmL1JrWWNKaEJ2OHpWbjd0WEYvZ0FOVDc2bHI4ZS82VWZHK0FQUURvL1UrMUdpeG4yL0sKdHVnYVBNRFlBZ2xLYm9JQVh3em9HbEpIR1crcEZZTGU2eGhHTE15RWhCRmJ0a1BKNGRDS0l5Tnh1T29rSHp3Ygp5aDhDQXdFQUFhQUFNQTBHQ1NxR1NJYjNEUUVCQ3dVQUE0SUJBUUNZa0g1aVNhT0dGSnREWHhCd0xRNldxc0JhCnU3VkxhMHJubksrbCtmUjNwV2Q5UThqOG5PTXI4d2szb2FNQ2JFQ3RaSitqYjZEN2Y0aS9IN1BOOElOVzl6S0IKVjltVTh0YnhhRTdub2x0UW9XQTgwU3hSN3BhWWF3Tit0NnNWUTN3aTJyZ3F2aGpGVEJKQStiYmZsQjZRM3FzYgpOSDAwYUo3eTdrU1d1MWxxNkhERnh4L0FlMEZLVUNqQVNrWnhsU0taUEJYcWF1UG9tU3hCMVhGN1pWN244eGtOCjNIcU1UdnhiUDR5bU1RQ1hxaktzN2hBQUVmK0I3UjNHYzdmbnhQRDNMMGREU3dGanJXL2tvZy8wSTRNa1RiaGUKT29FRGdpT09UQmlHaDcvZ3RXTXVXcHBmYys0ckloR1FEMGRLR1NpUVFjL2tPMlExZmNyME1YM0Z0dnUwCi0tLS0tRU5EIENFUlRJRklDQVRFIFJFUVVFU1QtLS0tLQo="
+                    "certificate_signing_request": "-----BEGIN CERTIFICATE REQUEST-----\\nMIICWjCCAUICAQAwFTETMBEGA1UEAwwKYmFuYW5hLmNvbTCCASIwDQYJKoZIhvcN\\nAQEBBQADggEPADCCAQoCggEBANWlx9wE6cW7Jkb4DZZDOZoEjk1eDBMJ+8R4pyKp\\nFBeHMl1SQSDt6rAWsrfL3KOGiIHqrRY0B5H6c51L8LDuVrJG0bPmyQ6rsBo3gVke\\nDSivfSLtGvHtp8lwYnIunF8r858uYmblAR0tdXQNmnQvm+6GERvURQ6sxpgZ7iLC\\npPKDoPt+4GKWL10FWf0i82FgxWC2KqRZUtNbgKETQuARLig7etBmCnh20zmynorA\\ncY7vrpTPAaeQpGLNqqYvKV9W6yWVY08V+nqARrFrjk3vSioZSu8ZJUdZ4d9++SGl\\nbH7A6e77YDkX9i/dQ3Pa/iDtWO3tXS2MvgoxX1iSWlGNOHcCAwEAAaAAMA0GCSqG\\nSIb3DQEBCwUAA4IBAQCW1fKcHessy/ZhnIwAtSLznZeZNH8LTVOzkhVd4HA7EJW+\\nKVLBx8DnN7L3V2/uPJfHiOg4Rx7fi7LkJPegl3SCqJZ0N5bQS/KvDTCyLG+9E8Y+\\n7wqCmWiXaH1devimXZvazilu4IC2dSks2D8DPWHgsOdVks9bme8J3KjdNMQudegc\\newWZZ1Dtbd+Rn7cpKU3jURMwm4fRwGxbJ7iT5fkLlPBlyM/yFEik4SmQxFYrZCQg\\n0f3v4kBefTh5yclPy5tEH+8G0LMsbbo3dJ5mPKpAShi0QEKDLd7eR1R/712lYTK4\\ndi4XaEfqERgy68O4rvb4PGlJeRGS7AmL7Ss8wfAq\\n-----END CERTIFICATE REQUEST-----\\n"  # noqa: E501
                 },
                 {
-                    "certificate_signing_request": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQ2FEQ0NBVkFDQVFBd0l6RUxNQWtHQTFVRUJoTUNWVk14RkRBU0JnTlZCQU1NQ3lvdVltRnVZVzVoTG1OaApNSUlCSWpBTkJna3Foa2lHOXcwQkFRRUZBQU9DQVE4QU1JSUJDZ0tDQVFFQXNKRFFiY0IxZVNwYjRjUmpEZXNWCm1lbmMvT0ZXMEZrcUQ3aUtDVVZmakFjSjdVOGowTTZmZC9FL3o1OFRrY0htQmRqbGlqcitoTStmVWRKMXhpQ3gKanlEMTkwZjU0N2s1RmZkYUFkcFhkaHpQZVJmVWt5MFlwTUY0M1BPVnc3MXhCQm8wQXgvK1RGNE9zd2tBa1J3egpFQVhpZkZTdlhPcUFnNG9BVG9MbVYrclh4cmFidFlBM1VFcGxxRTc2ZVdCdVdJbWpGZ2IzbDVWb25Sc1pPUXE1CjlVNE1aSzhoMi9LeEVqMUpGcFpSNnJteDdiUEZxOUNzbjhYb1V2MlRoRFBvNlNWRXJxUWxSdGNXVVFGSG9Ic2UKK0JUUmI5Q255WW5hdFF5YThaU0Y3QnZ4RFIrY0hyV04vNHhIeW1YdkU2VDJ4STFSN3pqQkZvQ3hISEVaY3MwTgowUUlEQVFBQm9BQXdEUVlKS29aSWh2Y05BUUVMQlFBRGdnRUJBSmNlTTY2SnpwaFVwZm9NY1VNd3NhYU1YczVQCjFEQTFnYkMzOE9sZEkrU2NtMkJxeWlkVmNRVXBaclhBSTdhdUJ1ZzVQUlJmcEpVSWZKSExxYlUraTJJODRwQlAKOG4xR0RKeTg0dGllM2RaVlcvakhzVGQ4QVpNTGJVZkFPZUgxREVWRzdFK0dXWlRtd25UZnJKZnNNSy9mN3Y0YwpxemdsTGpBd29Cbjl5QWhvdVBpU1JZY0Vhdng2bzhVbFpLZFBuQ0tzb240WGV5RUh1cjUwLzlmS05sWlhRMENvCndmQ3E2MzJkQ2Q2L0VyRkpOQTVEemRzVnp3aDZiWXJIU3R0UlFMN012NThpaEEzeVBwN3dUYVg3UTBxK1hvZTEKYksvU1gvT3U3V1pGUXFzZy8raENHZHBxL3NUYy9RaGRBcjNaMTk1NmpiS2k5bjg2d2FzZTdwYjhGcGc9Ci0tLS0tRU5EIENFUlRJRklDQVRFIFJFUVVFU1QtLS0tLQo="
+                    "certificate_signing_request": "-----BEGIN CERTIFICATE REQUEST-----\\nMIICWjCCAUICAQAwFTETMBEGA1UEAwwKYmFuYW5hLmNvbTCCASIwDQYJKoZIhvcN\\nAQEBBQADggEPADCCAQoCggEBAMk3raaX803cHvzlBF9LC7KORT46z4VjyU5PIaMb\\nQLIDgYKFYI0n5hf2Ra4FAHvOvEmW7bjNlHORFEmvnpcU5kPMNUyKFMTaC8LGmN8z\\nUBH3aK+0+FRvY4afn9tgj5435WqOG9QdoDJ0TJkjJbJI9M70UOgL711oU7ql6HxU\\n4d2ydFK9xAHrBwziNHgNZ72L95s4gLTXf0fAHYf15mDA9U5yc+YDubCKgTXzVySQ\\nUx73VCJLfC/XkZIh559IrnRv5G9fu6BMLEuBwAz6QAO4+/XidbKWN4r2XSq5qX4n\\n6EPQQWP8/nd4myq1kbg6Q8w68L/0YdfjCmbyf2TuoWeImdUCAwEAAaAAMA0GCSqG\\nSIb3DQEBCwUAA4IBAQBIdwraBvpYo/rl5MH1+1Um6HRg4gOdQPY5WcJy9B9tgzJz\\nittRSlRGTnhyIo6fHgq9KHrmUthNe8mMTDailKFeaqkVNVvk7l0d1/B90Kz6OfmD\\nxN0qjW53oP7y3QB5FFBM8DjqjmUnz5UePKoX4AKkDyrKWxMwGX5RoET8c/y0y9jp\\nvSq3Wh5UpaZdWbe1oVY8CqMVUEVQL2DPjtopxXFz2qACwsXkQZxWmjvZnRiP8nP8\\nbdFaEuh9Q6rZ2QdZDEtrU4AodPU3NaukFr5KlTUQt3w/cl+5//zils6G5zUWJ2pN\\ng7+t9PTvXHRkH+LnwaVnmsBFU2e05qADQbfIn7JA\\n-----END CERTIFICATE REQUEST-----\\n"  # noqa: E501
                 },
             ]
         }
@@ -228,10 +242,10 @@ PROVIDER_JSON_SCHEMA = {
         {
             "certificates": [
                 {
-                    "ca": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURNVENDQWhtZ0F3SUJBZ0lVRWg5dWl3Q0tQVXRLaTY3bFd6aFk1ckJoS1dFd0RRWUpLb1pJaHZjTkFRRUwKQlFBd0tERUxNQWtHQTFVRUJoTUNWVk14R1RBWEJnTlZCQU1NRUhKdmIzUmpZUzV3YVhwNllTNWpiMjB3SGhjTgpNakl3TnpJME1UY3lOVE15V2hjTk16SXdOekl4TVRjeU5UTXlXakFvTVFzd0NRWURWUVFHRXdKVlV6RVpNQmNHCkExVUVBd3dRY205dmRHTmhMbkJwZW5waExtTnZiVENDQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0MKQVFvQ2dnRUJBSTJ3MGlVbUVrcTR6aWpaNllIcEtmQ1NhaGZuQjZMVTR6SW9YWFhnck9mRzNORkxuMlVpckQ3NgovNzdPSU9SR0k5TGk3czlScEQwZ21hY3lNK0o1S2RBbCsxUzJpWFRLSEhsWU9jd0EzZUZ3V0ZtTFBGY1poSjVJCjQ5b3BhL1NyVXkrMFFsbFlKUTdVSGdNNm1BSncyRUxtd3FPMlJsRGsvWnBDaTdieEtoR2VmcDR6K1l3dGNxVDMKMWduSzBEaE1yNVlYRHNHaDBPVWhjaWdjYmxBRW43bHBYdTREQThDSHpkdTZ5SlRuTmZXSXVSNXRwTHN5WFB3QgpWNzBORmQ0SnV6dW45L2tRZ2s0cmJtYWJYWi9wdzVPZ1NnMzVCTzNlRlU4RkxoM2dpTFRqQXJQOUx2M1hMN0NXCmE4MXMvZkpKK2xaRUs0aEVoUVlSMUc2UDMxRS9mWUVDQXdFQUFhTlRNRkV3SFFZRFZSME9CQllFRko4Qk10MUcKY1QvY1M5QVNFVEgvbW1pRzNhOWJNQjhHQTFVZEl3UVlNQmFBRko4Qk10MUdjVC9jUzlBU0VUSC9tbWlHM2E5YgpNQThHQTFVZEV3RUIvd1FGTUFNQkFmOHdEUVlKS29aSWh2Y05BUUVMQlFBRGdnRUJBQXlERWdpUzIzaUMxM3RwCmtTMFlXOXMyNlk2RnJ4T2FMYVE0RWpPTXE2MkR5aGhKL1lKVjhlbExLd0RGd2NzSXVpMGN4eDBBT3V2TnAxaTQKNUJWYnIvMzN3SlQ5bVBSaklPK2FOWUtQSk9VNmw3UzV5MDBCb0FTekZoaGdVR1Q3aGhTK0crU2ZiTVZ1dUlxUgo1MU9RLzNsOFFBUzVKaWp5akN6cGdwY2tKVldoOUdiV2lYdkFwczMwb3dHdGh1Umpkd1NQUVY2V284eE13M3FkCmF0bDV2ekd0WkVqeG5hRzhtK1ppVkdUbVg4MWtUeVJQN0hlTndRZ3NMSUNQVzQyUThIVnNOL2g3VmVRTVVIdWcKenFrMFpTdWM5aDlpZ3dwc1lDNndpQUoyckxEOE8wRkZYNkV6elZmQlZEbjUxQW9WRklRS256UU1udDF6T1g0YgpPWjV4MStNPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==",  # noqa: E501
-                    "chain": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURNVENDQWhtZ0F3SUJBZ0lVRWg5dWl3Q0tQVXRLaTY3bFd6aFk1ckJoS1dFd0RRWUpLb1pJaHZjTkFRRUwKQlFBd0tERUxNQWtHQTFVRUJoTUNWVk14R1RBWEJnTlZCQU1NRUhKdmIzUmpZUzV3YVhwNllTNWpiMjB3SGhjTgpNakl3TnpJME1UY3lOVE15V2hjTk16SXdOekl4TVRjeU5UTXlXakFvTVFzd0NRWURWUVFHRXdKVlV6RVpNQmNHCkExVUVBd3dRY205dmRHTmhMbkJwZW5waExtTnZiVENDQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0MKQVFvQ2dnRUJBSTJ3MGlVbUVrcTR6aWpaNllIcEtmQ1NhaGZuQjZMVTR6SW9YWFhnck9mRzNORkxuMlVpckQ3NgovNzdPSU9SR0k5TGk3czlScEQwZ21hY3lNK0o1S2RBbCsxUzJpWFRLSEhsWU9jd0EzZUZ3V0ZtTFBGY1poSjVJCjQ5b3BhL1NyVXkrMFFsbFlKUTdVSGdNNm1BSncyRUxtd3FPMlJsRGsvWnBDaTdieEtoR2VmcDR6K1l3dGNxVDMKMWduSzBEaE1yNVlYRHNHaDBPVWhjaWdjYmxBRW43bHBYdTREQThDSHpkdTZ5SlRuTmZXSXVSNXRwTHN5WFB3QgpWNzBORmQ0SnV6dW45L2tRZ2s0cmJtYWJYWi9wdzVPZ1NnMzVCTzNlRlU4RkxoM2dpTFRqQXJQOUx2M1hMN0NXCmE4MXMvZkpKK2xaRUs0aEVoUVlSMUc2UDMxRS9mWUVDQXdFQUFhTlRNRkV3SFFZRFZSME9CQllFRko4Qk10MUcKY1QvY1M5QVNFVEgvbW1pRzNhOWJNQjhHQTFVZEl3UVlNQmFBRko4Qk10MUdjVC9jUzlBU0VUSC9tbWlHM2E5YgpNQThHQTFVZEV3RUIvd1FGTUFNQkFmOHdEUVlKS29aSWh2Y05BUUVMQlFBRGdnRUJBQXlERWdpUzIzaUMxM3RwCmtTMFlXOXMyNlk2RnJ4T2FMYVE0RWpPTXE2MkR5aGhKL1lKVjhlbExLd0RGd2NzSXVpMGN4eDBBT3V2TnAxaTQKNUJWYnIvMzN3SlQ5bVBSaklPK2FOWUtQSk9VNmw3UzV5MDBCb0FTekZoaGdVR1Q3aGhTK0crU2ZiTVZ1dUlxUgo1MU9RLzNsOFFBUzVKaWp5akN6cGdwY2tKVldoOUdiV2lYdkFwczMwb3dHdGh1Umpkd1NQUVY2V284eE13M3FkCmF0bDV2ekd0WkVqeG5hRzhtK1ppVkdUbVg4MWtUeVJQN0hlTndRZ3NMSUNQVzQyUThIVnNOL2g3VmVRTVVIdWcKenFrMFpTdWM5aDlpZ3dwc1lDNndpQUoyckxEOE8wRkZYNkV6elZmQlZEbjUxQW9WRklRS256UU1udDF6T1g0YgpPWjV4MStNPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==",  # noqa: E501
-                    "certificate_signing_request": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQ2FEQ0NBVkFDQVFBd0l6RUxNQWtHQTFVRUJoTUNWVk14RkRBU0JnTlZCQU1NQ3lvdWNHbDZlbUV1WTI5dApNSUlCSWpBTkJna3Foa2lHOXcwQkFRRUZBQU9DQVE4QU1JSUJDZ0tDQVFFQTJNTkVqM2VNelp3Y2NzbE1ld1JDClE1bTdVYko5dDBrUFlhcmNlb0JmOUlyT2Rkd2F1Z012TCtHcnlaMjdMOGE3b2JDMVlHeVV5Uzh4YUpBYkxSamMKY1RDYTJrV2NVMUJ1NnRrTGtyVmhpc1ZHTWNKT3FBek1lRWdrczRQTTU2RndNdFFaSUxKblFDNGd4c21rMnVQTgpMeXpMOFA5MUFZN2twaitLaUVyVEF1cy9PYzZMRW9WcW5pRklZMzZscTlSckdDL1IzOGNqVWRQRnZjU3hGRmYwCmVuSFJtYkNkd1J6ZmZQYzVoT2YwUFl2cCtuKzVQWGcyYjZjRlFvV0FaQTYvQjhTS3IvZmxRTmFEd3cwb2E3WHQKdjlUZSsrNzY2UHB0dDkwU1JVSXRta3FFNkZiaWdqZVlmWUVEWVRPRWwweU9DbzNEUlZUcVptNjFsSFBoUzU4VApnUUlEQVFBQm9BQXdEUVlKS29aSWh2Y05BUUVMQlFBRGdnRUJBRXR4M1BJb2ozRko1VG41czZhU1NobHcwL3VSCkxKQkxYUCtSZUNRNkxTT3NabWpiUE1QVHo2ZVpKejR3cko1Zy9yRmJBeGp1VW03T2pWTUwzNDdkNzNteERVM2cKaENFd1NGN1NMSllwbUl6MnRPNTB1YmdDVFM5UnBZdDNWMkU4TEhVY3piVUhXQmRCUDE1TElTZVRQZWxvRlFIUgppb3I4VElQSHV1N0JGK3dwYlovdVZ0SE5TOUE3K2tlbmtHNjhlN2NJakNTZFl5Q0NaTnZLUkZLYU1IT3dHVWNICkpDZmNmbkErOGo5VUh6S0NTOWNIZjRhQmpBMm9QZ0lVanZCWlNRd0hlQnYzOFVFdXg5VmJRdXdHVHZEYlo3R3QKSFh5RnJRUWRBNW80RmFjMWNCMVhwc2JmbDZXRXNaSUNwOXF0Rmtsb1ZqK3FzbytBY2o0ZFZxQ0hjazg9Ci0tLS0tRU5EIENFUlRJRklDQVRFIFJFUVVFU1QtLS0tLQo=",  # noqa: E501
-                    "certificate": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURmekNDQW1lZ0F3SUJBZ0lVTWJRVk1uK3JOVjlOUjlCQ1pRRE9CZkg5NkJVd0RRWUpLb1pJaHZjTkFRRUwKQlFBd0tERUxNQWtHQTFVRUJoTUNWVk14R1RBWEJnTlZCQU1NRUhKdmIzUmpZUzV3YVhwNllTNWpiMjB3SGhjTgpNakl3TnpJME1UY3lOVE15V2hjTk1qUXhNREkyTVRjeU5UTXlXakFqTVFzd0NRWURWUVFHRXdKVlV6RVVNQklHCkExVUVBd3dMS2k1d2FYcDZZUzVqYjIwd2dnRWlNQTBHQ1NxR1NJYjNEUUVCQVFVQUE0SUJEd0F3Z2dFS0FvSUIKQVFEWXcwU1BkNHpObkJ4eXlVeDdCRUpEbWJ0UnNuMjNTUTlocXR4NmdGLzBpczUxM0JxNkF5OHY0YXZKbmJzdgp4cnVoc0xWZ2JKVEpMekZva0JzdEdOeHhNSnJhUlp4VFVHN3EyUXVTdFdHS3hVWXh3azZvRE14NFNDU3pnOHpuCm9YQXkxQmtnc21kQUxpREd5YVRhNDgwdkxNdncvM1VCanVTbVA0cUlTdE1DNno4NXpvc1NoV3FlSVVoamZxV3IKMUdzWUw5SGZ4eU5SMDhXOXhMRVVWL1I2Y2RHWnNKM0JITjk4OXptRTUvUTlpK242ZjdrOWVEWnZwd1ZDaFlCawpEcjhIeElxdjkrVkExb1BERFNocnRlMi8xTjc3N3ZybyttMjMzUkpGUWkyYVNvVG9WdUtDTjVoOWdRTmhNNFNYClRJNEtqY05GVk9wbWJyV1VjK0ZMbnhPQkFnTUJBQUdqZ2FVd2dhSXdDUVlEVlIwVEJBSXdBREJWQmdOVkhSRUUKVGpCTWdnc3FMbkJwZW5waExtTnZiWUlQS2k1dWJYTXVjR2w2ZW1FdVkyOXRnaE1xTG5OMFlXZHBibWN1Y0dsNgplbUV1WTI5dGdoY3FMbTV0Y3k1emRHRm5hVzVuTG5CcGVucGhMbU52YlRBZEJnTlZIUTRFRmdRVThWbDBWWFZJCmJiN1lrTm1UTXVVNldlTjVQVDh3SHdZRFZSMGpCQmd3Rm9BVW53RXkzVVp4UDl4TDBCSVJNZithYUliZHIxc3cKRFFZSktvWklodmNOQVFFTEJRQURnZ0VCQUFOc1hBRWZlS3VkSjNpQkhpVHJEZDRoV055cCtvTEVzcEVlQ01pawpQTmdZaGROMGE5bDdRcVU2TVFtWGtXTy9hYzJPN0NrTklmU0UyNHkvOTZ2dXQyRXhLelM3UzR3LzZsempMaFNqCkV3ZUVJQjhvYTZPWVIycmlaakxMV2k4REdrZkw5cFdDcEorU2lzRkpuL1JCa2JvT0VmMDV5U1Y2aCtXNVdrRS8KOUxCU2NxZUJWUDRLelRiQ200S1dmNkc1RjhsQzBGMEZYNGtBY1RtSDhnalRoSzhqYTFNOGIxS1lXTnZzSW43dgo3dG9nNHIzVTk5eGZxRHhLdUxLRFFDclU5Wk9pc1hkVTRFbmwyUzFWaUI2Yld6RW9VekZxVHJBNmpPMUpNdTI3CkhiS3I1Mm5laWp1QndsWTY4VlZDMUpHRU9yQmtDdmxGaFNuS0hET1daOUhpbXVnPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==",  # noqa: E501
+                    "ca": "-----BEGIN CERTIFICATE-----\\nMIIDJTCCAg2gAwIBAgIUMsSK+4FGCjW6sL/EXMSxColmKw8wDQYJKoZIhvcNAQEL\\nBQAwIDELMAkGA1UEBhMCVVMxETAPBgNVBAMMCHdoYXRldmVyMB4XDTIyMDcyOTIx\\nMTgyN1oXDTIzMDcyOTIxMTgyN1owIDELMAkGA1UEBhMCVVMxETAPBgNVBAMMCHdo\\nYXRldmVyMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA55N9DkgFWbJ/\\naqcdQhso7n1kFvt6j/fL1tJBvRubkiFMQJnZFtekfalN6FfRtA3jq+nx8o49e+7t\\nLCKT0xQ+wufXfOnxv6/if6HMhHTiCNPOCeztUgQ2+dfNwRhYYgB1P93wkUVjwudK\\n13qHTTZ6NtEF6EzOqhOCe6zxq6wrr422+ZqCvcggeQ5tW9xSd/8O1vNID/0MTKpy\\nET3drDtBfHmiUEIBR3T3tcy6QsIe4Rz/2sDinAcM3j7sG8uY6drh8jY3PWar9til\\nv2l4qDYSU8Qm5856AB1FVZRLRJkLxZYZNgreShAIYgEd0mcyI2EO/UvKxsIcxsXc\\nd45GhGpKkwIDAQABo1cwVTAfBgNVHQ4EGAQWBBRXBrXKh3p/aFdQjUcT/UcvICBL\\nODAhBgNVHSMEGjAYgBYEFFcGtcqHen9oV1CNRxP9Ry8gIEs4MA8GA1UdEwEB/wQF\\nMAMBAf8wDQYJKoZIhvcNAQELBQADggEBAGmCEvcoFUrT9e133SHkgF/ZAgzeIziO\\nBjfAdU4fvAVTVfzaPm0yBnGqzcHyacCzbZjKQpaKVgc5e6IaqAQtf6cZJSCiJGhS\\nJYeosWrj3dahLOUAMrXRr8G/Ybcacoqc+osKaRa2p71cC3V6u2VvcHRV7HDFGJU7\\noijbdB+WhqET6Txe67rxZCJG9Ez3EOejBJBl2PJPpy7m1Ml4RR+E8YHNzB0lcBzc\\nEoiJKlDfKSO14E2CPDonnUoWBJWjEvJys3tbvKzsRj2fnLilytPFU0gH3cEjCopi\\nzFoWRdaRuNHYCqlBmso1JFDl8h4fMmglxGNKnKRar0WeGyxb4xXBGpI=\\n-----END CERTIFICATE-----\\n",  # noqa: E501
+                    "chain": "-----BEGIN CERTIFICATE-----\\nMIIDJTCCAg2gAwIBAgIUMsSK+4FGCjW6sL/EXMSxColmKw8wDQYJKoZIhvcNAQEL\\nBQAwIDELMAkGA1UEBhMCVVMxETAPBgNVBAMMCHdoYXRldmVyMB4XDTIyMDcyOTIx\\nMTgyN1oXDTIzMDcyOTIxMTgyN1owIDELMAkGA1UEBhMCVVMxETAPBgNVBAMMCHdo\\nYXRldmVyMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA55N9DkgFWbJ/\\naqcdQhso7n1kFvt6j/fL1tJBvRubkiFMQJnZFtekfalN6FfRtA3jq+nx8o49e+7t\\nLCKT0xQ+wufXfOnxv6/if6HMhHTiCNPOCeztUgQ2+dfNwRhYYgB1P93wkUVjwudK\\n13qHTTZ6NtEF6EzOqhOCe6zxq6wrr422+ZqCvcggeQ5tW9xSd/8O1vNID/0MTKpy\\nET3drDtBfHmiUEIBR3T3tcy6QsIe4Rz/2sDinAcM3j7sG8uY6drh8jY3PWar9til\\nv2l4qDYSU8Qm5856AB1FVZRLRJkLxZYZNgreShAIYgEd0mcyI2EO/UvKxsIcxsXc\\nd45GhGpKkwIDAQABo1cwVTAfBgNVHQ4EGAQWBBRXBrXKh3p/aFdQjUcT/UcvICBL\\nODAhBgNVHSMEGjAYgBYEFFcGtcqHen9oV1CNRxP9Ry8gIEs4MA8GA1UdEwEB/wQF\\nMAMBAf8wDQYJKoZIhvcNAQELBQADggEBAGmCEvcoFUrT9e133SHkgF/ZAgzeIziO\\nBjfAdU4fvAVTVfzaPm0yBnGqzcHyacCzbZjKQpaKVgc5e6IaqAQtf6cZJSCiJGhS\\nJYeosWrj3dahLOUAMrXRr8G/Ybcacoqc+osKaRa2p71cC3V6u2VvcHRV7HDFGJU7\\noijbdB+WhqET6Txe67rxZCJG9Ez3EOejBJBl2PJPpy7m1Ml4RR+E8YHNzB0lcBzc\\nEoiJKlDfKSO14E2CPDonnUoWBJWjEvJys3tbvKzsRj2fnLilytPFU0gH3cEjCopi\\nzFoWRdaRuNHYCqlBmso1JFDl8h4fMmglxGNKnKRar0WeGyxb4xXBGpI=\\n-----END CERTIFICATE-----\\n",  # noqa: E501
+                    "certificate_signing_request": "-----BEGIN CERTIFICATE REQUEST-----\nMIICWjCCAUICAQAwFTETMBEGA1UEAwwKYmFuYW5hLmNvbTCCASIwDQYJKoZIhvcN\nAQEBBQADggEPADCCAQoCggEBANWlx9wE6cW7Jkb4DZZDOZoEjk1eDBMJ+8R4pyKp\nFBeHMl1SQSDt6rAWsrfL3KOGiIHqrRY0B5H6c51L8LDuVrJG0bPmyQ6rsBo3gVke\nDSivfSLtGvHtp8lwYnIunF8r858uYmblAR0tdXQNmnQvm+6GERvURQ6sxpgZ7iLC\npPKDoPt+4GKWL10FWf0i82FgxWC2KqRZUtNbgKETQuARLig7etBmCnh20zmynorA\ncY7vrpTPAaeQpGLNqqYvKV9W6yWVY08V+nqARrFrjk3vSioZSu8ZJUdZ4d9++SGl\nbH7A6e77YDkX9i/dQ3Pa/iDtWO3tXS2MvgoxX1iSWlGNOHcCAwEAAaAAMA0GCSqG\nSIb3DQEBCwUAA4IBAQCW1fKcHessy/ZhnIwAtSLznZeZNH8LTVOzkhVd4HA7EJW+\nKVLBx8DnN7L3V2/uPJfHiOg4Rx7fi7LkJPegl3SCqJZ0N5bQS/KvDTCyLG+9E8Y+\n7wqCmWiXaH1devimXZvazilu4IC2dSks2D8DPWHgsOdVks9bme8J3KjdNMQudegc\newWZZ1Dtbd+Rn7cpKU3jURMwm4fRwGxbJ7iT5fkLlPBlyM/yFEik4SmQxFYrZCQg\n0f3v4kBefTh5yclPy5tEH+8G0LMsbbo3dJ5mPKpAShi0QEKDLd7eR1R/712lYTK4\ndi4XaEfqERgy68O4rvb4PGlJeRGS7AmL7Ss8wfAq\n-----END CERTIFICATE REQUEST-----\n",  # noqa: E501
+                    "certificate": "-----BEGIN CERTIFICATE-----\nMIICvDCCAaQCFFPAOD7utDTsgFrm0vS4We18OcnKMA0GCSqGSIb3DQEBCwUAMCAx\nCzAJBgNVBAYTAlVTMREwDwYDVQQDDAh3aGF0ZXZlcjAeFw0yMjA3MjkyMTE5Mzha\nFw0yMzA3MjkyMTE5MzhaMBUxEzARBgNVBAMMCmJhbmFuYS5jb20wggEiMA0GCSqG\nSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDVpcfcBOnFuyZG+A2WQzmaBI5NXgwTCfvE\neKciqRQXhzJdUkEg7eqwFrK3y9yjhoiB6q0WNAeR+nOdS/Cw7layRtGz5skOq7Aa\nN4FZHg0or30i7Rrx7afJcGJyLpxfK/OfLmJm5QEdLXV0DZp0L5vuhhEb1EUOrMaY\nGe4iwqTyg6D7fuBili9dBVn9IvNhYMVgtiqkWVLTW4ChE0LgES4oO3rQZgp4dtM5\nsp6KwHGO766UzwGnkKRizaqmLylfVusllWNPFfp6gEaxa45N70oqGUrvGSVHWeHf\nfvkhpWx+wOnu+2A5F/Yv3UNz2v4g7Vjt7V0tjL4KMV9YklpRjTh3AgMBAAEwDQYJ\nKoZIhvcNAQELBQADggEBAChjRzuba8zjQ7NYBVas89Oy7u++MlS8xWxh++yiUsV6\nWMk3ZemsPtXc1YmXorIQohtxLxzUPm2JhyzFzU/sOLmJQ1E/l+gtZHyRCwsb20fX\nmphuJsMVd7qv/GwEk9PBsk2uDqg4/Wix0Rx5lf95juJP7CPXQJl5FQauf3+LSz0y\nwF/j+4GqvrwsWr9hKOLmPdkyKkR6bHKtzzsxL9PM8GnElk2OpaPMMnzbL/vt2IAt\nxK01ZzPxCQCzVwHo5IJO5NR/fIyFbEPhxzG17QsRDOBR9fl9cOIvDeSO04vyZ+nz\n+kA2c3fNrZFAtpIlOOmFh8Q12rVL4sAjI5mVWnNEgvI=\n-----END CERTIFICATE-----\n",  # noqa: E501
                 }
             ]
         }
@@ -261,6 +275,7 @@ PROVIDER_JSON_SCHEMA = {
     },
     "required": ["certificates"],
 }
+
 
 logger = logging.getLogger(__name__)
 
@@ -404,7 +419,11 @@ def generate_private_key(
 
 
 def generate_csr(
-    private_key: bytes, private_key_password: bytes, subject: str, sans: Optional[List[str]] = None
+    private_key: bytes,
+    private_key_password: bytes,
+    subject: str,
+    sans: Optional[List[str]] = None,
+    additional_critical_extensions: Optional[List] = None,
 ) -> bytes:
     """Generates a CSR using private key and subject.
 
@@ -413,6 +432,8 @@ def generate_csr(
         private_key_password (bytes): Private key password
         subject (str): CSR Subject.
         sans (list): List of subject alternative names
+        additional_critical_extensions (list): List if critical additional extension objects.
+            Object must be a x509 ExtensionType.
 
     Returns:
         bytes: CSR
@@ -426,9 +447,12 @@ def generate_csr(
         )
     )
     if sans:
-        csr.add_extension(
+        csr = csr.add_extension(
             x509.SubjectAlternativeName([x509.DNSName(san) for san in sans]), critical=False
         )
+    if additional_critical_extensions:
+        for extension in additional_critical_extensions:
+            csr = csr.add_extension(extension, critical=True)
     signed_certificate = csr.sign(signing_key, hashes.SHA256())  # type: ignore[arg-type]
     return signed_certificate.public_bytes(serialization.Encoding.PEM)
 
@@ -532,10 +556,10 @@ class TLSCertificatesProvides(Object):
         """
         relation_data = _load_relation_data(event.relation.data[event.unit])
         if not relation_data:
-            logger.info("No relation data - Deferring")
+            logger.info("No relation data")
             return
         if not self._relation_data_is_valid(relation_data):
-            logger.warning("Relation data did not pass JSON Schema validation - Deferring")
+            logger.warning("Relation data did not pass JSON Schema validation")
             return
         for certificate_request in relation_data.get("certificate_signing_requests", {}):
             self.on.certificate_request.emit(
@@ -568,26 +592,18 @@ class TLSCertificatesRequires(Object):
         )
         self.framework.observe(charm.on.update_status, self._on_update_status)
 
-    def request_certificate(
-        self,
-        private_key: bytes,
-        private_key_password: bytes,
-        common_name: str,
-        sans: list = None,
-    ) -> bytes:
+    def request_certificate(self, csr: bytes) -> None:
         """Request TLS certificate to provider charm.
 
         Args:
-            private_key (bytes): Private key
-            private_key_password (bytes): Private key password
-            common_name (str): Common name.
-            sans (list): Subject Alternative Name
+            csr (bytes): Certificate Signing Request
 
         Returns:
-            bytes: The CSR passed in the relation data
+            None
         """
         logger.info("Received request to create certificate")
         relation = self.model.get_relation(self.relationship_name)
+        print(relation)
         if not relation:
             message = (
                 f"Relation {self.relationship_name} does not exist - "
@@ -596,18 +612,12 @@ class TLSCertificatesRequires(Object):
             logger.error(message)
             raise RuntimeError(message)
         relation_data = _load_relation_data(relation.data[self.model.unit])
-        csr = generate_csr(
-            private_key=private_key,
-            private_key_password=private_key_password,
-            subject=common_name,
-            sans=sans,
-        )
         new_certificate_request = {"certificate_signing_request": csr.decode()}
         if "certificate_signing_requests" in relation_data:
             certificate_request_list = relation_data["certificate_signing_requests"]
             if new_certificate_request in certificate_request_list:
                 logger.info("Request was already made - Doing nothing")
-                return csr
+                return
             certificate_request_list.append(new_certificate_request)
         else:
             certificate_request_list = [new_certificate_request]
@@ -615,9 +625,8 @@ class TLSCertificatesRequires(Object):
             certificate_request_list
         )
         logger.info("Certificate request sent to provider")
-        return csr
 
-    def revoke_certificate(self, certificate_signing_request: str) -> None:
+    def revoke_certificate(self, certificate_signing_request: bytes) -> None:
         """Removes CSR from relation data.
 
         The provider of this relation is then expected to remove certificates associated to this
@@ -625,20 +634,14 @@ class TLSCertificatesRequires(Object):
         charm to interpret.
 
         Args:
-            certificate_signing_request: Certificate Signing Request
+            certificate_signing_request (bytes): Certificate Signing Request
 
         Returns:
             None
         """
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
-            message = (
-                f"Relation {self.relationship_name} does not exist - "
-                f"The certificate request can't be completed"
-            )
-            logger.error(message)
-            raise RuntimeError(message)
-        print(self.model.unit)
+            raise RuntimeError(f"Relation {self.relationship_name} does not exist")
         relation_data = _load_relation_data(relation.data[self.model.unit])
         certificate_request_list = relation_data.get("certificate_signing_requests")
         if not certificate_request_list:
@@ -647,10 +650,9 @@ class TLSCertificatesRequires(Object):
         for i in range(len(certificate_request_list)):
             if (
                 certificate_request_list[i]["certificate_signing_request"]
-                == certificate_signing_request
+                == certificate_signing_request.decode()
             ):
                 certificate_request_list.pop()
-
         relation.data[self.model.unit]["certificate_signing_requests"] = json.dumps(
             certificate_request_list
         )
@@ -683,10 +685,8 @@ class TLSCertificatesRequires(Object):
         """
         relation_data = _load_relation_data(event.relation.data[event.unit])
         if not self._relation_data_is_valid(relation_data):
-            logger.warning("Relation data did not pass JSON Schema validation - Deferring")
-            event.defer()
+            logger.warning("Relation data did not pass JSON Schema validation")
             return
-
         for certificate in relation_data["certificates"]:
             self.on.certificate_available.emit(
                 certificate_signing_request=certificate["certificate_signing_request"],
@@ -708,26 +708,21 @@ class TLSCertificatesRequires(Object):
         Returns:
             None
         """
-        logger.info("Update status event")
         relation = self.model.get_relation("certificates")
         if not relation:
             return
         for unit in relation.units:
             relation_data = _load_relation_data(relation.data[unit])
             if self._relation_data_is_valid(relation_data):
-                logger.info("Relation data is valid")
                 certificates = relation_data.get("certificates")
                 if not certificates:
                     continue
                 for certificate_dict in certificates:
                     certificate = certificate_dict["certificate"]
-                    logger.info(type(certificate_dict))
                     certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
-                    logger.info(certificate_object.not_valid_after)
-                    logger.info(datetime.now())
                     time_difference = certificate_object.not_valid_after - datetime.now()
                     if time_difference.days < 0:
-                        logger.info("Certificate is expired")
+                        logger.warning("Certificate is expired")
                         self.on.certificate_expired.emit(certificate=certificate)
                         self.revoke_certificate(certificate)
                         continue
