@@ -8,7 +8,8 @@ from charms.tls_certificates_interface.v1.tls_certificates import (
     CertificateAvailableEvent,
     CertificateExpiringEvent,
     CertificateRequestEvent,
-    TLSCertificatesProvides,
+    CertificateRevokalEvent,
+    TLSCertificatesProvidesV1,
     TLSCertificatesRequires,
     generate_csr,
     generate_private_key,
@@ -32,9 +33,12 @@ class ExampleProviderCharm(CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.certificates = TLSCertificatesProvides(self, "certificates")
+        self.certificates = TLSCertificatesProvidesV1(self, "certificates")
         self.framework.observe(
             self.certificates.on.certificate_request, self._on_certificate_request
+        )
+        self.framework.observe(
+            self.certificates.on.certificate_revokal, self._on_certificate_revokal
         )
         self.framework.observe(self.on.install, self._on_install)
 
@@ -78,6 +82,10 @@ class ExampleProviderCharm(CharmBase):
             chain=ca_certificate,
             relation_id=event.relation_id,
         )
+
+    def _on_certificate_revokal(self, event: CertificateRevokalEvent) -> None:
+        # Do what you want to do with this information
+        pass
 
 
 class ExampleRequirerCharm(CharmBase):
@@ -139,14 +147,5 @@ class ExampleRequirerCharm(CharmBase):
             self.unit.status = WaitingStatus("Waiting for peer relation to be created")
             event.defer()
             return
-        private_key_password = replicas_relation.data[self.app].get("private_key_password")
-        private_key = replicas_relation.data[self.app].get("private_key")
-        new_csr = generate_csr(
-            private_key=private_key.encode(),
-            private_key_password=private_key_password.encode(),
-            subject="whatever",
-        )
-        self.certificates.request_certificate(csr=new_csr)
-        existing_csr = replicas_relation.data[self.app].get("csr")
-        self.certificates.revoke_certificate(certificate_signing_request=existing_csr.encode())
-        replicas_relation.data[self.app].update({"csr": new_csr.decode()})
+        csr = replicas_relation.data[self.app].get("csr")
+        self.certificates.renew_certificate(certificate_signing_request=csr)

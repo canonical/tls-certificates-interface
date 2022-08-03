@@ -37,7 +37,8 @@ Example:
 ```python
 from charms.tls_certificates_interface.v1.tls_certificates import (
     CertificateRequestEvent,
-    TLSCertificatesProvides,
+    CertificateRevokalEvent,
+    TLSCertificatesProvidesV1,
     generate_private_key,
 )
 from ops.charm import CharmBase, InstallEvent
@@ -56,9 +57,12 @@ class ExampleProviderCharm(CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.certificates = TLSCertificatesProvides(self, "certificates")
+        self.certificates = TLSCertificatesProvidesV1(self, "certificates")
         self.framework.observe(
             self.certificates.on.certificate_request, self._on_certificate_request
+        )
+        self.framework.observe(
+            self.certificates.on.certificate_revokal, self._on_certificate_revokal
         )
         self.framework.observe(self.on.install, self._on_install)
 
@@ -101,6 +105,10 @@ class ExampleProviderCharm(CharmBase):
             chain=ca_certificate,
             relation_id=event.relation_id,
         )
+
+    def _on_certificate_revokal(self, event: CertificateRevokalEvent) -> None:
+        # Do what you want to do with this information
+        pass
 
 
 if __name__ == "__main__":
@@ -183,17 +191,8 @@ class ExampleRequirerCharm(CharmBase):
             self.unit.status = WaitingStatus("Waiting for peer relation to be created")
             event.defer()
             return
-        private_key_password = replicas_relation.data[self.app].get("private_key_password")
-        private_key = replicas_relation.data[self.app].get("private_key")
-        new_csr = generate_csr(
-            private_key=private_key.encode(),
-            private_key_password=private_key_password.encode(),
-            subject="whatever",
-        )
-        self.certificates.request_certificate(csr=new_csr)
-        existing_csr = replicas_relation.data[self.app].get("csr")
-        self.certificates.revoke_certificate(certificate_signing_request=existing_csr.encode())
-        replicas_relation.data[self.app].update({"csr": new_csr.decode()})
+        csr = replicas_relation.data[self.app].get("csr")
+        self.certificates.renew_certificate(certificate_signing_request=csr)
 
 
 if __name__ == "__main__":
@@ -211,7 +210,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jsonschema import exceptions, validate  # type: ignore[import]
 from ops.charm import CharmBase, CharmEvents, RelationChangedEvent, UpdateStatusEvent
-from ops.framework import EventBase, EventSource, Object
+from ops.framework import EventBase, EventSource, Handle, Object
 
 # The unique Charmhub library identifier, never change it
 LIBID = "afd8c2bccf834997afce12c2706d2ede"
@@ -307,7 +306,12 @@ class CertificateAvailableEvent(EventBase):
     """Charm Event triggered when a TLS certificate is available."""
 
     def __init__(
-        self, handle, certificate: str, certificate_signing_request: str, ca: str, chain: str
+        self,
+        handle: Handle,
+        certificate: str,
+        certificate_signing_request: str,
+        ca: str,
+        chain: str,
     ):
         super().__init__(handle)
         self.certificate = certificate
@@ -361,7 +365,7 @@ class CertificateExpiringEvent(EventBase):
 class CertificateExpiredEvent(EventBase):
     """Charm Event triggered when a TLS certificate is expired."""
 
-    def __init__(self, handle, certificate: str):
+    def __init__(self, handle: Handle, certificate: str):
         super().__init__(handle)
         self.certificate = certificate
 
@@ -377,7 +381,7 @@ class CertificateExpiredEvent(EventBase):
 class CertificateRequestEvent(EventBase):
     """Charm Event triggered when a TLS certificate is required."""
 
-    def __init__(self, handle, certificate_signing_request: str, relation_id: int):
+    def __init__(self, handle: Handle, certificate_signing_request: str, relation_id: int):
         super().__init__(handle)
         self.certificate_signing_request = certificate_signing_request
         self.relation_id = relation_id
@@ -395,7 +399,41 @@ class CertificateRequestEvent(EventBase):
         self.relation_id = snapshot["relation_id"]
 
 
-def _load_relation_data(raw_relation_data: dict) -> dict:
+class CertificateRevokalEvent(EventBase):
+    """Charm Event triggered when a TLS certificate needs to be revoked."""
+
+    def __init__(
+        self,
+        handle: Handle,
+        certificate: str,
+        certificate_signing_request: str,
+        ca: str,
+        chain: str,
+    ):
+        super().__init__(handle)
+        self.certificate = certificate
+        self.certificate_signing_request = certificate_signing_request
+        self.ca = ca
+        self.chain = chain
+
+    def snapshot(self) -> dict:
+        """Returns snapshot."""
+        return {
+            "certificate": self.certificate,
+            "certificate_signing_request": self.certificate_signing_request,
+            "ca": self.ca,
+            "chain": self.chain,
+        }
+
+    def restore(self, snapshot: dict):
+        """Restores snapshot."""
+        self.certificate = snapshot["certificate"]
+        self.certificate_signing_request = snapshot["certificate_signing_request"]
+        self.ca = snapshot["ca"]
+        self.chain = snapshot["chain"]
+
+
+def load_unit_relation_data(raw_relation_data: dict) -> dict:
     """Loads relation data from the relation data bag.
 
     Json loads all data.
@@ -487,6 +525,7 @@ class CertificatesProviderCharmEvents(CharmEvents):
     """List of events that the TLS Certificates provider charm can leverage."""
 
     certificate_request = EventSource(CertificateRequestEvent)
+    certificate_revokal = EventSource(CertificateRevokalEvent)
 
 
 class CertificatesRequirerCharmEvents(CharmEvents):
@@ -497,7 +536,7 @@ class CertificatesRequirerCharmEvents(CharmEvents):
     certificate_expired = EventSource(CertificateExpiredEvent)
 
 
-class TLSCertificatesProvides(Object):
+class TLSCertificatesProvidesV1(Object):
     """TLS certificates provider class to be instantiated by TLS certificates providers."""
 
     on = CertificatesProviderCharmEvents()
@@ -550,7 +589,7 @@ class TLSCertificatesProvides(Object):
             relation_name=self.relationship_name, relation_id=relation_id
         )
         relation_data = certificates_relation.data[self.model.unit]  # type: ignore[union-attr]
-        loaded_relation_data = _load_relation_data(relation_data)
+        loaded_relation_data = load_unit_relation_data(relation_data)
         new_certificate = {
             "certificate": certificate,
             "certificate_signing_request": certificate_signing_request,
@@ -571,8 +610,11 @@ class TLSCertificatesProvides(Object):
     def _on_relation_changed(self, event) -> None:
         """Handler triggerred on relation changed event.
 
-        Looks at cert_requests and client_cert_requests fields in relation data and emit
-        certificate request events for each entry.
+        Looks at the relation data and either emits:
+        - certificate request event: If the unit relation data contains a CSR for which
+            a certificate does not exist in the provider relation data.
+        - certificate revokal event: If the provider relation data contains a CSR for which
+            a csr does not exist in the requirer relation data.
 
         Args:
             event: Juju event
@@ -580,18 +622,47 @@ class TLSCertificatesProvides(Object):
         Returns:
             None
         """
-        relation_data = _load_relation_data(event.relation.data[event.unit])
-        if not relation_data:
-            logger.info("No relation data")
-            return
-        if not self._relation_data_is_valid(relation_data):
+        requirer_relation_data = load_unit_relation_data(event.relation.data[event.unit])
+        provider_relation_data = load_unit_relation_data(event.relation.data[self.model.unit])
+        if not self._relation_data_is_valid(requirer_relation_data):
             logger.warning("Relation data did not pass JSON Schema validation")
             return
-        for certificate_request in relation_data.get("certificate_signing_requests", {}):
-            self.on.certificate_request.emit(
-                certificate_signing_request=certificate_request.get("certificate_signing_request"),
-                relation_id=event.relation.id,
+        provider_csrs = self._get_provider_csrs(event.relation.data[self.model.unit])
+        requirer_csrs = self._get_requirer_csrs(event.relation.data[event.unit])
+        for certificate_signing_request in requirer_csrs:
+            if certificate_signing_request not in provider_csrs:
+                self.on.certificate_request.emit(
+                    certificate_signing_request=certificate_signing_request,
+                    relation_id=event.relation.id,
+                )
+        for certificate in provider_relation_data.get("certificates", []):
+            if certificate["certificate_signing_request"] not in requirer_csrs:
+                self.on.certificate_revokal.emit(
+                    certificate=certificate["certificate"],
+                    certificate_signing_request=certificate["certificate_signing_request"],
+                    ca=certificate["ca"],
+                    chain=certificate["chain"],
+                )
+
+    @staticmethod
+    def _get_requirer_csrs(raw_requirer_unit_relation_data: dict) -> List[str]:
+        requirer_relation_data = load_unit_relation_data(raw_requirer_unit_relation_data)
+        return [
+            certificate_request["certificate_signing_request"]
+            for certificate_request in requirer_relation_data.get(
+                "certificate_signing_requests", []
             )
+            if certificate_request.get("certificate_signing_request", None)
+        ]
+
+    @staticmethod
+    def _get_provider_csrs(raw_provider_unit_relation_data: dict) -> List[str]:
+        provider_relation_data = load_unit_relation_data(raw_provider_unit_relation_data)
+        return [
+            certificate["certificate_signing_request"]
+            for certificate in provider_relation_data.get("certificates", [])
+            if certificate.get("certificate_signing_request", None)
+        ]
 
 
 class TLSCertificatesRequires(Object):
@@ -640,7 +711,7 @@ class TLSCertificatesRequires(Object):
             )
             logger.error(message)
             raise RuntimeError(message)
-        relation_data = _load_relation_data(relation.data[self.model.unit])
+        relation_data = load_unit_relation_data(relation.data[self.model.unit])
         new_certificate_request = {"certificate_signing_request": csr.decode()}
         if "certificate_signing_requests" in relation_data:
             certificate_request_list = relation_data["certificate_signing_requests"]
@@ -654,6 +725,20 @@ class TLSCertificatesRequires(Object):
             certificate_request_list
         )
         logger.info("Certificate request sent to provider")
+
+    def renew_certificate(self, certificate_signing_request: bytes) -> None:
+        """Renews Certificate.
+
+        Revokes certificate than requests one with the same CSR.
+
+        Args:
+            certificate_signing_request:
+
+        Returns:
+            None
+        """
+        self.revoke_certificate(certificate_signing_request)
+        self.request_certificate(certificate_signing_request)
 
     def revoke_certificate(self, certificate_signing_request: bytes) -> None:
         """Removes CSR from relation data.
@@ -671,7 +756,7 @@ class TLSCertificatesRequires(Object):
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
             raise RuntimeError(f"Relation {self.relationship_name} does not exist")
-        relation_data = _load_relation_data(relation.data[self.model.unit])
+        relation_data = load_unit_relation_data(relation.data[self.model.unit])
         certificate_request_list = relation_data.get("certificate_signing_requests")
         if not certificate_request_list:
             logger.info("No CSR in relation data.")
@@ -712,7 +797,7 @@ class TLSCertificatesRequires(Object):
         Returns:
             None
         """
-        relation_data = _load_relation_data(event.relation.data[event.unit])  # type: ignore[index]
+        relation_data = load_unit_relation_data(event.relation.data[event.unit])  # type: ignore[index]
         if not relation_data:
             logger.info("No relation data")
             return
@@ -744,7 +829,7 @@ class TLSCertificatesRequires(Object):
         if not relation:
             return
         for unit in relation.units:
-            relation_data = _load_relation_data(relation.data[unit])
+            relation_data = load_unit_relation_data(relation.data[unit])
             if self._relation_data_is_valid(relation_data):
                 certificates = relation_data.get("certificates")
                 if not certificates:

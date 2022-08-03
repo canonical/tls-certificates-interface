@@ -39,7 +39,10 @@ def generate_private_key(
 
 
 def generate_csr(
-    private_key: bytes, private_key_password: bytes, subject: str, sans: Optional[List[str]] = None
+    private_key: bytes,
+    subject: str,
+    private_key_password: Optional[bytes] = None,
+    sans: Optional[List[str]] = None,
 ) -> bytes:
     """Generates a CSR using private key and subject.
 
