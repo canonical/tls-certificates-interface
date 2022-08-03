@@ -416,7 +416,7 @@ def _load_relation_data(raw_relation_data: dict) -> dict:
 
 
 def generate_private_key(
-    password: bytes,
+    password: Optional[bytes] = None,
     key_size: int = 2048,
     public_exponent: int = 65537,
 ) -> bytes:
@@ -437,15 +437,17 @@ def generate_private_key(
     key_bytes = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.BestAvailableEncryption(password),
+        encryption_algorithm=serialization.BestAvailableEncryption(password)
+        if password
+        else serialization.NoEncryption(),
     )
     return key_bytes
 
 
 def generate_csr(
     private_key: bytes,
-    private_key_password: bytes,
     subject: str,
+    private_key_password: Optional[bytes] = None,
     sans: Optional[List[str]] = None,
     additional_critical_extensions: Optional[List] = None,
 ) -> bytes:

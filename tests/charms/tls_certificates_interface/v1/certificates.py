@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 
 def generate_private_key(
-    password: bytes,
+    password: Optional[bytes] = None,
     key_size: int = 2048,
     public_exponent: int = 65537,
 ) -> bytes:
@@ -31,7 +31,9 @@ def generate_private_key(
     key_bytes = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.BestAvailableEncryption(password),
+        encryption_algorithm=serialization.BestAvailableEncryption(password)
+        if password
+        else serialization.NoEncryption(),
     )
     return key_bytes
 

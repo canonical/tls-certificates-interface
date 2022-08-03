@@ -703,6 +703,26 @@ def test_given_additional_critical_extensions_when_generate_csr_then_extensions_
     assert csr_object.extensions[0].value == additional_critical_extension
 
 
+def test_given_no_private_key_password_when_generate_csr_then_csr_is_generated_and_leadable():
+    private_key = generate_private_key_helper()
+    subject = "whatever subject"
+    load_pem_private_key(data=private_key, password=None)
+    csr = generate_csr(private_key=private_key, subject=subject)
+
+    csr_object = x509.load_pem_x509_csr(data=csr)
+    assert csr_object.subject == x509.Name(
+        [
+            x509.NameAttribute(x509.NameOID.COMMON_NAME, subject),
+        ]
+    )
+
+
+def test_given_no_password_when_generate_private_key_then_key_is_generated_and_loadable():
+    private_key = generate_private_key()
+
+    load_pem_private_key(data=private_key, password=None)
+
+
 def test_given_password_when_generate_private_key_then_private_key_is_generated_and_loadable():
     private_key_password = b"whatever"
     private_key = generate_private_key(password=private_key_password)
