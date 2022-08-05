@@ -647,9 +647,9 @@ class TLSCertificatesProvidesV1(Object):
             certificates = [new_certificate]
         else:
             certificates = loaded_relation_data["certificates"]
-            for i in range(len(certificates)):
-                if certificates[i]["certificate_signing_request"] == certificate_signing_request:
-                    certificates.pop(i)
+            for cert_dict in certificates:
+                if cert_dict["certificate_signing_request"] == certificate_signing_request:
+                    certificates.remove(cert_dict)
             loaded_relation_data["certificates"].append(new_certificate)
         provider_relation_data["certificates"] = json.dumps(certificates)
 
@@ -790,18 +790,15 @@ class TLSCertificatesRequiresV1(Object):
         if not relation:
             raise RuntimeError(f"Relation {self.relationship_name} does not exist")
         relation_data = _load_unit_relation_data(relation.data[self.model.unit])
-        certificate_creation_request_list = relation_data.get("certificate_signing_requests")
-        if not certificate_creation_request_list:
+        requirer_relation_csr_list = relation_data.get("certificate_signing_requests")
+        if not requirer_relation_csr_list:
             logger.info("No CSR in relation data.")
             return
-        for i in range(len(certificate_creation_request_list)):
-            if (
-                certificate_creation_request_list[i]["certificate_signing_request"]
-                == certificate_signing_request.decode()
-            ):
-                certificate_creation_request_list.pop(i)
+        for requirer_csr in requirer_relation_csr_list:
+            if requirer_csr["certificate_signing_request"] == certificate_signing_request.decode():
+                requirer_relation_csr_list.remove(requirer_csr)
         relation.data[self.model.unit]["certificate_signing_requests"] = json.dumps(
-            certificate_creation_request_list
+            requirer_relation_csr_list
         )
         logger.info("Certificate revocation sent to provider")
 
