@@ -80,7 +80,7 @@ class ExampleProviderCharm(CharmBase):
             relation_id=event.relation_id,
         )
 
-    def _on_certificate_revokal(self, event: CertificateRevocationRequestEvent) -> None:
+    def _on_certificate_revoked(self, event: CertificateRevocationRequestEvent) -> None:
         # Do what you want to do with this information
         pass
 
