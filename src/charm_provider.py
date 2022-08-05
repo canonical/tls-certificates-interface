@@ -35,7 +35,7 @@ class ExampleProviderCharm(CharmBase):
             self.certificates.on.certificate_request, self._on_certificate_request
         )
         self.framework.observe(
-            self.certificates.on.certificate_revokal, self._on_certificate_revokal
+            self.certificates.on.certificate_revoked, self._on_certificate_revoked
         )
         self.framework.observe(self.on.install, self._on_install)
 
