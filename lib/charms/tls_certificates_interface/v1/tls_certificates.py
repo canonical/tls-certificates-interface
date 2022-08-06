@@ -690,7 +690,9 @@ class TLSCertificatesProvidesV1(Object):
         requirer_relation_data = _load_unit_relation_data(event.relation.data[event.unit])
         provider_relation_data = _load_unit_relation_data(event.relation.data[self.model.unit])
         if not self._relation_data_is_valid(requirer_relation_data):
-            logger.warning("Relation data did not pass JSON Schema validation")
+            logger.warning(
+                f"Relation data did not pass JSON Schema validation: {requirer_relation_data}"
+            )
             return
         provider_csrs = _get_provider_csrs(event.relation.data[self.model.unit])
         requirer_csrs = _get_requirer_csrs(event.relation.data[event.unit])
@@ -747,7 +749,6 @@ class TLSCertificatesRequiresV1(Object):
         Returns:
             None
         """
-        logger.info("Received request to create certificate")
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
             message = (
@@ -816,12 +817,16 @@ class TLSCertificatesRequiresV1(Object):
         Returns:
             None
         """
-        self.request_certificate_revocation(
-            certificate_signing_request=old_certificate_signing_request
-        )
+        try:
+            self.request_certificate_revocation(
+                certificate_signing_request=old_certificate_signing_request
+            )
+        except RuntimeError:
+            logger.warning("Certificate revocation failed.")
         self.request_certificate_creation(
             certificate_signing_request=new_certificate_signing_request
         )
+        logger.info("Certificate renewal request completed.")
 
     @staticmethod
     def _relation_data_is_valid(certificates_data: dict) -> bool:
@@ -850,7 +855,9 @@ class TLSCertificatesRequiresV1(Object):
         """
         provider_relation_data = _load_unit_relation_data(event.relation.data[event.unit])  # type: ignore[index]
         if not self._relation_data_is_valid(provider_relation_data):
-            logger.warning("Relation data did not pass JSON Schema validation")
+            logger.warning(
+                f"Relation data did not pass JSON Schema validation: {provider_relation_data}"
+            )
             return
         provider_csrs = _get_provider_csrs(event.relation.data[event.unit])  # type: ignore[index]
         requirer_csrs = _get_requirer_csrs(event.relation.data[self.model.unit])
