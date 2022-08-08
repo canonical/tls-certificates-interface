@@ -86,7 +86,7 @@ import logging
 from typing import List, Literal, TypedDict
 
 from jsonschema import exceptions, validate  # type: ignore[import]
-from ops.charm import CharmEvents
+from ops.charm import CharmBase, CharmEvents
 from ops.framework import EventBase, EventSource, Object
 
 # The unique Charmhub library identifier, never change it
@@ -258,7 +258,7 @@ class TLSCertificatesProvides(Object):
 
     on = CertificatesProviderCharmEvents()
 
-    def __init__(self, charm, relationship_name: str):
+    def __init__(self, charm: CharmBase, relationship_name: str):
         super().__init__(charm, relationship_name)
         self.framework.observe(
             charm.on[relationship_name].relation_changed, self._on_relation_changed
@@ -351,7 +351,7 @@ class TLSCertificatesRequires(Object):
 
     def __init__(
         self,
-        charm,
+        charm: CharmBase,
         relationship_name: str,
         common_name: str = None,
         sans: list = None,

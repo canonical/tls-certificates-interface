@@ -23,3 +23,7 @@ provides:
 requires:
   certificates-requirer:
     interface: tls_certificates
+
+peers:
+  replicas:
+    interface: tls-certificates-replica
