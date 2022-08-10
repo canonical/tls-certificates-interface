@@ -103,7 +103,6 @@ def validate_induced_data_from_pfx_is_equal_to_initial_data(
         induced_certificate_object,
         additional_certificate,
     ) = pkcs12.load_key_and_certificates(pfx_file, password.encode())
-
     initial_private_key_object = load_pem_private_key(
         initial_private_key,
         password=None,
@@ -113,19 +112,16 @@ def validate_induced_data_from_pfx_is_equal_to_initial_data(
         format=serialization.PrivateFormat.TraditionalOpenSSL,
         encryption_algorithm=serialization.NoEncryption(),
     )
-    
     initial_public_key_object = initial_private_key_object.public_key()
     initial_public_key = initial_public_key_object.public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.PKCS1,
     )
-    
     induced_public_key_object = induced_private_key_object.public_key()  # type: ignore[union-attr]
     induced_public_key = induced_public_key_object.public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.PKCS1,
     )
-    
     induced_certificate = induced_certificate_object.public_bytes(  # type: ignore[union-attr]
         encoding=serialization.Encoding.PEM
     )
