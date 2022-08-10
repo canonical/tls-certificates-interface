@@ -2,8 +2,8 @@ name: Upload orc8r-libs
 
 on:
   push:
-#    branches:
-#      - "main"
+    branches:
+      - "main"
     paths:
       - "lib/charms/tls_certificates_interface/v1/**"
 

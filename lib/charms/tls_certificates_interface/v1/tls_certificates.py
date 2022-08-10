@@ -264,7 +264,7 @@ LIBAPI = 1
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 3
+LIBPATCH = 4
 
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
@@ -1039,13 +1039,13 @@ class TLSCertificatesRequiresV1(Object):
         Returns:
             None
         """
-        provider_relation_data = _load_unit_relation_data(event.relation.data[event.unit])  # type: ignore[index]  # noqa: E501
+        provider_relation_data = _load_unit_relation_data(event.relation.data[event.unit])
         if not self._relation_data_is_valid(provider_relation_data):
             logger.warning(
                 f"Relation data did not pass JSON Schema validation: {provider_relation_data}"
             )
             return
-        provider_csrs = _get_provider_csrs(event.relation.data[event.unit])  # type: ignore[index]
+        provider_csrs = _get_provider_csrs(event.relation.data[event.unit])
         requirer_csrs = _get_requirer_csrs(event.relation.data[self.model.unit])
         for certificate in provider_relation_data["certificates"]:
             if certificate["certificate_signing_request"] in requirer_csrs:
