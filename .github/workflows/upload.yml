@@ -1,0 +1,24 @@
+name: Upload orc8r-libs
+
+on:
+  push:
+#    branches:
+#      - "main"
+
+jobs:
+  charmhub-upload:
+    runs-on: ubuntu-20.04
+    name: Charmhub upload lib
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: canonical/upload-charm@2.0.0-rc
+        with:
+          credentials: "${{ secrets.CHARMCRAFT_AUTH }}"
+          upload-image: "false"
+
+      - name: Publish libs
+        env:
+          CHARMCRAFT_AUTH: "${{ secrets.CHARMCRAFT_AUTH }}"
+        run: |
+          charmcraft publish-lib
