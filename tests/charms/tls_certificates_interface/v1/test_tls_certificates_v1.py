@@ -108,24 +108,26 @@ def validate_induced_data_from_pfx_is_equal_to_initial_data(
         initial_private_key,
         password=None,
     )
-    initial_public_key_object = initial_private_key_object.public_key()
-    induced_public_key_object = induced_private_key_object.public_key()  # type: ignore[union-attr]
-    induced_certificate = induced_certificate_object.public_bytes(  # type: ignore[union-attr]
-        encoding=serialization.Encoding.PEM
-    )
-
-    initial_public_key = initial_public_key_object.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.PKCS1,
-    )
-    induced_public_key = induced_public_key_object.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.PKCS1,
-    )
     induced_private_key = induced_private_key_object.private_bytes(  # type: ignore[union-attr]
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
         encryption_algorithm=serialization.NoEncryption(),
+    )
+    
+    initial_public_key_object = initial_private_key_object.public_key()
+    initial_public_key = initial_public_key_object.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.PKCS1,
+    )
+    
+    induced_public_key_object = induced_private_key_object.public_key()  # type: ignore[union-attr]
+    induced_public_key = induced_public_key_object.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.PKCS1,
+    )
+    
+    induced_certificate = induced_certificate_object.public_bytes(  # type: ignore[union-attr]
+        encoding=serialization.Encoding.PEM
     )
 
     assert initial_public_key == induced_public_key
