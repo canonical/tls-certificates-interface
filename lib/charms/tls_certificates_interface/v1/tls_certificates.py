@@ -817,7 +817,7 @@ class TLSCertificatesProvidesV1(Object):
         certificates_relation = self.model.get_relation(
             relation_name=self.relationship_name, relation_id=relation_id
         )
-        provider_relation_data = certificates_relation.data[self.model.unit]  # type: ignore[union-attr]
+        provider_relation_data = certificates_relation.data[self.model.unit]  # type: ignore[union-attr]  # noqa: E501
         loaded_relation_data = _load_unit_relation_data(provider_relation_data)
         new_certificate = {
             "certificate": certificate.strip(),
