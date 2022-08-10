@@ -1,0 +1,29 @@
+name: Upload orc8r-libs
+
+on:
+  push:
+#    branches:
+#      - "main"
+    paths:
+      - "lib/charms/tls_certificates_interface/v1/**"
+
+jobs:
+  charmhub-upload:
+    runs-on: ubuntu-20.04
+    name: Charmhub upload lib
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - uses: canonical/charming-actions/upload-charm@2.0.0-rc
+        with:
+          credentials: "${{ secrets.CHARMCRAFT_AUTH }}"
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          channel: "edge"
+          upload-image: "false"
+
+      - name: Publish libs
+        env:
+          CHARMCRAFT_AUTH: "${{ secrets.CHARMCRAFT_AUTH }}"
+        run: |
+          charmcraft publish-lib charms.tls_certificates_interface.v1.tls_certificates
