@@ -10,11 +10,18 @@ jobs:
     runs-on: ubuntu-20.04
     name: Charmhub upload lib
     steps:
+      - name: Checkout
       - uses: actions/checkout@v2
 
-      - uses: canonical/upload-charm@2.0.0-rc
+      - name: Select Charmhub channel
+        uses: canonical/charming-actions/channel@2.0.0-rc
+        id: channel
+
+      - uses: canonical/charming-actions/upload-charm@2.0.0-rc
         with:
           credentials: "${{ secrets.CHARMCRAFT_AUTH }}"
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          channel: "${{ steps.channel.outputs.name }}"
           upload-image: "false"
 
       - name: Publish libs
