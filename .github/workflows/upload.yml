@@ -13,15 +13,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Select Charmhub channel
-        uses: canonical/charming-actions/channel@2.0.0-rc
-        id: channel
-
-      - uses: canonical/charming-actions/channel@2.0.0-rc
+      - uses: canonical/charming-actions/upload-charm@2.0.0-rc
         with:
           credentials: "${{ secrets.CHARMCRAFT_AUTH }}"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
-          channel: "${{ steps.channel.outputs.name }}"
+          channel: "edge"
           upload-image: "false"
 
       - name: Publish libs
