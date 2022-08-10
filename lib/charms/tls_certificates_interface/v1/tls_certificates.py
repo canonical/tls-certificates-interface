@@ -13,7 +13,7 @@ From a charm directory, fetch the library using `charmcraft`:
 charmcraft fetch-lib charms.tls_certificates_interface.v1.tls_certificates
 ```
 
-Add the following library to the charm's `requirements.txt` file:
+Add the following libraries to the charm's `requirements.txt` file:
 - jsonschema
 - cryptography
 
@@ -42,6 +42,7 @@ from charms.tls_certificates_interface.v1.tls_certificates import (
     generate_private_key,
 )
 from ops.charm import CharmBase, InstallEvent
+from ops.main import main
 from ops.model import ActiveStatus, WaitingStatus
 
 
@@ -59,12 +60,10 @@ class ExampleProviderCharm(CharmBase):
         super().__init__(*args)
         self.certificates = TLSCertificatesProvidesV1(self, "certificates")
         self.framework.observe(
-            self.certificates.on.certificate_creation_request,
-            self._on_certificate_creation_request
+            self.certificates.on.certificate_request, self._on_certificate_request
         )
         self.framework.observe(
-            self.certificates.on.certificate_revocation_request,
-            self._on_certificate_revocation_request
+            self.certificates.on.certificate_revoked, self._on_certificate_revoked
         )
         self.framework.observe(self.on.install, self._on_install)
 
@@ -86,7 +85,7 @@ class ExampleProviderCharm(CharmBase):
         )
         self.unit.status = ActiveStatus()
 
-    def _on_certificate_creation_request(self, event: CertificateCreationRequestEvent) -> None:
+    def _on_certificate_request(self, event: CertificateCreationRequestEvent) -> None:
         replicas_relation = self.model.get_relation("replicas")
         if not replicas_relation:
             self.unit.status = WaitingStatus("Waiting for peer relation to be created")
@@ -108,7 +107,7 @@ class ExampleProviderCharm(CharmBase):
             relation_id=event.relation_id,
         )
 
-    def _on_certificate_revocation_request(self, event: CertificateRevocationRequestEvent) -> None:
+    def _on_certificate_revoked(self, event: CertificateRevocationRequestEvent) -> None:
         # Do what you want to do with this information
         pass
 
@@ -124,14 +123,17 @@ this example, the requirer charm is storing its certificates using a peer relati
 
 Example:
 ```python
+
 from charms.tls_certificates_interface.v1.tls_certificates import (
     CertificateAvailableEvent,
     CertificateExpiringEvent,
+    CertificateRevokedEvent,
     TLSCertificatesRequiresV1,
     generate_csr,
     generate_private_key,
 )
 from ops.charm import CharmBase, RelationJoinedEvent
+from ops.main import main
 from ops.model import ActiveStatus, WaitingStatus
 
 
@@ -139,14 +141,21 @@ class ExampleRequirerCharm(CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
+        self.cert_subject = "whatever"
         self.certificates = TLSCertificatesRequiresV1(self, "certificates")
+        self.framework.observe(self.on.install, self._on_install)
+        self.framework.observe(
+            self.on.certificates_relation_joined, self._on_certificates_relation_joined
+        )
         self.framework.observe(
             self.certificates.on.certificate_available, self._on_certificate_available
         )
         self.framework.observe(
-            self.on.certificates_relation_joined, self._on_certificates_relation_joined
+            self.on.certificates.on.certificate_expiring, self._on_certificate_expiring
         )
-        self.framework.observe(self.on.install, self._on_install)
+        self.framework.observe(
+            self.on.certificates.on.certificate_revoked, self._on_certificate_revoked
+        )
 
     def _on_install(self, event) -> None:
         private_key_password = b"banana"
@@ -171,10 +180,10 @@ class ExampleRequirerCharm(CharmBase):
         csr = generate_csr(
             private_key=private_key.encode(),
             private_key_password=private_key_password.encode(),
-            subject="whatever",
+            subject=self.cert_subject,
         )
         replicas_relation.data[self.app].update({"csr": csr.decode()})
-        self.certificates.request_certificate_creation(csr=csr)
+        self.certificates.request_certificate_creation(certificate_signing_request=csr)
 
     def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
         replicas_relation = self.model.get_relation("replicas")
@@ -187,14 +196,45 @@ class ExampleRequirerCharm(CharmBase):
         replicas_relation.data[self.app].update({"chain": event.chain})
         self.unit.status = ActiveStatus()
 
-    def _on_certificate_almost_expired(self, event: CertificateExpiringEvent) -> None:
+    def _on_certificate_expiring(self, event: CertificateExpiringEvent) -> None:
         replicas_relation = self.model.get_relation("replicas")
         if not replicas_relation:
             self.unit.status = WaitingStatus("Waiting for peer relation to be created")
             event.defer()
             return
-        csr = replicas_relation.data[self.app].get("csr")
-        self.certificates.renew_certificate(certificate_signing_request=csr)
+        old_csr = replicas_relation.data[self.app].get("csr")
+        private_key_password = replicas_relation.data[self.app].get("private_key_password")
+        private_key = replicas_relation.data[self.app].get("private_key")
+        new_csr = generate_csr(
+            private_key=private_key.encode(),
+            private_key_password=private_key_password.encode(),
+            subject=self.cert_subject,
+        )
+        self.certificates.request_certificate_renewal(
+            old_certificate_signing_request=old_csr,
+            new_certificate_signing_request=new_csr,
+        )
+        replicas_relation.data[self.app].update({"csr": new_csr.decode()})
+
+    def _on_certificate_revoked(self, event: CertificateRevokedEvent):
+        replicas_relation = self.model.get_relation("replicas")
+        if not replicas_relation:
+            self.unit.status = WaitingStatus("Waiting for peer relation to be created")
+            event.defer()
+            return
+        stored_csr = replicas_relation.data[self.app].get("csr")
+        if event.certificate_signing_request == stored_csr:
+            private_key_password = replicas_relation.data[self.app].get("private_key_password")
+            private_key = replicas_relation.data[self.app].get("private_key")
+            new_csr = generate_csr(
+                private_key=private_key.encode(),
+                private_key_password=private_key_password.encode(),
+                subject=self.cert_subject,
+            )
+            self.certificates.request_certificate_renewal(
+                old_certificate_signing_request=stored_csr, new_certificate_signing_request=new_csr
+            )
+            replicas_relation.data[self.app].update({"csr": new_csr.decode()})
 
 
 if __name__ == "__main__":
@@ -224,7 +264,7 @@ LIBAPI = 1
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 1
+LIBPATCH = 2
 
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
@@ -661,6 +701,7 @@ def generate_private_key(
 def generate_csr(
     private_key: bytes,
     subject: str,
+    add_unique_id_to_subject_name: bool = True,
     email_address: str = None,
     country_name: str = None,
     private_key_password: Optional[bytes] = None,
@@ -672,6 +713,9 @@ def generate_csr(
     Args:
         private_key (bytes): Private key
         subject (str): CSR Subject.
+        add_unique_id_to_subject_name (bool): Whether a unique ID must be added to the CSR's
+            subject name. Always leave to "True" when the CSR is used to request certificates
+            using the tls-certificates relation.
         email_address (str): Email address.
         country_name (str): Country Name.
         private_key_password (bytes): Private key password
@@ -683,11 +727,12 @@ def generate_csr(
         bytes: CSR
     """
     signing_key = serialization.load_pem_private_key(private_key, password=private_key_password)
-    unique_identifier = uuid.uuid4()
-    subject_name = [
-        x509.NameAttribute(x509.NameOID.COMMON_NAME, subject),
-        x509.NameAttribute(x509.NameOID.X500_UNIQUE_IDENTIFIER, str(unique_identifier)),
-    ]
+    subject_name = [x509.NameAttribute(x509.NameOID.COMMON_NAME, subject)]
+    if add_unique_id_to_subject_name:
+        unique_identifier = uuid.uuid4()
+        subject_name.append(
+            x509.NameAttribute(x509.NameOID.X500_UNIQUE_IDENTIFIER, str(unique_identifier))
+        )
     if email_address:
         subject_name.append(x509.NameAttribute(x509.NameOID.EMAIL_ADDRESS, email_address))
     if country_name:

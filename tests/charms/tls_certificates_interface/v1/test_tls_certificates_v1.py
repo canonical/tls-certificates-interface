@@ -4,6 +4,7 @@
 
 import json
 import unittest
+import uuid
 from unittest.mock import Mock, PropertyMock, call, patch
 
 import pytest
@@ -1042,7 +1043,10 @@ def test_given_subject_and_private_key_when_generate_csr_then_csr_is_generated_w
     )
 
     csr_object = x509.load_pem_x509_csr(data=csr)
-    assert x509.NameAttribute(x509.NameOID.COMMON_NAME, subject) in csr_object.subject
+    subject_list = list(csr_object.subject)
+    assert len(subject_list) == 2
+    assert subject == subject_list[0].value
+    uuid.UUID(str(subject_list[1].value))
 
 
 def test_given_additional_critical_extensions_when_generate_csr_then_extensions_are_added_to_csr():
@@ -1076,11 +1080,23 @@ def test_given_additional_critical_extensions_when_generate_csr_then_extensions_
 def test_given_no_private_key_password_when_generate_csr_then_csr_is_generated_and_loadable():
     private_key = generate_private_key_helper()
     subject = "whatever subject"
-    load_pem_private_key(data=private_key, password=None)
+
     csr = generate_csr(private_key=private_key, subject=subject)
 
     csr_object = x509.load_pem_x509_csr(data=csr)
     assert x509.NameAttribute(x509.NameOID.COMMON_NAME, subject) in csr_object.subject
+
+
+def test_given_unique_id_set_to_false_when_generate_csr_then_csr_is_generated_without_unique_id():
+    private_key = generate_private_key_helper()
+    subject = "whatever subject"
+    csr = generate_csr(
+        private_key=private_key, subject=subject, add_unique_id_to_subject_name=False
+    )
+
+    csr_object = x509.load_pem_x509_csr(data=csr)
+    subject_list = list(csr_object.subject)
+    assert subject == subject_list[0].value
 
 
 def test_given_no_password_when_generate_private_key_then_key_is_generated_and_loadable():

@@ -3,17 +3,31 @@
 ## Description
 
 This project contains libraries for the tls-certificates relationship. It contains both the 
-provider and the requirer side of them.
+provider and the requirer side of the relation.
 
 > **Warning**: The charm located here is a placeholder charm and shouldn't be deployed.
 
 ## Usage
 
-This library can be used by any charm requiring or providing this interface. From the charm's
-root directory, run:
+From a charm directory, fetch the library using `charmcraft`:
 
-```bash
+```shell
 charmcraft fetch-lib charms.tls_certificates_interface.v1.tls_certificates
+```
+
+Add the following libraries to the charm's `requirements.txt` file:
+- jsonschema
+- cryptography
+
+Add the following section to the charm's `charmcraft.yaml` file:
+```yaml
+parts:
+  charm:
+    build-packages:
+      - libffi-dev
+      - libssl-dev
+      - rustc
+      - cargo
 ```
 
 ## Relations
