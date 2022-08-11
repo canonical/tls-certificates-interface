@@ -15,15 +15,3 @@ resources:
   placeholder-image:
     type: oci-image
     description: Placeholder for OCI image
-
-provides:
-  certificates-provider:
-    interface: tls_certificates
-
-requires:
-  certificates-requirer:
-    interface: tls_certificates
-
-peers:
-  replicas:
-    interface: tls-certificates-replica
