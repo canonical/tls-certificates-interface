@@ -810,7 +810,7 @@ class TLSCertificatesProvidesV1(Object):
         certificate: str,
         certificate_signing_request: str,
         ca: str,
-        chain: str,
+        chain: List[str],
         relation_id: int,
     ) -> None:
         """Adds certificates to relation data.
@@ -834,7 +834,7 @@ class TLSCertificatesProvidesV1(Object):
             "certificate": certificate.strip(),
             "certificate_signing_request": certificate_signing_request.strip(),
             "ca": ca.strip(),
-            "chain": chain.strip(),
+            "chain": [cert.strip() for cert in chain],
         }
         if "certificates" not in loaded_relation_data:
             certificates = [new_certificate]

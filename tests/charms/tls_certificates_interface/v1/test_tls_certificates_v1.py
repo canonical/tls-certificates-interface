@@ -243,7 +243,7 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
                             "certificate_signing_request": csr,
                             "certificate": "whatever cert",
                             "ca": "whatever ca",
-                            "chain": "whatever chain",
+                            "chain": ["whatever cert 1", "whatever cert 2"],
                         }
                     ]
                 )
@@ -274,7 +274,7 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
                             "certificate_signing_request": "whatever csr",
                             "certificate": "whatever cert",
                             "ca": "whatever ca",
-                            "chain": "whatever chain",
+                            "chain": ["whatever cert 1", "whatever cert 2"],
                         }
                     ]
                 )
@@ -306,7 +306,7 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
                             "certificate_signing_request": "whatever csr",
                             "certificate": certificate,
                             "ca": "whatever ca",
-                            "chain": "whatever chain",
+                            "chain": ["whatever cert 1", "whatever cert 2"],
                         }
                     ]
                 )
@@ -323,7 +323,7 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
         self,
     ):
         ca = "whatever ca"
-        chain = "whatever chain"
+        chain = ["whatever cert 1", "whatever cert 2"]
         certificate = "whatever certificate"
         certificate_signing_request = "whatever certificate signing request"
         relation_id = 123
@@ -357,9 +357,9 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
         initial_certificate = "whatever initial cert"
         initial_certificate_signing_request = "whatever initial csr"
         initial_ca = "whatever initial ca"
-        initial_chain = "whatever initial chain"
+        initial_chain = ["whatever initial cert 1", "whatever initial cert 2"]
         new_ca = "whatever new ca"
-        new_chain = "whatever new chain"
+        new_chain = ["whatever new cert 1", "whatever new cert 2"]
         new_certificate = "whatever new certificate"
         new_certificate_signing_request = "whatever new certificate signing request"
         relation_id = 123
@@ -414,7 +414,7 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
         initial_certificate = "whatever initial cert"
         initial_certificate_signing_request = "whatever initial csr"
         initial_ca = "whatever initial ca"
-        initial_chain = "whatever initial chain"
+        initial_chain = ["whatever cert 1", "whatever cert 2"]
         new_certificate = "whatever new certificate"
         relation_id = 123
         relation = RelationMock(
@@ -470,7 +470,7 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
                             "certificate_signing_request": "whatever csr",
                             "certificate": certificate,
                             "ca": "whatever ca",
-                            "chain": "whatever chain",
+                            "chain": ["whatever cert 1", "whatever cert 2"],
                         }
                     ]
                 )
@@ -492,7 +492,7 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
                 "certificate_signing_request": "whatever csr",
                 "certificate": "another certificate",
                 "ca": "whatever ca",
-                "chain": "whatever chain",
+                "chain": ["whatever cert 1", "whatever cert 2"],
             }
         ]
         relation = RelationMock(
@@ -680,7 +680,7 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
                             "certificate_signing_request": "whatever csr",
                             "certificate": "whatever certificate",
                             "ca": "whatever ca",
-                            "chain": "whatever chain",
+                            "chain": ["whatever cert 1", "whatever cert 2"],
                         }
                     ]
                 ),
@@ -868,7 +868,7 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
         certificate_signing_request = generate_csr_helper(
             private_key=private_key, private_key_password=private_key_password, subject="whatever"
         )
-        ca_certificate = chain = generate_ca_helper(
+        ca_certificate = generate_ca_helper(
             private_key=ca_key, private_key_password=ca_private_key_password, subject="whatever"
         )
         certificate = generate_certificate_helper(
@@ -889,7 +889,7 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
                             "certificate_signing_request": certificate_signing_request.decode().strip(),
                             "certificate": certificate.decode().strip(),
                             "ca": ca_certificate.decode().strip(),
-                            "chain": chain.decode(),
+                            "chain": [ca_certificate.decode().strip()],
                         }
                     ]
                 ),
@@ -957,7 +957,7 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
         certificate_signing_request = generate_csr_helper(
             private_key=private_key, private_key_password=private_key_password, subject="whatever"
         )
-        ca_certificate = chain = generate_ca_helper(
+        ca_certificate = generate_ca_helper(
             private_key=ca_key, private_key_password=ca_private_key_password, subject="whatever"
         )
         certificate = generate_certificate_helper(
@@ -977,7 +977,7 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
                             "certificate_signing_request": certificate_signing_request.decode().strip(),
                             "certificate": certificate.decode().strip(),
                             "ca": ca_certificate.decode().strip(),
-                            "chain": chain.decode().strip(),
+                            "chain": [ca_certificate.decode().strip()],
                         }
                     ]
                 ),
