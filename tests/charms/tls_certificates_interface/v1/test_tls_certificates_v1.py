@@ -697,7 +697,7 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
         self, patch_certificate_available
     ):
         ca = "whatever ca"
-        chain = "whatever chain"
+        chain = ["whatever chain"]
         certificate_signing_request = "whatever csr"
         certificate = "whatever certificate"
         event = Mock()
@@ -814,7 +814,7 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
         certificate_signing_request = generate_csr_helper(
             private_key=private_key, private_key_password=private_key_password, subject="whatever"
         )
-        ca_certificate = chain = generate_ca_helper(
+        ca_certificate = generate_ca_helper(
             private_key=ca_key, private_key_password=ca_private_key_password, subject="whatever"
         )
         certificate = generate_certificate_helper(
@@ -836,7 +836,7 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
                             "certificate_signing_request": certificate_signing_request.decode(),
                             "certificate": certificate.decode().strip(),
                             "ca": ca_certificate.decode().strip(),
-                            "chain": chain.decode().strip(),
+                            "chain": [ca_certificate.decode().strip()],
                         }
                     ]
                 ),
@@ -913,7 +913,7 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
         certificate_signing_request = generate_csr_helper(
             private_key=private_key, private_key_password=private_key_password, subject="whatever"
         )
-        ca_certificate = chain = generate_ca_helper(
+        ca_certificate = generate_ca_helper(
             private_key=ca_key, private_key_password=ca_private_key_password, subject="whatever"
         )
         certificate = generate_certificate_helper(
@@ -933,7 +933,7 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
                             "certificate_signing_request": certificate_signing_request.decode().strip(),
                             "certificate": certificate.decode().strip(),
                             "ca": ca_certificate.decode().strip(),
-                            "chain": chain.decode().strip(),
+                            "chain": [ca_certificate.decode().strip()],
                         }
                     ]
                 ),
