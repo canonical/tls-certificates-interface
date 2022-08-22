@@ -103,7 +103,7 @@ class ExampleProviderCharm(CharmBase):
             certificate=certificate,
             certificate_signing_request=event.certificate_signing_request,
             ca=ca_certificate,
-            chain=ca_certificate,
+            chain=[ca_certificate, certificate],
             relation_id=event.relation_id,
         )
 
@@ -366,7 +366,7 @@ class CertificateAvailableEvent(EventBase):
         certificate: str,
         certificate_signing_request: str,
         ca: str,
-        chain: str,
+        chain: List[str],
     ):
         super().__init__(handle)
         self.certificate = certificate
