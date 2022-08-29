@@ -264,7 +264,7 @@ LIBAPI = 1
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 3
+LIBPATCH = 4
 
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
@@ -713,6 +713,7 @@ def generate_csr(
     private_key: bytes,
     subject: str,
     add_unique_id_to_subject_name: bool = True,
+    organization: str = None,
     email_address: str = None,
     country_name: str = None,
     private_key_password: Optional[bytes] = None,
@@ -727,6 +728,7 @@ def generate_csr(
         add_unique_id_to_subject_name (bool): Whether a unique ID must be added to the CSR's
             subject name. Always leave to "True" when the CSR is used to request certificates
             using the tls-certificates relation.
+        organization (str): Name of organization.
         email_address (str): Email address.
         country_name (str): Country Name.
         private_key_password (bytes): Private key password
@@ -744,6 +746,8 @@ def generate_csr(
         subject_name.append(
             x509.NameAttribute(x509.NameOID.X500_UNIQUE_IDENTIFIER, str(unique_identifier))
         )
+    if organization:
+        subject_name.append(x509.NameAttribute(x509.NameOID.ORGANIZATION_NAME, organization))
     if email_address:
         subject_name.append(x509.NameAttribute(x509.NameOID.EMAIL_ADDRESS, email_address))
     if country_name:
