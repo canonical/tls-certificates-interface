@@ -36,6 +36,7 @@ from tests.charms.tls_certificates_interface.v1.certificates import (
 )
 
 PROVIDER_UNIT_NAME = "whatever provider unit name"
+PROVIDER_APP_NAME = "whatever provider app name"
 REQUIRER_UNIT_NAME = "whatever requirer unit name"
 CHARM_LIB_PATH = "charms.tls_certificates_interface.v1.tls_certificates"
 
@@ -43,33 +44,43 @@ CHARM_LIB_PATH = "charms.tls_certificates_interface.v1.tls_certificates"
 class RelationMock:
     def __init__(
         self,
-        provider_unit,
+        provider_app,
         requirer_unit,
-        provider_unit_data: dict = None,
+        relation_id: int = 123,
+        provider_app_data: dict = None,
         requirer_unit_data: dict = None,
     ):
-        if provider_unit_data:
-            self.provider_unit_data = provider_unit_data
+        if provider_app_data:
+            self.provider_app_data = provider_app_data
         else:
-            self.provider_unit_data = dict()
+            self.provider_app_data = dict()
 
         if requirer_unit_data:
             self.requirer_unit_data = requirer_unit_data
         else:
             self.requirer_unit_data = dict()
-        self.provider_unit = provider_unit
+        self.provider_app = provider_app
         self.requirer_unit = requirer_unit
+        self._relation_id = relation_id
 
     @property
     def data(self):
         return {
-            self.provider_unit: self.provider_unit_data,
+            self.provider_app: self.provider_app_data,
             self.requirer_unit: self.requirer_unit_data,
         }
 
     @property
+    def app(self):
+        return self.provider_app
+
+    @property
     def units(self):
-        return [self.provider_unit, self.requirer_unit]
+        return [self.requirer_unit]
+
+    @property
+    def id(self):
+        return self._relation_id
 
 
 def _load_relation_data(raw_relation_data: dict) -> dict:
@@ -140,6 +151,11 @@ class UnitMock:
         return True
 
 
+class AppMock:
+    def __init__(self, name):
+        self.name = name
+
+
 class TestTLSCertificatesProvidesV1(unittest.TestCase):
     def setUp(self):
         class MockRelationEvents:
@@ -153,9 +169,9 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
             charm=charm, relationship_name=self.relationship_name
         )
         self.charm = charm
-        self.provider_unit = UnitMock(name=PROVIDER_UNIT_NAME)
+        self.provider_app = AppMock(name=PROVIDER_APP_NAME)
         self.requirer_unit = UnitMock(name=REQUIRER_UNIT_NAME)
-        self.charm.framework.model.unit = self.provider_unit
+        self.charm.framework.model.app = self.provider_app
 
     @patch(
         f"{CHARM_LIB_PATH}.CertificatesProviderCharmEvents.certificate_creation_request",
@@ -164,11 +180,13 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
     def test_given_csr_in_relation_data_when_relation_changed_then_certificate_creation_request_is_emitted(  # noqa: E501
         self, patch_certificate_creation_request
     ):
-        csr = "whatever csr"
-        relation_id = "whatever id"
         event = Mock()
-        event.relation.data = {
-            self.requirer_unit: {
+        csr = "whatever csr"
+        relation_id = 456
+        self.charm.framework.model.get_relation.return_value = event.relation = RelationMock(
+            provider_app=self.provider_app,
+            requirer_unit=self.requirer_unit,
+            requirer_unit_data={
                 "certificate_signing_requests": json.dumps(
                     [
                         {
@@ -177,10 +195,9 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
                     ]
                 )
             },
-            self.provider_unit: {},
-        }
+            relation_id=relation_id,
+        )
         event.unit = self.requirer_unit
-        event.relation.id = relation_id
 
         self.tls_relation_provides._on_relation_changed(event)
 
@@ -195,10 +212,11 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
     def test_given_no_csr_in_certificate_signing_request_when_relation_changed_then_certificate_creation_request_is_not_emitted(  # noqa: E501
         self, patch_certificate_creation_request
     ):
-        relation_id = "whatever id"
         event = Mock()
-        event.relation.data = {
-            self.requirer_unit: {
+        self.charm.framework.model.get_relation.return_value = event.relation = RelationMock(
+            provider_app=self.provider_app,
+            requirer_unit=self.requirer_unit,
+            requirer_unit_data={
                 "certificate_signing_requests": json.dumps(
                     [
                         {
@@ -207,10 +225,8 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
                     ]
                 )
             },
-            self.provider_unit: {},
-        }
+        )
         event.unit = self.requirer_unit
-        event.relation.id = relation_id
 
         self.tls_relation_provides._on_relation_changed(event)
 
@@ -224,10 +240,11 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
         self, patch_certificate_creation_request
     ):
         csr = "whatever csr"
-        relation_id = "whatever id"
         event = Mock()
-        event.relation.data = {
-            self.requirer_unit: {
+        self.charm.framework.model.get_relation.return_value = event.relation = RelationMock(
+            requirer_unit=self.requirer_unit,
+            provider_app=self.provider_app,
+            requirer_unit_data={
                 "certificate_signing_requests": json.dumps(
                     [
                         {
@@ -236,7 +253,7 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
                     ]
                 )
             },
-            self.provider_unit: {
+            provider_app_data={
                 "certificates": json.dumps(
                     [
                         {
@@ -248,9 +265,8 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
                     ]
                 )
             },
-        }
+        )
         event.unit = self.requirer_unit
-        event.relation.id = relation_id
 
         self.tls_relation_provides._on_relation_changed(event)
 
@@ -259,33 +275,41 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
     @patch(f"{CHARM_LIB_PATH}.TLSCertificatesProvidesV1.remove_certificate")
     @patch(
         f"{CHARM_LIB_PATH}.CertificatesProviderCharmEvents.certificate_revocation_request",
-        new_callable=PropertyMock,
     )
     def test_given_csr_in_provider_relation_data_but_not_in_requirer_when_on_relation_changed_then_certificate_revocation_request_is_emitted(  # noqa: E501
         self, patch_certificate_revocation_request, _
     ):
         event = Mock()
-        event.relation.data = {
-            self.requirer_unit: {"certificate_signing_requests": json.dumps([])},
-            self.provider_unit: {
+        certificate = "whatever cert"
+        csr = "whatever csr"
+        ca = chain = "whatever ca"
+        self.charm.framework.model.get_relation.return_value = event.relation = RelationMock(
+            requirer_unit=self.requirer_unit,
+            provider_app=self.provider_app,
+            requirer_unit_data={"certificate_signing_requests": json.dumps([])},
+            provider_app_data={
                 "certificates": json.dumps(
                     [
                         {
-                            "certificate_signing_request": "whatever csr",
-                            "certificate": "whatever cert",
-                            "ca": "whatever ca",
-                            "chain": ["whatever cert 1", "whatever cert 2"],
+                            "certificate_signing_request": csr,
+                            "certificate": certificate,
+                            "ca": ca,
+                            "chain": chain,
                         }
                     ]
                 )
             },
-        }
+        )
         event.unit = self.requirer_unit
-        event.relation.id = "whatever id"
 
         self.tls_relation_provides._on_relation_changed(event)
 
-        patch_certificate_revocation_request.assert_called_with()
+        patch_certificate_revocation_request.emit.assert_called_with(
+            certificate=certificate,
+            certificate_signing_request=csr,
+            ca=ca,
+            chain=chain,
+        )
 
     @patch(f"{CHARM_LIB_PATH}.TLSCertificatesProvidesV1.remove_certificate")
     @patch(
@@ -293,13 +317,16 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
         new_callable=PropertyMock,
     )
     def test_given_csr_in_provider_relation_data_but_not_in_requirer_when_on_relation_changed_then_remove_certificate_is_called(  # noqa: E501
-        self, _, patch_remove_certificate
+        self,
+        _,
+        patch_remove_certificate,
     ):
         certificate = "whatever cert"
         event = Mock()
-        event.relation.data = {
-            self.requirer_unit: {"certificate_signing_requests": json.dumps([])},
-            self.provider_unit: {
+        self.charm.framework.model.get_relation.return_value = event.relation = RelationMock(
+            provider_app=self.provider_app,
+            requirer_unit=self.requirer_unit,
+            provider_app_data={
                 "certificates": json.dumps(
                     [
                         {
@@ -311,9 +338,9 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
                     ]
                 )
             },
-        }
+            requirer_unit_data={"certificate_signing_requests": json.dumps([])},
+        )
         event.unit = self.requirer_unit
-        event.relation.id = "whatever id"
 
         self.tls_relation_provides._on_relation_changed(event)
 
@@ -322,12 +349,15 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
     def test_given_no_data_in_relation_data_when_set_relation_certificate_then_certificate_is_added_to_relation_data(  # noqa: E501
         self,
     ):
-        ca = "whatever ca"
-        chain = ["whatever cert 1", "whatever cert 2"]
+        ca = chain = "whatever ca"
         certificate = "whatever certificate"
         certificate_signing_request = "whatever certificate signing request"
         relation_id = 123
-        relation = RelationMock(provider_unit=self.provider_unit, requirer_unit=self.requirer_unit)
+        relation = RelationMock(
+            provider_app=self.provider_app,
+            requirer_unit=self.requirer_unit,
+            relation_id=relation_id,
+        )
         self.charm.framework.model.get_relation.return_value = relation
 
         self.tls_relation_provides.set_relation_certificate(
@@ -348,7 +378,7 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
                 }
             ]
         }
-        loaded_relation_data = _load_relation_data(relation.data[self.provider_unit])
+        loaded_relation_data = _load_relation_data(relation.data[self.provider_app])
         self.assertEqual(expected_relation_data, loaded_relation_data)
 
     def test_given_some_certificates_in_relation_data_when_set_relation_certificate_then_certificate_is_added_to_relation_data(  # noqa: E501
@@ -356,17 +386,15 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
     ):
         initial_certificate = "whatever initial cert"
         initial_certificate_signing_request = "whatever initial csr"
-        initial_ca = "whatever initial ca"
-        initial_chain = ["whatever initial cert 1", "whatever initial cert 2"]
-        new_ca = "whatever new ca"
-        new_chain = ["whatever new cert 1", "whatever new cert 2"]
+        initial_ca = initial_chain = "whatever initial ca"
+        new_ca = new_chain = "whatever new ca"
         new_certificate = "whatever new certificate"
         new_certificate_signing_request = "whatever new certificate signing request"
         relation_id = 123
         relation = RelationMock(
-            provider_unit=self.provider_unit,
+            provider_app=self.provider_app,
             requirer_unit=self.requirer_unit,
-            provider_unit_data={
+            provider_app_data={
                 "certificates": json.dumps(
                     [
                         {
@@ -401,11 +429,11 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
                     "certificate": new_certificate,
                     "certificate_signing_request": new_certificate_signing_request,
                     "ca": new_ca,
-                    "chain": new_chain,
+                    "chain": new_ca,
                 },
             ]
         }
-        loaded_relation_data = _load_relation_data(relation.data[self.provider_unit])
+        loaded_relation_data = _load_relation_data(relation.data[self.provider_app])
         self.assertEqual(expected_relation_data, loaded_relation_data)
 
     def test_given_identical_csr_in_relation_data_when_set_relation_certificate_then_certificate_is_replaced_in_relation_data(  # noqa: E501
@@ -413,14 +441,13 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
     ):
         initial_certificate = "whatever initial cert"
         initial_certificate_signing_request = "whatever initial csr"
-        initial_ca = "whatever initial ca"
-        initial_chain = ["whatever cert 1", "whatever cert 2"]
+        initial_ca = initial_chain = "whatever initial ca"
         new_certificate = "whatever new certificate"
         relation_id = 123
         relation = RelationMock(
-            provider_unit=self.provider_unit,
+            provider_app=self.provider_app,
             requirer_unit=self.requirer_unit,
-            provider_unit_data={
+            provider_app_data={
                 "certificates": json.dumps(
                     [
                         {
@@ -453,24 +480,24 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
                 },
             ]
         }
-        loaded_relation_data = _load_relation_data(relation.data[self.provider_unit])
+        loaded_relation_data = _load_relation_data(relation.data[self.provider_app])
         self.assertEqual(expected_relation_data, loaded_relation_data)
 
     def test_given_certificate_in_relation_data_when_remove_certificate_then_certificate_is_removed_from_relation(  # noqa: E501
         self,
     ):
         certificate = "whatever cert"
-        relation = RelationMock(
-            provider_unit=self.provider_unit,
+        self.charm.framework.model.get_relation.return_value = relation = RelationMock(
+            provider_app=self.provider_app,
             requirer_unit=self.requirer_unit,
-            provider_unit_data={
+            provider_app_data={
                 "certificates": json.dumps(
                     [
                         {
                             "certificate_signing_request": "whatever csr",
                             "certificate": certificate,
                             "ca": "whatever ca",
-                            "chain": ["whatever cert 1", "whatever cert 2"],
+                            "chain": "whatever ca",
                         }
                     ]
                 )
@@ -480,7 +507,7 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
 
         self.tls_relation_provides.remove_certificate(certificate=certificate)
 
-        provider_relation_data = _load_relation_data(relation.data[self.provider_unit])
+        provider_relation_data = _load_relation_data(relation.data[self.provider_app])
         self.assertEqual({"certificates": []}, provider_relation_data)
 
     def test_given_certificate_not_in_relation_data_when_remove_certificate_then_certificate_is_removed_from_relation(  # noqa: E501
@@ -492,19 +519,19 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
                 "certificate_signing_request": "whatever csr",
                 "certificate": "another certificate",
                 "ca": "whatever ca",
-                "chain": ["whatever cert 1", "whatever cert 2"],
+                "chain": "whatever ca",
             }
         ]
-        relation = RelationMock(
-            provider_unit=self.provider_unit,
+        self.charm.framework.model.get_relation.return_value = relation = RelationMock(
+            provider_app=self.provider_app,
             requirer_unit=self.requirer_unit,
-            provider_unit_data={"certificates": json.dumps(certificates_in_relation_data)},
+            provider_app_data={"certificates": json.dumps(certificates_in_relation_data)},
         )
         self.charm.framework.model.relations = {self.relationship_name: [relation]}
 
         self.tls_relation_provides.remove_certificate(certificate=user_provided_certificate)
 
-        provider_relation_data = _load_relation_data(relation.data[self.provider_unit])
+        provider_relation_data = _load_relation_data(relation.data[self.provider_app])
         self.assertEqual({"certificates": certificates_in_relation_data}, provider_relation_data)
 
 
@@ -528,7 +555,7 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
             charm=self.charm,
             relationship_name=self.relationship_name,
         )
-        self.provider_unit = UnitMock(name=PROVIDER_UNIT_NAME)
+        self.provider_app = AppMock(name=PROVIDER_APP_NAME)
         self.requirer_unit = UnitMock(name=REQUIRER_UNIT_NAME)
         self.charm.framework.model.unit = self.requirer_unit
 
@@ -543,7 +570,7 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
             )
 
     def test_given_csr_when_request_certificate_creation_then_csr_is_sent_in_relation_data(self):
-        relation = RelationMock(provider_unit=self.provider_unit, requirer_unit=self.requirer_unit)
+        relation = RelationMock(provider_app=self.provider_app, requirer_unit=self.requirer_unit)
         self.charm.framework.model.get_relation.return_value = relation
         private_key_password = b"whatever"
         private_key = generate_private_key_helper(password=private_key_password)
@@ -555,13 +582,9 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
 
         self.tls_certificate_requires.request_certificate_creation(certificate_signing_request=csr)
 
-        self.assertIn("certificate_signing_requests", relation.data[self.requirer_unit])
-
-        client_cert_requests = json.loads(
-            relation.data[self.requirer_unit]["certificate_signing_requests"]
-        )
-        expected_client_cert_requests = [{"certificate_signing_request": csr.decode().strip()}]
-        self.assertEqual(expected_client_cert_requests, client_cert_requests)
+        assert json.loads(relation.data[self.requirer_unit]["certificate_signing_requests"]) == [
+            {"certificate_signing_request": csr.decode().strip()}
+        ]
 
     def test_given_relation_data_already_contains_csr_when_request_certificate_creation_then_csr_is_not_sent_again(  # noqa: E501
         self,
@@ -573,7 +596,7 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
             private_key=private_key, private_key_password=private_key_password, subject=common_name
         )
         relation = RelationMock(
-            provider_unit=self.provider_unit,
+            provider_app=self.provider_app,
             requirer_unit=self.requirer_unit,
             requirer_unit_data={
                 "certificate_signing_requests": json.dumps(
@@ -611,7 +634,7 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
             subject=new_common_name,
         )
         relation = RelationMock(
-            provider_unit=self.provider_unit,
+            provider_app=self.provider_app,
             requirer_unit=self.requirer_unit,
             requirer_unit_data={
                 "certificate_signing_requests": json.dumps(
@@ -649,7 +672,7 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
     ):
         certificate_signing_request = b"whatever csr"
         relation = RelationMock(
-            provider_unit=self.provider_unit,
+            provider_app=self.provider_app,
             requirer_unit=self.requirer_unit,
             requirer_unit_data={
                 "certificate_signing_requests": json.dumps(
@@ -670,10 +693,10 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
         self, patch_certificate_available
     ):
         event = Mock()
-        event.relation = RelationMock(
+        self.charm.framework.model.get_relation.return_value = event.relation = RelationMock(
             requirer_unit=self.requirer_unit,
-            provider_unit=self.provider_unit,
-            provider_unit_data={
+            provider_app=self.provider_app,
+            provider_app_data={
                 "certificates": json.dumps(
                     [
                         {
@@ -686,7 +709,7 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
                 ),
             },
         )
-        event.unit = self.provider_unit
+        event.app = self.provider_app
 
         self.tls_certificate_requires._on_relation_changed(event=event)
 
@@ -696,15 +719,14 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
     def test_given_certificate_in_relation_data_when_on_relation_changed_then_certificate_available_emitted(  # noqa: E501
         self, patch_certificate_available
     ):
-        ca = "whatever ca"
-        chain = ["whatever chain"]
+        ca = chain = "whatever ca"
         certificate_signing_request = "whatever csr"
         certificate = "whatever certificate"
         event = Mock()
-        event.relation = RelationMock(
+        self.charm.framework.model.get_relation.return_value = event.relation = RelationMock(
             requirer_unit=self.requirer_unit,
-            provider_unit=self.provider_unit,
-            provider_unit_data={
+            provider_app=self.provider_app,
+            provider_app_data={
                 "certificates": json.dumps(
                     [
                         {
@@ -722,7 +744,7 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
                 )
             },
         )
-        event.unit = self.provider_unit
+        event.app = self.provider_app
 
         self.tls_certificate_requires._on_relation_changed(event=event)
 
@@ -733,16 +755,15 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
             chain=chain,
         )
 
-    @patch(f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_revoked")
     @patch(f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_available")
     def test_given_relation_data_not_valid_when_on_relation_changed_then_no_certificate_event_is_emitted(  # noqa: E501
-        self, patch_certificate_available, patch_certificate_revoked
+        self, patch_certificate_available
     ):
         event = Mock()
-        event.relation = RelationMock(
+        self.charm.framework.model.get_relation.return_value = event.relation = RelationMock(
             requirer_unit=self.requirer_unit,
-            provider_unit=self.provider_unit,
-            provider_unit_data={
+            provider_app=self.provider_app,
+            provider_app_data={
                 "certificates": json.dumps(
                     [
                         {
@@ -752,42 +773,17 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
                 ),
             },
         )
-        event.unit = self.provider_unit
+        event.app = self.provider_app
 
         self.tls_certificate_requires._on_relation_changed(event=event)
 
         patch_certificate_available.assert_not_called()
-        patch_certificate_revoked.assert_not_called()
-
-    @patch(f"{CHARM_LIB_PATH}.CertificatesRequirerCharmEvents.certificate_revoked")
-    def test_given_csr_in_requirer_relation_data_but_not_in_provider_when_relation_changed_then_certificate_revoked_event_emitted(  # noqa: E501
-        self, patch_certificate_revoked
-    ):
-        certificate_signing_request = "whatever csr"
-        event = Mock()
-        event.relation = RelationMock(
-            requirer_unit=self.requirer_unit,
-            provider_unit=self.provider_unit,
-            provider_unit_data={"certificates": json.dumps([])},
-            requirer_unit_data={
-                "certificate_signing_requests": json.dumps(
-                    [{"certificate_signing_request": certificate_signing_request}]
-                )
-            },
-        )
-        event.unit = self.provider_unit
-
-        self.tls_certificate_requires._on_relation_changed(event=event)
-
-        patch_certificate_revoked.emit.assert_called_with(
-            certificate_signing_request=certificate_signing_request,
-        )
 
     def test_given_no_csr_in_relation_data_when_request_certificate_revocation_then_nothing_is_done(
         self,
     ):
         certificate_signing_request = b"whatever csr"
-        relation = RelationMock(provider_unit=self.provider_unit, requirer_unit=self.requirer_unit)
+        relation = RelationMock(provider_app=self.provider_app, requirer_unit=self.requirer_unit)
         self.charm.framework.model.get_relation.return_value = relation
 
         self.tls_certificate_requires.request_certificate_revocation(
@@ -827,16 +823,16 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
         certificate_object = x509.load_pem_x509_certificate(data=certificate)
 
         relation = RelationMock(
-            provider_unit=self.provider_unit,
+            provider_app=self.provider_app,
             requirer_unit=self.requirer_unit,
-            provider_unit_data={
+            provider_app_data={
                 "certificates": json.dumps(
                     [
                         {
                             "certificate_signing_request": certificate_signing_request.decode(),
                             "certificate": certificate.decode().strip(),
                             "ca": ca_certificate.decode().strip(),
-                            "chain": [ca_certificate.decode().strip()],
+                            "chain": ca_certificate.decode().strip(),
                         }
                     ]
                 ),
@@ -880,16 +876,16 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
         )
 
         relation = RelationMock(
-            provider_unit=self.provider_unit,
+            provider_app=self.provider_app,
             requirer_unit=self.requirer_unit,
-            provider_unit_data={
+            provider_app_data={
                 "certificates": json.dumps(
                     [
                         {
                             "certificate_signing_request": certificate_signing_request.decode().strip(),
                             "certificate": certificate.decode().strip(),
                             "ca": ca_certificate.decode().strip(),
-                            "chain": [ca_certificate.decode().strip()],
+                            "chain": ca_certificate.decode().strip(),
                         }
                     ]
                 ),
@@ -924,16 +920,16 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
             validity=hours_before_expiry,
         )
         relation = RelationMock(
-            provider_unit=self.provider_unit,
+            provider_app=self.provider_app,
             requirer_unit=self.requirer_unit,
-            provider_unit_data={
+            provider_app_data={
                 "certificates": json.dumps(
                     [
                         {
                             "certificate_signing_request": certificate_signing_request.decode().strip(),
                             "certificate": certificate.decode().strip(),
                             "ca": ca_certificate.decode().strip(),
-                            "chain": [ca_certificate.decode().strip()],
+                            "chain": ca_certificate.decode().strip(),
                         }
                     ]
                 ),
@@ -968,16 +964,16 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
             validity=hours_before_expiry,
         )
         relation = RelationMock(
-            provider_unit=self.provider_unit,
+            provider_app=self.provider_app,
             requirer_unit=self.requirer_unit,
-            provider_unit_data={
+            provider_app_data={
                 "certificates": json.dumps(
                     [
                         {
                             "certificate_signing_request": certificate_signing_request.decode().strip(),
                             "certificate": certificate.decode().strip(),
                             "ca": ca_certificate.decode().strip(),
-                            "chain": [ca_certificate.decode().strip()],
+                            "chain": ca_certificate.decode().strip(),
                         }
                     ]
                 ),
