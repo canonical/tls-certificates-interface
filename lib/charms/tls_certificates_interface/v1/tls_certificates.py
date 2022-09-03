@@ -1183,8 +1183,7 @@ class TLSCertificatesRequiresV1(Object):
         provider_relation_data = _load_relation_data(relation.data[relation.app])  # type: ignore[index]  # noqa: E501
         if not self._relation_data_is_valid(provider_relation_data):
             logger.warning(
-                f"Provider relation data did not pass JSON Schema validation: "
-                f"{relation.data[relation.app]}"  # type: ignore[index]  # noqa: E501
+                f"Provider relation data did not pass JSON Schema validation: {relation.data[relation.app]}"  # type: ignore[index]  # noqa: W505
             )
             return
         for certificate_dict in self._provider_certificates:
