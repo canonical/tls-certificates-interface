@@ -817,12 +817,13 @@ class TLSCertificatesProvidesV1(Object):
             )
         certificates = copy.deepcopy(self._provider_certificates)
         for certificate_dict in certificates:
-            if certificate:
-                if certificate_dict["certificate"] == certificate:
-                    certificates.remove(certificate_dict)
-            if certificate_signing_request:
-                if certificate_dict["certificate_signing_request"] == certificate_signing_request:
-                    certificates.remove(certificate_dict)
+            if certificate and certificate_dict["certificate"] == certificate:
+                certificates.remove(certificate_dict)
+            if (
+                certificate_signing_request
+                and certificate_dict["certificate_signing_request"] == certificate_signing_request
+            ):
+                certificates.remove(certificate_dict)
         relation.data[self.model.app]["certificates"] = json.dumps(certificates)
 
     @staticmethod
@@ -946,10 +947,11 @@ class TLSCertificatesProvidesV1(Object):
         )
         if not certificates_relation:
             raise RuntimeError(f"Relation {self.relationship_name} does not exist")
-        list_of_csrs = []
+        list_of_csrs: List[str] = []
         for unit in certificates_relation.units:
-            for csr in self._requirer_csrs(unit):
-                list_of_csrs.append(csr["certificate_signing_request"])
+            list_of_csrs.extend(
+                csr["certificate_signing_request"] for csr in self._requirer_csrs(unit)
+            )
         for certificate in self._provider_certificates:
             if certificate["certificate_signing_request"] not in list_of_csrs:
                 self.on.certificate_revocation_request.emit(
