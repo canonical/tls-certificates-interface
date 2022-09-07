@@ -282,7 +282,8 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
         event = Mock()
         certificate = "whatever cert"
         csr = "whatever csr"
-        ca = chain = "whatever ca"
+        ca = "whatever ca"
+        chain = ["whatever cert 1", "whatever cert 2"]
         self.charm.framework.model.get_relation.return_value = event.relation = RelationMock(
             requirer_unit=self.requirer_unit,
             provider_app=self.provider_app,
@@ -349,9 +350,10 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
     def test_given_no_data_in_relation_data_when_set_relation_certificate_then_certificate_is_added_to_relation_data(  # noqa: E501
         self,
     ):
-        ca = chain = "whatever ca"
+        ca = "whatever ca"
         certificate = "whatever certificate"
         certificate_signing_request = "whatever certificate signing request"
+        chain = ["whatever cert 1", "whatever cert 2"]
         relation_id = 123
         relation = RelationMock(
             provider_app=self.provider_app,
@@ -386,10 +388,12 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
     ):
         initial_certificate = "whatever initial cert"
         initial_certificate_signing_request = "whatever initial csr"
-        initial_ca = initial_chain = "whatever initial ca"
-        new_ca = new_chain = "whatever new ca"
+        initial_ca = "whatever initial ca"
+        initial_chain = ["whatever initial cert 1", "whatever initial cert 2"]
+        new_ca = "whatever new ca"
         new_certificate = "whatever new certificate"
         new_certificate_signing_request = "whatever new certificate signing request"
+        new_chain = ["whatever new cert 1", "whatever new cert 2"]
         relation_id = 123
         relation = RelationMock(
             provider_app=self.provider_app,
@@ -429,7 +433,7 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
                     "certificate": new_certificate,
                     "certificate_signing_request": new_certificate_signing_request,
                     "ca": new_ca,
-                    "chain": new_ca,
+                    "chain": new_chain,
                 },
             ]
         }
@@ -441,7 +445,8 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
     ):
         initial_certificate = "whatever initial cert"
         initial_certificate_signing_request = "whatever initial csr"
-        initial_ca = initial_chain = "whatever initial ca"
+        initial_ca = "whatever initial ca"
+        initial_chain = ["whatever initial cert 1", "whatever initial cert 2"]
         new_certificate = "whatever new certificate"
         relation_id = 123
         relation = RelationMock(
@@ -497,7 +502,7 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
                             "certificate_signing_request": "whatever csr",
                             "certificate": certificate,
                             "ca": "whatever ca",
-                            "chain": "whatever ca",
+                            "chain": ["whatever cert 1", "whatever cert 2"],
                         }
                     ]
                 )
@@ -519,7 +524,7 @@ class TestTLSCertificatesProvidesV1(unittest.TestCase):
                 "certificate_signing_request": "whatever csr",
                 "certificate": "another certificate",
                 "ca": "whatever ca",
-                "chain": "whatever ca",
+                "chain": ["whatever cert 1", "whatever cert 2"],
             }
         ]
         self.charm.framework.model.get_relation.return_value = relation = RelationMock(
@@ -719,7 +724,8 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
     def test_given_certificate_in_relation_data_when_on_relation_changed_then_certificate_available_emitted(  # noqa: E501
         self, patch_certificate_available
     ):
-        ca = chain = "whatever ca"
+        ca = "whatever ca"
+        chain = ["whatever cert 1", "whatever cert 2"]
         certificate_signing_request = "whatever csr"
         certificate = "whatever certificate"
         event = Mock()
@@ -832,7 +838,10 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
                             "certificate_signing_request": certificate_signing_request.decode(),
                             "certificate": certificate.decode().strip(),
                             "ca": ca_certificate.decode().strip(),
-                            "chain": ca_certificate.decode().strip(),
+                            "chain": [
+                                ca_certificate.decode().strip(),
+                                certificate.decode().strip(),
+                            ],
                         }
                     ]
                 ),
@@ -885,7 +894,10 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
                             "certificate_signing_request": certificate_signing_request.decode().strip(),
                             "certificate": certificate.decode().strip(),
                             "ca": ca_certificate.decode().strip(),
-                            "chain": ca_certificate.decode().strip(),
+                            "chain": [
+                                ca_certificate.decode().strip(),
+                                certificate.decode().strip(),
+                            ],
                         }
                     ]
                 ),
@@ -929,7 +941,10 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
                             "certificate_signing_request": certificate_signing_request.decode().strip(),
                             "certificate": certificate.decode().strip(),
                             "ca": ca_certificate.decode().strip(),
-                            "chain": ca_certificate.decode().strip(),
+                            "chain": [
+                                ca_certificate.decode().strip(),
+                                certificate.decode().strip(),
+                            ],
                         }
                     ]
                 ),
@@ -973,7 +988,10 @@ class TestTLSCertificatesRequiresV1(unittest.TestCase):
                             "certificate_signing_request": certificate_signing_request.decode().strip(),
                             "certificate": certificate.decode().strip(),
                             "ca": ca_certificate.decode().strip(),
-                            "chain": ca_certificate.decode().strip(),
+                            "chain": [
+                                ca_certificate.decode().strip(),
+                                certificate.decode().strip(),
+                            ],
                         }
                     ]
                 ),
