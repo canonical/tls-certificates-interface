@@ -63,7 +63,7 @@ class ExampleProviderCharm(CharmBase):
             self.certificates.on.certificate_request, self._on_certificate_request
         )
         self.framework.observe(
-            self.certificates.on.certificate_revoked, self._on_certificate_revoked
+            self.certificates.on.certificate_revoked, self._on_certificate_revocation_request
         )
         self.framework.observe(self.on.install, self._on_install)
 
@@ -107,7 +107,7 @@ class ExampleProviderCharm(CharmBase):
             relation_id=event.relation_id,
         )
 
-    def _on_certificate_revoked(self, event: CertificateRevocationRequestEvent) -> None:
+    def _on_certificate_revocation_request(self, event: CertificateRevocationRequestEvent) -> None:
         # Do what you want to do with this information
         pass
 
@@ -123,7 +123,6 @@ this example, the requirer charm is storing its certificates using a peer relati
 
 Example:
 ```python
-
 from charms.tls_certificates_interface.v1.tls_certificates import (
     CertificateAvailableEvent,
     CertificateExpiringEvent,
