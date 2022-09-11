@@ -15,7 +15,6 @@ from lib.charms.tls_certificates_interface.v1.tls_certificates import (
 class DummyTLSCertificatesRequirerCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
-        self.cert_subject = "whatever"
         self.certificates = TLSCertificatesRequiresV1(
             self, "certificates", expiry_notification_time=168
         )
