@@ -1,4 +1,4 @@
-name: Upload orc8r-libs
+name: Upload tls-certificates-interface-v1
 
 on:
   push:
