@@ -35,9 +35,7 @@ LIB_DIR = "lib.charms.tls_certificates_interface.v1.tls_certificates"
 class Test(unittest.TestCase):
     def setUp(self):
         self.relation_name = "certificates"
-        self.model_name = "whatever"
         self.harness = testing.Harness(DummyTLSCertificatesRequirerCharm)
-        self.harness.set_model_name(name=self.model_name)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
         self.maxDiff = None
