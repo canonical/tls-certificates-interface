@@ -1193,7 +1193,7 @@ class TLSCertificatesRequiresV1(Object):
             try:
                 certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
             except ValueError:
-                logger.warning(f"Could not load certificate: {certificate}")
+                logger.warning("Could not load certificate.")
                 continue
             time_difference = certificate_object.not_valid_after - datetime.utcnow()
             if time_difference.total_seconds() < 0:

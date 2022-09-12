@@ -38,13 +38,23 @@ def _load_relation_data(raw_relation_data: dict) -> dict:
     return certificate_data
 
 
-class Test(unittest.TestCase):
+class TestTLSCertificatesProvides(unittest.TestCase):
     def setUp(self):
         self.relation_name = "certificates"
+        self.remote_app = "tls-certificates-requirer"
+        self.remote_unit_name = "tls-certificates-requirer/0"
         self.harness = testing.Harness(DummyTLSCertificatesProviderCharm)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
-        self.maxDiff = None
+
+    def create_certificates_relation_with_1_remote_unit(self) -> int:
+        relation_id = self.harness.add_relation(
+            relation_name=self.relation_name, remote_app=self.remote_app
+        )
+        self.harness.add_relation_unit(
+            relation_id=relation_id, remote_unit_name=self.remote_unit_name
+        )
+        return relation_id
 
     @patch(
         f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_creation_request",
@@ -53,12 +63,7 @@ class Test(unittest.TestCase):
     def test_given_csr_in_relation_data_when_relation_changed_then_certificate_creation_request_is_emitted(  # noqa: E501
         self, patch_certificate_creation_request
     ):
-        remote_app = "tls-certificates-requirer"
-        remote_unit_name = "tls-certificates-requirer/0"
-        relation_id = self.harness.add_relation(
-            relation_name=self.relation_name, remote_app=remote_app
-        )
-        self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name=remote_unit_name)
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
         csr = "whatever csr"
         key_values = {
             "certificate_signing_requests": json.dumps(
@@ -70,7 +75,7 @@ class Test(unittest.TestCase):
             )
         }
         self.harness.update_relation_data(
-            relation_id=relation_id, app_or_unit=remote_unit_name, key_values=key_values
+            relation_id=relation_id, app_or_unit=self.remote_unit_name, key_values=key_values
         )
 
         patch_certificate_creation_request.assert_has_calls(
@@ -84,12 +89,7 @@ class Test(unittest.TestCase):
     def test_given_no_csr_in_certificate_signing_request_when_relation_changed_then_certificate_creation_request_is_not_emitted(  # noqa: E501
         self, patch_certificate_creation_request
     ):
-        remote_app = "tls-certificates-requirer"
-        remote_unit_name = "tls-certificates-requirer/0"
-        relation_id = self.harness.add_relation(
-            relation_name=self.relation_name, remote_app=remote_app
-        )
-        self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name=remote_unit_name)
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
         key_values = {
             "certificate_signing_requests": json.dumps(
                 [
@@ -100,7 +100,7 @@ class Test(unittest.TestCase):
             )
         }
         self.harness.update_relation_data(
-            relation_id=relation_id, app_or_unit=remote_unit_name, key_values=key_values
+            relation_id=relation_id, app_or_unit=self.remote_unit_name, key_values=key_values
         )
 
         patch_certificate_creation_request.assert_not_called()
@@ -112,14 +112,8 @@ class Test(unittest.TestCase):
     def test_given_certificate_for_csr_already_in_relation_data_when_on_relation_changed_then_certificate_creation_request_is_not_emitted(  # noqa: E501
         self, patch_certificate_creation_request
     ):
-        remote_app = "tls-certificates-requirer"
-        remote_unit_name = "tls-certificates-requirer/0"
-        relation_id = self.harness.add_relation(
-            relation_name=self.relation_name, remote_app=remote_app
-        )
-        self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name=remote_unit_name)
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
         csr = "whatever csr"
-
         provider_app_data = {
             "certificates": json.dumps(
                 [
@@ -149,7 +143,7 @@ class Test(unittest.TestCase):
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
-            app_or_unit=remote_unit_name,
+            app_or_unit=self.remote_unit_name,
             key_values=requirer_unit_data,
         )
 
@@ -162,12 +156,7 @@ class Test(unittest.TestCase):
     def test_given_csr_in_provider_relation_data_but_not_in_requirer_when_on_relation_changed_then_certificate_revocation_request_is_emitted(  # noqa: E501
         self, patch_certificate_revocation_request, _
     ):
-        remote_app = "tls-certificates-requirer"
-        remote_unit_name = "tls-certificates-requirer/0"
-        relation_id = self.harness.add_relation(
-            relation_name=self.relation_name, remote_app=remote_app
-        )
-        self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name=remote_unit_name)
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
         certificate = "whatever cert"
         csr = "whatever csr"
         ca = "whatever ca"
@@ -192,7 +181,7 @@ class Test(unittest.TestCase):
         remote_unit_relation_data = {"certificate_signing_requests": "[]"}
         self.harness.update_relation_data(
             relation_id=relation_id,
-            app_or_unit=remote_unit_name,
+            app_or_unit=self.remote_unit_name,
             key_values=remote_unit_relation_data,
         )
 
@@ -213,12 +202,7 @@ class Test(unittest.TestCase):
         _,
         patch_remove_certificate,
     ):
-        remote_app = "tls-certificates-requirer"
-        remote_unit_name = "tls-certificates-requirer/0"
-        relation_id = self.harness.add_relation(
-            relation_name=self.relation_name, remote_app=remote_app
-        )
-        self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name=remote_unit_name)
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
         certificate = "whatever cert"
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -239,7 +223,7 @@ class Test(unittest.TestCase):
         remote_unit_relation_data = {"certificate_signing_requests": "[]"}
         self.harness.update_relation_data(
             relation_id=relation_id,
-            app_or_unit=remote_unit_name,
+            app_or_unit=self.remote_unit_name,
             key_values=remote_unit_relation_data,
         )
 
@@ -248,12 +232,7 @@ class Test(unittest.TestCase):
     def test_given_no_data_in_relation_data_when_set_relation_certificate_then_certificate_is_added_to_relation_data(  # noqa: E501
         self,
     ):
-        remote_app = "tls-certificates-requirer"
-        remote_unit_name = "tls-certificates-requirer/0"
-        relation_id = self.harness.add_relation(
-            relation_name=self.relation_name, remote_app=remote_app
-        )
-        self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name=remote_unit_name)
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
         ca = "whatever ca"
         certificate = "whatever certificate"
@@ -289,14 +268,8 @@ class Test(unittest.TestCase):
     def test_given_some_certificates_in_relation_data_when_set_relation_certificate_then_certificate_is_added_to_relation_data(  # noqa: E501
         self,
     ):
-        remote_app = "tls-certificates-requirer"
-        remote_unit_name = "tls-certificates-requirer/0"
-        relation_id = self.harness.add_relation(
-            relation_name=self.relation_name, remote_app=remote_app
-        )
-        self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name=remote_unit_name)
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
-
         initial_certificate = "whatever initial cert"
         initial_certificate_signing_request = "whatever initial csr"
         initial_ca = "whatever initial ca"
@@ -356,14 +329,8 @@ class Test(unittest.TestCase):
     def test_given_identical_csr_in_relation_data_when_set_relation_certificate_then_certificate_is_replaced_in_relation_data(  # noqa: E501
         self,
     ):
-        remote_app = "tls-certificates-requirer"
-        remote_unit_name = "tls-certificates-requirer/0"
-        relation_id = self.harness.add_relation(
-            relation_name=self.relation_name, remote_app=remote_app
-        )
-        self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name=remote_unit_name)
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
-
         initial_certificate = "whatever initial cert"
         initial_certificate_signing_request = "whatever initial csr"
         initial_ca = "whatever initial ca"
@@ -412,12 +379,7 @@ class Test(unittest.TestCase):
     def test_given_certificate_in_relation_data_when_remove_certificate_then_certificate_is_removed_from_relation(  # noqa: E501
         self,
     ):
-        remote_app = "tls-certificates-requirer"
-        remote_unit_name = "tls-certificates-requirer/0"
-        relation_id = self.harness.add_relation(
-            relation_name=self.relation_name, remote_app=remote_app
-        )
-        self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name=remote_unit_name)
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
         certificate = "whatever cert"
         key_values = {
@@ -447,12 +409,7 @@ class Test(unittest.TestCase):
     def test_given_certificate_not_in_relation_data_when_remove_certificate_then_certificate_is_removed_from_relation(  # noqa: E501
         self,
     ):
-        remote_app = "tls-certificates-requirer"
-        remote_unit_name = "tls-certificates-requirer/0"
-        relation_id = self.harness.add_relation(
-            relation_name=self.relation_name, remote_app=remote_app
-        )
-        self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name=remote_unit_name)
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
         user_provided_certificate = "whatever cert"
         certificates_in_relation_data = [
