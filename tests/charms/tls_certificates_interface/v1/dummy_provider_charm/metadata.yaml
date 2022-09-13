@@ -1,0 +1,15 @@
+# Copyright 2022 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+
+name: tls-certificates-interface-provider
+
+description: |
+  Dummy tls-certificates-interface provider.
+summary: |
+    Dummy tls-certificates-interface provider.
+
+
+provides:
+  certificates:
+    interface: tls-certificates

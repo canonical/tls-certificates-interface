@@ -149,7 +149,7 @@ class ExampleRequirerCharm(CharmBase):
             self.certificates.on.certificate_available, self._on_certificate_available
         )
         self.framework.observe(
-            self.on.certificates.on.certificate_expiring, self._on_certificate_expiring
+            self.certificates.on.certificate_expiring, self._on_certificate_expiring
         )
 
     def _on_install(self, event) -> None:
@@ -240,7 +240,7 @@ LIBAPI = 1
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 6
+LIBPATCH = 7
 
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
@@ -370,13 +370,13 @@ class CertificateAvailableEvent(EventBase):
 class CertificateExpiringEvent(EventBase):
     """Charm Event triggered when a TLS certificate is almost expired."""
 
-    def __init__(self, handle, certificate: str, expiry: datetime):
+    def __init__(self, handle, certificate: str, expiry: str):
         """CertificateExpiringEvent.
 
         Args:
             handle (Handle): Juju framework handle
             certificate (str): TLS Certificate
-            expiry (datetime): Datetime object reprensenting the time at which the certificate
+            expiry (str): Datetime string reprensenting the time at which the certificate
                 won't be valid anymore.
         """
         super().__init__(handle)
@@ -479,7 +479,7 @@ def _load_relation_data(raw_relation_data: dict) -> dict:
     for key in raw_relation_data:
         try:
             certificate_data[key] = json.loads(raw_relation_data[key])
-        except json.decoder.JSONDecodeError:
+        except (json.decoder.JSONDecodeError, TypeError):
             certificate_data[key] = raw_relation_data[key]
     return certificate_data
 
@@ -997,7 +997,9 @@ class TLSCertificatesRequiresV1(Object):
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
             raise RuntimeError(f"Relation {self.relationship_name} does not exist")
-        provider_relation_data = _load_relation_data(relation.data[relation.app])  # type: ignore[index]  # noqa: E501
+        if not relation.app:
+            raise RuntimeError(f"Remote app for relation {self.relationship_name} does not exist")
+        provider_relation_data = _load_relation_data(relation.data[relation.app])
         return provider_relation_data.get("certificates", [])
 
     def _add_requirer_csr(self, csr: str) -> None:
@@ -1136,7 +1138,10 @@ class TLSCertificatesRequiresV1(Object):
         if not relation:
             logger.warning(f"No relation: {self.relationship_name}")
             return
-        provider_relation_data = _load_relation_data(relation.data[relation.app])  # type: ignore[index]  # noqa: E501
+        if not relation.app:
+            logger.warning(f"No remote app in relation: {self.relationship_name}")
+            return
+        provider_relation_data = _load_relation_data(relation.data[relation.app])
         if not self._relation_data_is_valid(provider_relation_data):
             logger.warning(
                 f"Provider relation data did not pass JSON Schema validation: "
@@ -1173,15 +1178,23 @@ class TLSCertificatesRequiresV1(Object):
         if not relation:
             logger.warning(f"No relation: {self.relationship_name}")
             return
-        provider_relation_data = _load_relation_data(relation.data[relation.app])  # type: ignore[index]  # noqa: E501
+        if not relation.app:
+            logger.warning(f"No remote app in relation: {self.relationship_name}")
+            return
+        provider_relation_data = _load_relation_data(relation.data[relation.app])
         if not self._relation_data_is_valid(provider_relation_data):
             logger.warning(
-                f"Provider relation data did not pass JSON Schema validation: {relation.data[relation.app]}"  # type: ignore[index]  # noqa: W505
+                f"Provider relation data did not pass JSON Schema validation: "
+                f"{relation.data[relation.app]}"
             )
             return
         for certificate_dict in self._provider_certificates:
             certificate = certificate_dict["certificate"]
-            certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
+            try:
+                certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
+            except ValueError:
+                logger.warning("Could not load certificate.")
+                continue
             time_difference = certificate_object.not_valid_after - datetime.utcnow()
             if time_difference.total_seconds() < 0:
                 logger.warning("Certificate is expired")
@@ -1191,5 +1204,5 @@ class TLSCertificatesRequiresV1(Object):
             if time_difference.total_seconds() < (self.expiry_notification_time * 60 * 60):
                 logger.warning("Certificate almost expired")
                 self.on.certificate_expiring.emit(
-                    certificate=certificate, expiry=certificate_object.not_valid_after
+                    certificate=certificate, expiry=certificate_object.not_valid_after.isoformat()
                 )
