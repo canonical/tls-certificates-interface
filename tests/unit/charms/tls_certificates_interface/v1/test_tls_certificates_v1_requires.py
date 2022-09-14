@@ -10,25 +10,25 @@ from unittest.mock import patch
 import pytest
 from ops import testing
 
-from tests.charms.tls_certificates_interface.v1.certificates import (
+from tests.unit.charms.tls_certificates_interface.v1.certificates import (
     generate_ca as generate_ca_helper,
 )
-from tests.charms.tls_certificates_interface.v1.certificates import (
+from tests.unit.charms.tls_certificates_interface.v1.certificates import (
     generate_certificate as generate_certificate_helper,
 )
-from tests.charms.tls_certificates_interface.v1.certificates import (
+from tests.unit.charms.tls_certificates_interface.v1.certificates import (
     generate_csr as generate_csr_helper,
 )
-from tests.charms.tls_certificates_interface.v1.certificates import (
+from tests.unit.charms.tls_certificates_interface.v1.certificates import (
     generate_private_key as generate_private_key_helper,
 )
-from tests.charms.tls_certificates_interface.v1.dummy_requirer_charm.src.charm import (
+from tests.unit.charms.tls_certificates_interface.v1.dummy_requirer_charm.src.charm import (
     DummyTLSCertificatesRequirerCharm,
 )
 
 testing.SIMULATE_CAN_CONNECT = True
 
-BASE_CHARM_DIR = "tests.charms.tls_certificates_interface.v1.dummy_requirer_charm.src.charm.DummyTLSCertificatesRequirerCharm"  # noqa: E501
+BASE_CHARM_DIR = "tests.unit.charms.tls_certificates_interface.v1.dummy_requirer_charm.src.charm.DummyTLSCertificatesRequirerCharm"  # noqa: E501
 LIB_DIR = "lib.charms.tls_certificates_interface.v1.tls_certificates"
 SECONDS_IN_ONE_HOUR = 60 * 60
 
