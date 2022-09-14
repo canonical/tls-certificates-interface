@@ -732,29 +732,18 @@ class TLSCertificatesProvidesV1(Object):
         self.charm = charm
         self.relationship_name = relationship_name
 
-    @property
-    def _provider_certificates(self) -> List[Dict]:
-        """Returns list of provider CSR's from relation data."""
-        relation = self.model.get_relation(self.relationship_name)
-        if not relation:
-            raise RuntimeError(f"Relation {self.relationship_name} does not exist")
-        provider_relation_data = _load_relation_data(relation.data[self.model.app])
-        return provider_relation_data.get("certificates", [])
-
-    def _requirer_csrs(self, unit) -> List[Dict[str, str]]:
-        """Returns list of requirer CSR's from relation data."""
-        relation = self.model.get_relation(self.relationship_name)
-        if not relation:
-            raise RuntimeError(f"Relation {self.relationship_name} does not exist")
-        requirer_relation_data = _load_relation_data(relation.data[unit])
-        return requirer_relation_data.get("certificate_signing_requests", [])
-
     def _add_certificate(
-        self, certificate: str, certificate_signing_request: str, ca: str, chain: List[str]
+        self,
+        relation_id: int,
+        certificate: str,
+        certificate_signing_request: str,
+        ca: str,
+        chain: List[str],
     ) -> None:
         """Adds certificate to relation data.
 
         Args:
+            relation_id (int): Relation id
             certificate (str): Certificate
             certificate_signing_request (str): Certificate Signing Request
             ca (str): CA Certificate
@@ -763,7 +752,9 @@ class TLSCertificatesProvidesV1(Object):
         Returns:
             None
         """
-        relation = self.model.get_relation(self.relationship_name)
+        relation = self.model.get_relation(
+            relation_name=self.relationship_name, relation_id=relation_id
+        )
         if not relation:
             raise RuntimeError(
                 f"Relation {self.relationship_name} does not exist - "
@@ -775,7 +766,9 @@ class TLSCertificatesProvidesV1(Object):
             "ca": ca,
             "chain": chain,
         }
-        certificates = copy.deepcopy(self._provider_certificates)
+        provider_relation_data = _load_relation_data(relation.data[self.charm.app])
+        provider_certificates = provider_relation_data.get("certificates", [])
+        certificates = copy.deepcopy(provider_certificates)
         if new_certificate in certificates:
             logger.info("Certificate already in relation data - Doing nothing")
             return
@@ -806,7 +799,9 @@ class TLSCertificatesProvidesV1(Object):
             raise RuntimeError(
                 f"Relation {self.relationship_name} with relation id {relation_id} does not exist"
             )
-        certificates = copy.deepcopy(self._provider_certificates)
+        provider_relation_data = _load_relation_data(relation.data[self.charm.app])
+        provider_certificates = provider_relation_data.get("certificates", [])
+        certificates = copy.deepcopy(provider_certificates)
         for certificate_dict in certificates:
             if certificate and certificate_dict["certificate"] == certificate:
                 certificates.remove(certificate_dict)
@@ -863,6 +858,7 @@ class TLSCertificatesProvidesV1(Object):
             relation_id=relation_id,
         )
         self._add_certificate(
+            relation_id=relation_id,
             certificate=certificate.strip(),
             certificate_signing_request=certificate_signing_request.strip(),
             ca=ca.strip(),
@@ -900,18 +896,21 @@ class TLSCertificatesProvidesV1(Object):
             None
         """
         requirer_relation_data = _load_relation_data(event.relation.data[event.unit])
+        provider_relation_data = _load_relation_data(event.relation.data[self.charm.app])
         if not self._relation_data_is_valid(requirer_relation_data):
             logger.warning(
                 f"Relation data did not pass JSON Schema validation: {requirer_relation_data}"
             )
             return
+        provider_certificates = provider_relation_data.get("certificates", [])
+        requirer_csrs = requirer_relation_data.get("certificate_signing_requests", [])
         provider_csrs = [
             certificate_creation_request["certificate_signing_request"]
-            for certificate_creation_request in self._provider_certificates
+            for certificate_creation_request in provider_certificates
         ]
         requirer_unit_csrs = [
             certificate_creation_request["certificate_signing_request"]
-            for certificate_creation_request in self._requirer_csrs(event.unit)
+            for certificate_creation_request in requirer_csrs
         ]
         for certificate_signing_request in requirer_unit_csrs:
             if certificate_signing_request not in provider_csrs:
@@ -938,12 +937,14 @@ class TLSCertificatesProvidesV1(Object):
         )
         if not certificates_relation:
             raise RuntimeError(f"Relation {self.relationship_name} does not exist")
+        provider_relation_data = _load_relation_data(certificates_relation.data[self.charm.app])
         list_of_csrs: List[str] = []
         for unit in certificates_relation.units:
-            list_of_csrs.extend(
-                csr["certificate_signing_request"] for csr in self._requirer_csrs(unit)
-            )
-        for certificate in self._provider_certificates:
+            requirer_relation_data = _load_relation_data(certificates_relation.data[unit])
+            requirer_csrs = requirer_relation_data.get("certificate_signing_requests", [])
+            list_of_csrs.extend(csr["certificate_signing_request"] for csr in requirer_csrs)
+        provider_certificates = provider_relation_data.get("certificates", [])
+        for certificate in provider_certificates:
             if certificate["certificate_signing_request"] not in list_of_csrs:
                 self.on.certificate_revocation_request.emit(
                     certificate=certificate["certificate"],

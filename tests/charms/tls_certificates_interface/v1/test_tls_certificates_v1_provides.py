@@ -376,6 +376,63 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         loaded_relation_data = _load_relation_data(dict(provider_relation_data))
         self.assertEqual(expected_relation_data, loaded_relation_data)
 
+    def test_given_more_than_one_remote_application_when_set_relation_certificate_then_certificate_is_added_to_correct_application_data_bag(  # noqa: E501
+        self,
+    ):
+        remote_app_1 = "tls-requirer-1"
+        remote_app_2 = "tls-requirer-2"
+        remote_app_1_unit_name = "tls-requirer-1/0"
+        remote_app_2_unit_name = "tls-requirer-2/0"
+        self.harness.set_leader(is_leader=True)
+        relation_1_id = self.harness.add_relation(
+            relation_name=self.relation_name, remote_app=remote_app_1
+        )
+        relation_2_id = self.harness.add_relation(
+            relation_name=self.relation_name, remote_app=remote_app_2
+        )
+        self.harness.add_relation_unit(
+            relation_id=relation_1_id, remote_unit_name=remote_app_1_unit_name
+        )
+        self.harness.add_relation_unit(
+            relation_id=relation_2_id, remote_unit_name=remote_app_2_unit_name
+        )
+        ca = "whatever ca"
+        certificate = "whatever certificate"
+        certificate_signing_request = "whatever certificate signing request"
+        chain = ["whatever cert 1", "whatever cert 2"]
+
+        self.harness.charm.certificates.set_relation_certificate(
+            certificate=certificate,
+            ca=ca,
+            chain=chain,
+            certificate_signing_request=certificate_signing_request,
+            relation_id=relation_2_id,
+        )
+
+        relation_1_data = self.harness.get_relation_data(
+            relation_id=relation_1_id, app_or_unit=self.harness.charm.app
+        )
+        relation_2_data = self.harness.get_relation_data(
+            relation_id=relation_2_id, app_or_unit=self.harness.charm.app
+        )
+
+        self.assertEqual(relation_1_data, {})
+        self.assertEqual(
+            relation_2_data,
+            {
+                "certificates": json.dumps(
+                    [
+                        {
+                            "certificate": certificate,
+                            "certificate_signing_request": certificate_signing_request,
+                            "ca": ca,
+                            "chain": chain,
+                        }
+                    ]
+                )
+            },
+        )
+
     def test_given_certificate_in_relation_data_when_remove_certificate_then_certificate_is_removed_from_relation(  # noqa: E501
         self,
     ):
@@ -432,3 +489,128 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         )
         provider_relation_data = _load_relation_data(dict(provider_relation_data))
         self.assertEqual({"certificates": certificates_in_relation_data}, provider_relation_data)
+
+    def test_given_more_than_one_remote_application_when_remove_relation_certificate_then_certificate_is_removed_from_correct_application_data_bag(  # noqa: E501
+        self,
+    ):
+        remote_app_1 = "tls-requirer-1"
+        remote_app_2 = "tls-requirer-2"
+        remote_app_1_unit_name = "tls-requirer-1/0"
+        remote_app_2_unit_name = "tls-requirer-2/0"
+        self.harness.set_leader(is_leader=True)
+        relation_1_id = self.harness.add_relation(
+            relation_name=self.relation_name, remote_app=remote_app_1
+        )
+        relation_2_id = self.harness.add_relation(
+            relation_name=self.relation_name, remote_app=remote_app_2
+        )
+        self.harness.add_relation_unit(
+            relation_id=relation_1_id, remote_unit_name=remote_app_1_unit_name
+        )
+        self.harness.add_relation_unit(
+            relation_id=relation_2_id, remote_unit_name=remote_app_2_unit_name
+        )
+
+        relation_1_csr = "whatever csr 1"
+        relation_2_csr = "whatever csr 2"
+        relation_1_certificate = "whatever cert 1"
+        relation_2_certificate = "whatever cert 2"
+        relation_1_ca = "whatever ca 1"
+        relation_2_ca = "whatever ca 2"
+        relation_1_chain = ["whatever cert 1", "whatever cert 2"]
+        relation_2_chain = ["whatever cert 3", "whatever cert 4"]
+        certificates_in_relation_1 = [
+            {
+                "certificate_signing_request": relation_1_csr,
+                "certificate": relation_1_certificate,
+                "ca": relation_1_ca,
+                "chain": relation_1_chain,
+            }
+        ]
+        certificates_in_relation_2 = [
+            {
+                "certificate_signing_request": relation_2_csr,
+                "certificate": relation_2_certificate,
+                "ca": relation_2_ca,
+                "chain": relation_2_chain,
+            }
+        ]
+        self.harness.update_relation_data(
+            relation_id=relation_1_id,
+            app_or_unit=self.harness.charm.app.name,
+            key_values={"certificates": json.dumps(certificates_in_relation_1)},
+        )
+        self.harness.update_relation_data(
+            relation_id=relation_2_id,
+            app_or_unit=self.harness.charm.app.name,
+            key_values={"certificates": json.dumps(certificates_in_relation_2)},
+        )
+
+        self.harness.charm.certificates.remove_certificate(certificate=relation_2_certificate)
+
+        relation_1_data = self.harness.get_relation_data(
+            relation_id=relation_1_id, app_or_unit=self.harness.charm.app
+        )
+        relation_2_data = self.harness.get_relation_data(
+            relation_id=relation_2_id, app_or_unit=self.harness.charm.app
+        )
+        self.assertEqual(relation_1_data, {"certificates": json.dumps(certificates_in_relation_1)})
+        self.assertEqual(relation_2_data, {"certificates": "[]"})
+
+    @patch(f"{BASE_CHARM_DIR}._on_certificate_creation_request")
+    def test_given_more_than_one_application_related_to_operator_when_csrs_are_added_to_remote_units_databag_then_certificate_creation_requests_are_triggered(  # noqa: E501
+        self, patch_certificate_creation_request
+    ):
+        remote_app_1 = "tls-requirer-1"
+        remote_app_2 = "tls-requirer-2"
+        remote_app_1_unit_name = "tls-requirer-1/0"
+        remote_app_2_unit_name = "tls-requirer-2/0"
+        self.harness.set_leader(is_leader=True)
+        relation_1_id = self.harness.add_relation(
+            relation_name=self.relation_name, remote_app=remote_app_1
+        )
+        relation_2_id = self.harness.add_relation(
+            relation_name=self.relation_name, remote_app=remote_app_2
+        )
+        self.harness.add_relation_unit(
+            relation_id=relation_1_id, remote_unit_name=remote_app_1_unit_name
+        )
+        self.harness.add_relation_unit(
+            relation_id=relation_2_id, remote_unit_name=remote_app_2_unit_name
+        )
+        csr_1 = "whatever csr 1"
+        csr_2 = "whatever csr 2"
+        requirer_app_1_unit_data = {
+            "certificate_signing_requests": json.dumps(
+                [
+                    {
+                        "certificate_signing_request": csr_1,
+                    }
+                ]
+            )
+        }
+        requirer_app_2_unit_data = {
+            "certificate_signing_requests": json.dumps(
+                [
+                    {
+                        "certificate_signing_request": csr_2,
+                    }
+                ]
+            )
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_1_id,
+            app_or_unit=remote_app_1_unit_name,
+            key_values=requirer_app_1_unit_data,
+        )
+        self.harness.update_relation_data(
+            relation_id=relation_2_id,
+            app_or_unit=remote_app_2_unit_name,
+            key_values=requirer_app_2_unit_data,
+        )
+
+        call_args_list = patch_certificate_creation_request.call_args_list
+        self.assertEqual(call_args_list[0].args[0].certificate_signing_request, csr_1)
+        self.assertEqual(call_args_list[0].args[0].relation_id, relation_1_id)
+        self.assertEqual(call_args_list[1].args[0].certificate_signing_request, csr_2)
+        self.assertEqual(call_args_list[1].args[0].relation_id, relation_2_id)
