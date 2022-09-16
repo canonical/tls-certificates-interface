@@ -1,7 +1,6 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-
 name: tls-certificates-requirer
 description: tls-certificates-requirer.
 summary: tls-certificates-requirer.
@@ -12,4 +11,4 @@ requires:
 
 peers:
   replicas:
-    interface: orc8r-certifier-replica
+    interface: tls-certificates-replica
