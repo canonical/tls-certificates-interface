@@ -2,14 +2,13 @@
 # See LICENSE file for licensing details.
 
 
-name: tls-certificates-interface-provider
+name: tls-certificates-interface-requirer
 
 description: |
-  Dummy tls-certificates-interface provider.
+  Dummy tls-certificates-interface requirer.
 summary: |
-    Dummy tls-certificates-interface provider.
+    Dummy tls-certificates-interface requirer.
 
-
-provides:
+requires:
   certificates:
     interface: tls-certificates

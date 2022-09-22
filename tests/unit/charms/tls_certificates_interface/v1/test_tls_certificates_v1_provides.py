@@ -8,13 +8,13 @@ from unittest.mock import PropertyMock, call, patch
 
 from ops import testing
 
-from tests.charms.tls_certificates_interface.v1.dummy_provider_charm.src.charm import (
+from tests.unit.charms.tls_certificates_interface.v1.dummy_provider_charm.src.charm import (
     DummyTLSCertificatesProviderCharm,
 )
 
 testing.SIMULATE_CAN_CONNECT = True
 
-BASE_CHARM_DIR = "tests.charms.tls_certificates_interface.v1.dummy_provider_charm.src.charm.DummyTLSCertificatesProviderCharm"  # noqa: E501
+BASE_CHARM_DIR = "tests.unit.charms.tls_certificates_interface.v1.dummy_provider_charm.src.charm.DummyTLSCertificatesProviderCharm"  # noqa: E501
 LIB_DIR = "lib.charms.tls_certificates_interface.v1.tls_certificates"
 
 
