@@ -903,6 +903,7 @@ class TLSCertificatesProvidesV1(Object):
         Returns:
             None
         """
+        assert event.unit is not None
         requirer_relation_data = _load_relation_data(event.relation.data[event.unit])
         provider_relation_data = _load_relation_data(event.relation.data[self.charm.app])
         if not self._relation_data_is_valid(requirer_relation_data):
@@ -1154,7 +1155,7 @@ class TLSCertificatesRequiresV1(Object):
         if not self._relation_data_is_valid(provider_relation_data):
             logger.warning(
                 f"Provider relation data did not pass JSON Schema validation: "
-                f"{event.relation.data[event.app]}"
+                f"{event.relation.data[relation.app]}"
             )
             return
         requirer_csrs = [

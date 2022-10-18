@@ -113,6 +113,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         self, patch_certificate_creation_request
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
+        self.harness.set_leader(is_leader=True)
         csr = "whatever csr"
         provider_app_data = {
             "certificates": json.dumps(
@@ -157,6 +158,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         self, patch_certificate_revocation_request, _
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
+        self.harness.set_leader(is_leader=True)
         certificate = "whatever cert"
         csr = "whatever csr"
         ca = "whatever ca"
@@ -203,6 +205,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         patch_remove_certificate,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
+        self.harness.set_leader(is_leader=True)
         certificate = "whatever cert"
         self.harness.update_relation_data(
             relation_id=relation_id,
