@@ -614,3 +614,33 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         self.assertEqual(call_args_list[0].args[0].relation_id, relation_1_id)
         self.assertEqual(call_args_list[1].args[0].certificate_signing_request, csr_2)
         self.assertEqual(call_args_list[1].args[0].relation_id, relation_2_id)
+
+    def test_given_certificates_in_relation_data_when_revoke_all_certificates_then_no_certificates_are_present(  # noqa: e501
+        self,
+    ):
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
+        self.harness.set_leader(is_leader=True)
+        certificate = "whatever cert"
+        key_values = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "certificate_signing_request": "whatever csr",
+                        "certificate": certificate,
+                        "ca": "whatever ca",
+                        "chain": ["whatever cert 1", "whatever cert 2"],
+                    }
+                ]
+            )
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id, app_or_unit=self.harness.charm.app.name, key_values=key_values
+        )
+
+        self.harness.charm.certificates.revoke_all_certificates()
+
+        provider_relation_data = self.harness.get_relation_data(
+            relation_id=relation_id, app_or_unit=self.harness.charm.app.name
+        )
+        provider_relation_data = _load_relation_data(dict(provider_relation_data))
+        self.assertEqual({"certificates": []}, provider_relation_data)
