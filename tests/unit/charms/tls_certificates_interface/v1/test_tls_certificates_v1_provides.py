@@ -645,5 +645,5 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         provider_relation_data = self.harness.get_relation_data(
             relation_id=relation_id, app_or_unit=self.harness.charm.app.name
         )
-        provider_relation_data = _load_relation_data(dict(provider_relation_data))
+        provider_relation_data = _load_relation_data(provider_relation_data)
         self.assertEqual({"certificates": []}, provider_relation_data)
