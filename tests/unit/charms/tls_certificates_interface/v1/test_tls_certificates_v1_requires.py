@@ -249,7 +249,7 @@ class Test(unittest.TestCase):
         csr = "whatever csr"
         certificate = "whatever certificate"
         unit_relation_data = {
-            "certificate_signing_requests": [{"certificate_signing_request": csr}]
+            "certificate_signing_requests": json.dumps([{"certificate_signing_request": csr}])
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -257,14 +257,16 @@ class Test(unittest.TestCase):
             key_values=unit_relation_data,
         )
         remote_app_relation_data = {
-            "certificates": [
-                {
-                    "ca": ca_certificate,
-                    "chain": chain,
-                    "certificate_signing_request": csr,
-                    "certificate": certificate,
-                }
-            ]
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate,
+                        "chain": chain,
+                        "certificate_signing_request": csr,
+                        "certificate": certificate,
+                    }
+                ]
+            )
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -291,14 +293,16 @@ class Test(unittest.TestCase):
         certificate = "whatever certificate"
 
         remote_app_relation_data = {
-            "certificates": [
-                {
-                    "ca": ca_certificate,
-                    "chain": chain,
-                    "certificate_signing_request": csr,
-                    "certificate": certificate,
-                }
-            ]
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate,
+                        "chain": chain,
+                        "certificate_signing_request": csr,
+                        "certificate": certificate,
+                    }
+                ]
+            )
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -318,7 +322,7 @@ class Test(unittest.TestCase):
         csr = "whatever csr"
         certificate = "whatever certificate"
         unit_relation_data = {
-            "certificate_signing_requests": [{"certificate_signing_request": csr}]
+            "certificate_signing_requests": json.dumps([{"certificate_signing_request": csr}])
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -326,13 +330,15 @@ class Test(unittest.TestCase):
             key_values=unit_relation_data,
         )
         remote_app_relation_data = {
-            "certificates": [
-                {
-                    "ca": ca_certificate,
-                    "chain": chain,
-                    "certificate": certificate,
-                }
-            ]
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate,
+                        "chain": chain,
+                        "certificate": certificate,
+                    }
+                ]
+            )
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -369,14 +375,16 @@ class Test(unittest.TestCase):
         )
 
         remote_app_relation_data = {
-            "certificates": [
-                {
-                    "ca": ca_certificate.decode(),
-                    "chain": ["a", "b"],
-                    "certificate_signing_request": certificate_signing_request.decode(),
-                    "certificate": certificate.decode(),
-                }
-            ]
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate.decode(),
+                        "chain": ["a", "b"],
+                        "certificate_signing_request": certificate_signing_request.decode(),
+                        "certificate": certificate.decode(),
+                    }
+                ]
+            )
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -418,14 +426,16 @@ class Test(unittest.TestCase):
         )
 
         remote_app_relation_data = {
-            "certificates": [
-                {
-                    "ca": ca_certificate.decode(),
-                    "chain": ["a", "b"],
-                    "certificate_signing_request": certificate_signing_request.decode(),
-                    "certificate": certificate.decode(),
-                }
-            ]
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate.decode(),
+                        "chain": ["a", "b"],
+                        "certificate_signing_request": certificate_signing_request.decode(),
+                        "certificate": certificate.decode(),
+                    }
+                ]
+            )
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -464,14 +474,16 @@ class Test(unittest.TestCase):
         )
 
         remote_app_relation_data = {
-            "certificates": [
-                {
-                    "ca": ca_certificate.decode(),
-                    "chain": ["a", "b"],
-                    "certificate_signing_request": certificate_signing_request.decode(),
-                    "certificate": certificate.decode(),
-                }
-            ]
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate.decode(),
+                        "chain": ["a", "b"],
+                        "certificate_signing_request": certificate_signing_request.decode(),
+                        "certificate": certificate.decode(),
+                    }
+                ]
+            )
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -519,14 +531,16 @@ class Test(unittest.TestCase):
         )
 
         remote_app_relation_data = {
-            "certificates": [
-                {
-                    "ca": ca_certificate.decode(),
-                    "chain": ["a", "b"],
-                    "certificate_signing_request": certificate_signing_request.decode(),
-                    "certificate": certificate.decode(),
-                }
-            ]
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate.decode(),
+                        "chain": ["a", "b"],
+                        "certificate_signing_request": certificate_signing_request.decode(),
+                        "certificate": certificate.decode(),
+                    }
+                ]
+            )
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
