@@ -243,7 +243,7 @@ LIBAPI = 1
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 9
+LIBPATCH = 10
 
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
@@ -582,7 +582,7 @@ def generate_certificate(
     )
 
     extensions_list = csr_object.extensions
-    san_ext: Optional[x509.SubjectAlternativeName] = None
+    san_ext: Optional[x509.Extension] = None
     if alt_names:
         full_sans_dns = alt_names.copy()
         try:
@@ -599,7 +599,7 @@ def generate_certificate(
                 x509.SubjectAlternativeName([x509.DNSName(name) for name in full_sans_dns]),
             )
             if not extensions_list:
-                extensions_list = [san_ext]
+                extensions_list = x509.Extensions([san_ext])
 
     for extension in extensions_list:
         if extension.value.oid == ExtensionOID.SUBJECT_ALTERNATIVE_NAME and san_ext:
@@ -727,7 +727,7 @@ def generate_csr(
         subject_name.append(x509.NameAttribute(x509.NameOID.COUNTRY_NAME, country_name))
     csr = x509.CertificateSigningRequestBuilder(subject_name=x509.Name(subject_name))
 
-    _sans = []
+    _sans: List[x509.GeneralName] = []
     if sans_oid:
         _sans.extend([x509.RegisteredID(x509.ObjectIdentifier(san)) for san in sans_oid])
     if sans_ip:
