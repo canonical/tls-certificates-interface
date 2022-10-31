@@ -28,10 +28,14 @@ class TestIntegration:
         TestIntegration.requirer_charm = await ops_test.build_charm(f"{REQUIRER_CHARM_DIR}/")
         TestIntegration.provider_charm = await ops_test.build_charm(f"{PROVIDER_CHARM_DIR}/")
         await ops_test.model.deploy(
-            TestIntegration.requirer_charm, application_name=TLS_CERTIFICATES_REQUIRER_APP_NAME
+            TestIntegration.requirer_charm,
+            application_name=TLS_CERTIFICATES_REQUIRER_APP_NAME,
+            series="focal",
         )
         await ops_test.model.deploy(
-            TestIntegration.provider_charm, application_name=TLS_CERTIFICATES_PROVIDER_APP_NAME
+            TestIntegration.provider_charm,
+            application_name=TLS_CERTIFICATES_PROVIDER_APP_NAME,
+            series="focal",
         )
 
         await ops_test.model.wait_for_idle(
@@ -70,7 +74,7 @@ class TestIntegration:
     ):
         new_requirer_app_name = "new-tls-requirer"
         await ops_test.model.deploy(
-            TestIntegration.requirer_charm, application_name=new_requirer_app_name
+            TestIntegration.requirer_charm, application_name=new_requirer_app_name, series="focal"
         )
         await ops_test.model.add_relation(
             relation1=new_requirer_app_name,
