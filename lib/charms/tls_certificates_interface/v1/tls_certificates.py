@@ -561,7 +561,7 @@ def generate_certificate(
         ca_key (bytes): CA private key
         ca_key_password: CA private key password
         validity (int): Certificate validity (in days)
-        alt_names (list): List of alt names to put on cert - deprecated - put names in CSR
+        alt_names (list): List of alt names to put on cert - prefer putting SANs in CSR
 
     Returns:
         bytes: Certificate
@@ -701,7 +701,7 @@ def generate_csr(
         email_address (str): Email address.
         country_name (str): Country Name.
         private_key_password (bytes): Private key password
-        sans (list): USE sans_dns - this will be deprecated in a future release
+        sans (list): Use sans_dns - this will be deprecated in a future release
             List of DNS subject alternative names (keeping it for now for backward compatibility)
         sans_oid (list): List of registered ID SANs
         sans_dns (list): List of DNS subject alternative names (similar to the arg: sans)
