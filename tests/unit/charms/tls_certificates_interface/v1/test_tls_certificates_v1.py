@@ -233,6 +233,48 @@ def test_given_csr_and_ca_when_generate_certificate_then_certificate_is_generate
     )
 
 
+def test_given_csr_and_ca_when_generate_certificate_then_certificate_is_generated_with_correct_sans():  # noqa: E501
+    ca_subject = "ca.subject"
+    csr_subject = "csr.subject"
+    sans = ["www.localhost.com", "www.test.com"]
+    sans_dns = ["www.localhost.com", "www.canonical.com"]
+    sans_ip = ["192.168.1.1", "127.0.0.1"]
+    sans_oid = ["1.2.3.4.5.5", "1.1.1.1.1.1"]
+
+    ca_key = generate_private_key_helper()
+    ca = generate_ca_helper(
+        private_key=ca_key,
+        subject=ca_subject,
+    )
+    csr_private_key = generate_private_key_helper()
+    csr = generate_csr(
+        private_key=csr_private_key,
+        subject=csr_subject,
+        sans=sans,
+        sans_dns=sans_dns,
+        sans_ip=sans_ip,
+        sans_oid=sans_oid,
+    )
+
+    certificate = generate_certificate(csr=csr, ca=ca, ca_key=ca_key)
+
+    cert = x509.load_pem_x509_certificate(certificate)
+    result_all_sans = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
+
+    result_sans_dns = sorted(result_all_sans.value.get_values_for_type(x509.DNSName))
+    assert result_sans_dns == sorted(set(sans + sans_dns))
+
+    result_sans_ip = sorted(
+        [str(val) for val in result_all_sans.value.get_values_for_type(x509.IPAddress)]
+    )
+    assert result_sans_ip == sorted(sans_ip)
+
+    result_sans_oid = sorted(
+        [val.dotted_string for val in result_all_sans.value.get_values_for_type(x509.RegisteredID)]
+    )
+    assert result_sans_oid == sorted(sans_oid)
+
+
 def test_given_alt_names_when_generate_certificate_then_alt_names_are_correctly_populated():
     ca_subject = "whatever.ca.subject"
     csr_subject = "whatever.csr.subject"
@@ -261,6 +303,35 @@ def test_given_alt_names_when_generate_certificate_then_alt_names_are_correctly_
     assert len(alt_name_strings) == 2
     assert alt_name_1 in alt_name_strings
     assert alt_name_2 in alt_name_strings
+
+
+def test_given_sans_in_csr_and_alt_names_when_generate_certificate_then_alt_names_are_correctly_appended_to_sans():
+    ca_subject = "ca.subject"
+    csr_subject = "csr.subject"
+    src_sans_dns = ["www.localhost.com", "www.canonical.com"]
+    src_alt_names = ["*.example.com", "*.nms.example.com", "www.localhost.com"]
+
+    ca_key = generate_private_key_helper()
+    ca = generate_ca_helper(
+        private_key=ca_key,
+        subject=ca_subject,
+    )
+    csr_private_key = generate_private_key_helper()
+    csr = generate_csr(
+        private_key=csr_private_key,
+        subject=csr_subject,
+        sans_dns=src_sans_dns,
+    )
+
+    certificate = generate_certificate(csr=csr, ca=ca, ca_key=ca_key, alt_names=src_alt_names)
+
+    cert = x509.load_pem_x509_certificate(certificate)
+    result_all_sans = cert.extensions.get_extension_for_class(
+        x509.extensions.SubjectAlternativeName
+    )
+    result_sans_dns = sorted(result_all_sans.value.get_values_for_type(x509.DNSName))
+
+    assert result_sans_dns == sorted(src_sans_dns + src_alt_names)
 
 
 def test_given_basic_constraint_is_false_when_generate_ca_then_extensions_are_correctly_populated():  # noqa: E501
