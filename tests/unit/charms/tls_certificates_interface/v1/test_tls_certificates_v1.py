@@ -262,7 +262,7 @@ def test_given_csr_and_ca_when_generate_certificate_then_certificate_is_generate
     result_all_sans = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
 
     result_sans_dns = sorted(result_all_sans.value.get_values_for_type(x509.DNSName))
-    assert result_sans_dns == sorted(list(set(sans + sans_dns)))
+    assert result_sans_dns == sorted(set(sans + sans_dns))
 
     result_sans_ip = sorted(
         [str(val) for val in result_all_sans.value.get_values_for_type(x509.IPAddress)]
