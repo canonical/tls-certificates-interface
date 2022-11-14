@@ -642,11 +642,22 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         self.harness.charm.certificates.revoke_all_certificates()
 
+        expected = {
+            "certificates": [
+                {
+                    "certificate_signing_request": "whatever csr",
+                    "certificate": certificate,
+                    "ca": "whatever ca",
+                    "chain": ["whatever cert 1", "whatever cert 2"],
+                    "revoked": True,
+                }
+            ]
+        }
         provider_relation_data = self.harness.get_relation_data(
             relation_id=relation_id, app_or_unit=self.harness.charm.app.name
         )
         provider_relation_data = _load_relation_data(provider_relation_data)
-        self.assertEqual({"certificates": []}, provider_relation_data)
+        self.assertEqual(expected, provider_relation_data)
 
     def test_given_no_certificates_in_relation_data_when_revoke_all_certificates_then_no_certificates_are_present(  # noqa: e501
         self,

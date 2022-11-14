@@ -8,6 +8,7 @@ from lib.charms.tls_certificates_interface.v1.tls_certificates import (
     CertificateAvailableEvent,
     CertificateExpiredEvent,
     CertificateExpiringEvent,
+    CertificateRevokedEvent,
     TLSCertificatesRequiresV1,
 )
 
@@ -27,6 +28,9 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         self.framework.observe(
             self.certificates.on.certificate_expired, self._on_certificate_expired
         )
+        self.framework.observe(
+            self.certificates.on.certificate_revoked, self._on_certificate_revoked
+        )
 
     def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
         pass
@@ -35,6 +39,9 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         pass
 
     def _on_certificate_expired(self, event: CertificateExpiredEvent) -> None:
+        pass
+
+    def _on_certificate_revoked(self, event: CertificateRevokedEvent) -> None:
         pass
 
 

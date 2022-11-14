@@ -126,6 +126,7 @@ Example:
 from charms.tls_certificates_interface.v1.tls_certificates import (
     CertificateAvailableEvent,
     CertificateExpiringEvent,
+    CertificateRevokedEvent,
     TLSCertificatesRequiresV1,
     generate_csr,
     generate_private_key,
@@ -150,6 +151,9 @@ class ExampleRequirerCharm(CharmBase):
         )
         self.framework.observe(
             self.certificates.on.certificate_expiring, self._on_certificate_expiring
+        )
+        self.framework.observe(
+            self.certificates.on.certificate_revoked, self._on_certificate_revoked
         )
 
     def _on_install(self, event) -> None:
@@ -210,6 +214,30 @@ class ExampleRequirerCharm(CharmBase):
             new_certificate_signing_request=new_csr,
         )
         replicas_relation.data[self.app].update({"csr": new_csr.decode()})
+
+    def _on_certificate_revoked(self, event: CertificateRevokedEvent) -> None:
+        replicas_relation = self.model.get_relation("replicas")
+        if not replicas_relation:
+            self.unit.status = WaitingStatus("Waiting for peer relation to be created")
+            event.defer()
+            return
+        old_csr = replicas_relation.data[self.app].get("csr")
+        private_key_password = replicas_relation.data[self.app].get("private_key_password")
+        private_key = replicas_relation.data[self.app].get("private_key")
+        new_csr = generate_csr(
+            private_key=private_key.encode(),
+            private_key_password=private_key_password.encode(),
+            subject=self.cert_subject,
+        )
+        self.certificates.request_certificate_renewal(
+            old_certificate_signing_request=old_csr,
+            new_certificate_signing_request=new_csr,
+        )
+        replicas_relation.data[self.app].update({"csr": new_csr.decode()})
+        replicas_relation.data[self.app].pop("certificate")
+        replicas_relation.data[self.app].pop("ca")
+        replicas_relation.data[self.app].pop("chain")
+        self.unit.status = WaitingStatus("Waiting for new certificate")
 
 
 if __name__ == "__main__":
@@ -323,6 +351,10 @@ PROVIDER_JSON_SCHEMA = {
                             "$id": "#/properties/certificates/items/chain/items",
                         },
                     },
+                    "revoked": {
+                        "$id": "#/properties/certificates/items/revoked",
+                        "type": "boolean",
+                    },
                 },
                 "additionalProperties": True,
             },
@@ -410,6 +442,44 @@ class CertificateExpiredEvent(EventBase):
     def restore(self, snapshot: dict):
         """Restores snapshot."""
         self.certificate = snapshot["certificate"]
+
+
+class CertificateRevokedEvent(EventBase):
+    """Charm Event triggered when a TLS certificate is revoked."""
+
+    def __init__(
+        self,
+        handle: Handle,
+        certificate: str,
+        certificate_signing_request: str,
+        ca: str,
+        chain: List[str],
+        revoked: bool,
+    ):
+        super().__init__(handle)
+        self.certificate = certificate
+        self.certificate_signing_request = certificate_signing_request
+        self.ca = ca
+        self.chain = chain
+        self.revoked = revoked
+
+    def snapshot(self) -> dict:
+        """Returns snapshot."""
+        return {
+            "certificate": self.certificate,
+            "certificate_signing_request": self.certificate_signing_request,
+            "ca": self.ca,
+            "chain": self.chain,
+            "revoked": self.revoked,
+        }
+
+    def restore(self, snapshot: dict):
+        """Restores snapshot."""
+        self.certificate = snapshot["certificate"]
+        self.certificate_signing_request = snapshot["certificate_signing_request"]
+        self.ca = snapshot["ca"]
+        self.chain = snapshot["chain"]
+        self.revoked = snapshot["revoked"]
 
 
 class CertificateCreationRequestEvent(EventBase):
@@ -760,6 +830,7 @@ class CertificatesRequirerCharmEvents(CharmEvents):
     certificate_available = EventSource(CertificateAvailableEvent)
     certificate_expiring = EventSource(CertificateExpiringEvent)
     certificate_expired = EventSource(CertificateExpiredEvent)
+    certificate_revoked = EventSource(CertificateRevokedEvent)
 
 
 class TLSCertificatesProvidesV1(Object):
@@ -877,7 +948,11 @@ class TLSCertificatesProvidesV1(Object):
         This method is meant to be used when the Root CA has changed.
         """
         for relation in self.model.relations[self.relationship_name]:
-            relation.data[self.model.app]["certificates"] = json.dumps([])
+            provider_relation_data = _load_relation_data(relation.data[self.charm.app])
+            provider_certificates = copy.deepcopy(provider_relation_data.get("certificates", []))
+            for certificate in provider_certificates:
+                certificate["revoked"] = True
+            relation.data[self.model.app]["certificates"] = json.dumps(provider_certificates)
 
     def set_relation_certificate(
         self,
@@ -1207,12 +1282,21 @@ class TLSCertificatesRequiresV1(Object):
         ]
         for certificate in self._provider_certificates:
             if certificate["certificate_signing_request"] in requirer_csrs:
-                self.on.certificate_available.emit(
-                    certificate_signing_request=certificate["certificate_signing_request"],
-                    certificate=certificate["certificate"],
-                    ca=certificate["ca"],
-                    chain=certificate["chain"],
-                )
+                if certificate.get("revoked", False):
+                    self.on.certificate_revoked.emit(
+                        certificate_signing_request=certificate["certificate_signing_request"],
+                        certificate=certificate["certificate"],
+                        ca=certificate["ca"],
+                        chain=certificate["chain"],
+                        revoked=True,
+                    )
+                else:
+                    self.on.certificate_available.emit(
+                        certificate_signing_request=certificate["certificate_signing_request"],
+                        certificate=certificate["certificate"],
+                        ca=certificate["ca"],
+                        chain=certificate["chain"],
+                    )
 
     def _on_update_status(self, event: UpdateStatusEvent) -> None:
         """Triggered on update status event.
