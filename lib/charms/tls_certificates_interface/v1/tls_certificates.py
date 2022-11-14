@@ -551,7 +551,7 @@ def generate_certificate(
     ca_key: bytes,
     ca_key_password: Optional[bytes] = None,
     validity: int = 365,
-    alt_names: List[str] = None,
+    alt_names: Optional[List[str]] = None,
 ) -> bytes:
     """Generates a TLS certificate based on a CSR.
 
@@ -679,9 +679,9 @@ def generate_csr(
     private_key: bytes,
     subject: str,
     add_unique_id_to_subject_name: bool = True,
-    organization: str = None,
-    email_address: str = None,
-    country_name: str = None,
+    organization: Optional[str] = None,
+    email_address: Optional[str] = None,
+    country_name: Optional[str] = None,
     private_key_password: Optional[bytes] = None,
     sans: Optional[List[str]] = None,
     sans_oid: Optional[List[str]] = None,
@@ -821,8 +821,8 @@ class TLSCertificatesProvidesV1(Object):
     def _remove_certificate(
         self,
         relation_id: int,
-        certificate: str = None,
-        certificate_signing_request: str = None,
+        certificate: Optional[str] = None,
+        certificate_signing_request: Optional[str] = None,
     ) -> None:
         """Removes certificate from a given relation based on user provided certificate or csr.
 
