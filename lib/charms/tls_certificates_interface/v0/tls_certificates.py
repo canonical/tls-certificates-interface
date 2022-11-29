@@ -83,7 +83,7 @@ class ExampleRequirerCharm(CharmBase):
 """
 import json
 import logging
-from typing import List, Literal, TypedDict
+from typing import List, Literal, Optional, TypedDict
 
 from jsonschema import exceptions, validate  # type: ignore[import]
 from ops.charm import CharmBase, CharmEvents
@@ -97,7 +97,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 25
+LIBPATCH = 26
 
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
@@ -353,8 +353,8 @@ class TLSCertificatesRequires(Object):
         self,
         charm: CharmBase,
         relationship_name: str,
-        common_name: str = None,
-        sans: list = None,
+        common_name: Optional[str] = None,
+        sans: Optional[list] = None,
     ):
         super().__init__(charm, relationship_name)
         self.framework.observe(
@@ -369,7 +369,7 @@ class TLSCertificatesRequires(Object):
         self,
         cert_type: Literal["client", "server"],
         common_name: str,
-        sans: list = None,
+        sans: Optional[list] = None,
     ) -> None:
         """Request TLS certificate to provider charm.
 

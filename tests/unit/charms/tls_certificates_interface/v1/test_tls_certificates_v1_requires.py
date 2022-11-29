@@ -568,3 +568,116 @@ class Test(unittest.TestCase):
 
         patch_certificate_expired.assert_not_called()
         patch_certificate_expiring.assert_not_called()
+
+    @patch(f"{BASE_CHARM_DIR}._on_certificate_revoked")
+    def test_given_csr_in_unit_relation_data_and_certificate_revoked_in_remote_relation_data_when_relation_changed_then_certificate_revoked_event_emitted(  # noqa: E501
+        self, patch_on_certificate_revoked
+    ):
+        relation_id = self.create_certificates_relation()
+        ca_certificate = "whatever certificate"
+        chain = ["certificate 1", "certiicate 2", "certificate 3"]
+        csr = "whatever csr"
+        certificate = "whatever certificate"
+        unit_relation_data = {
+            "certificate_signing_requests": json.dumps([{"certificate_signing_request": csr}])
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values=unit_relation_data,
+        )
+        remote_app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate,
+                        "chain": chain,
+                        "certificate_signing_request": csr,
+                        "certificate": certificate,
+                        "revoked": True,
+                    }
+                ]
+            )
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values=remote_app_relation_data,
+        )
+
+        patch_on_certificate_revoked.assert_called()
+        args, _ = patch_on_certificate_revoked.call_args
+        certificate_revoked_event = args[0]
+        assert certificate_revoked_event.certificate == certificate
+        assert certificate_revoked_event.certificate_signing_request == csr
+        assert certificate_revoked_event.ca == ca_certificate
+        assert certificate_revoked_event.chain == chain
+        assert certificate_revoked_event.revoked
+
+    @patch(f"{BASE_CHARM_DIR}._on_certificate_revoked")
+    def test_given_no_csr_in_unit_relation_data_and_certificate_revoked_in_remote_relation_data_when_relation_changed_then_certificate_revoked_event_not_emitted(  # noqa: E501
+        self, patch_on_certificate_revoked
+    ):
+        relation_id = self.create_certificates_relation()
+        ca_certificate = "whatever certificate"
+        chain = ["certificate 1", "certiicate 2", "certificate 3"]
+        csr = "whatever csr"
+        certificate = "whatever certificate"
+
+        remote_app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate,
+                        "chain": chain,
+                        "certificate_signing_request": csr,
+                        "certificate": certificate,
+                        "revoked": True,
+                    }
+                ]
+            )
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values=remote_app_relation_data,
+        )
+
+        patch_on_certificate_revoked.assert_not_called()
+
+    @patch(f"{BASE_CHARM_DIR}._on_certificate_revoked")
+    def test_given_csr_in_unit_relation_data_and_certificate_revoked_in_remote_relation_data_badly_formatted_when_relation_changed_then_certificate_revoked_event_not_emitted(  # noqa: E501
+        self, patch_on_certificate_revoked
+    ):
+        relation_id = self.create_certificates_relation()
+        ca_certificate = "whatever certificate"
+        chain = ["certificate 1", "certiicate 2", "certificate 3"]
+        csr = "whatever csr"
+        certificate = "whatever certificate"
+        unit_relation_data = {
+            "certificate_signing_requests": json.dumps([{"certificate_signing_request": csr}])
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values=unit_relation_data,
+        )
+        remote_app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate,
+                        "chain": chain,
+                        "certificate": certificate,
+                        "revoked": True,
+                    }
+                ]
+            )
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values=remote_app_relation_data,
+        )
+
+        patch_on_certificate_revoked.assert_not_called()
