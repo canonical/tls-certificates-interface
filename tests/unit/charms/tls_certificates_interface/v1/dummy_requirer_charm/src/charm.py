@@ -5,10 +5,10 @@ from ops.charm import CharmBase
 from ops.main import main
 
 from lib.charms.tls_certificates_interface.v1.tls_certificates import (
+    AllCertificatesInvalidatedEvent,
     CertificateAvailableEvent,
-    CertificateExpiredEvent,
     CertificateExpiringEvent,
-    CertificateRevokedEvent,
+    CertificateInvalidatedEvent,
     TLSCertificatesRequiresV1,
 )
 
@@ -26,10 +26,11 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
             self.certificates.on.certificate_expiring, self._on_certificate_expiring
         )
         self.framework.observe(
-            self.certificates.on.certificate_expired, self._on_certificate_expired
+            self.certificates.on.certificate_invalidated, self._on_certificate_invalidated
         )
         self.framework.observe(
-            self.certificates.on.certificate_revoked, self._on_certificate_revoked
+            self.certificates.on.all_certificates_invalidated,
+            self._on_all_certificates_invalidated,
         )
 
     def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
@@ -38,10 +39,10 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
     def _on_certificate_expiring(self, event: CertificateExpiringEvent) -> None:
         pass
 
-    def _on_certificate_expired(self, event: CertificateExpiredEvent) -> None:
+    def _on_certificate_invalidated(self, event: CertificateInvalidatedEvent) -> None:
         pass
 
-    def _on_certificate_revoked(self, event: CertificateRevokedEvent) -> None:
+    def _on_all_certificates_invalidated(self, event: AllCertificatesInvalidatedEvent) -> None:
         pass
 
 

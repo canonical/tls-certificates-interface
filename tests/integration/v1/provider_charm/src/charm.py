@@ -96,9 +96,7 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
             bool: True/False
         """
         try:
-            if self.model.get_relation(relation_name):
-                return True
-            return False
+            return bool(self.model.get_relation(relation_name))
         except KeyError:
             return False
 
@@ -117,8 +115,7 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
         relation_data = replicas.data[self.app].get(key, None)
         if relation_data:
             return relation_data.strip()
-        else:
-            return None
+        return None
 
     def _generate_self_signed_certificates(self, certificate_signing_request: str) -> str:
         """Generates self-signed certificates.
@@ -155,10 +152,10 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
         logger.info("Root certificates generated and stored.")
 
     def _on_install(self, event: InstallEvent) -> None:
-        """Triggered when the Juju config is changed.
+        """Triggered on InstallEvent.
 
         Args:
-            event (ConfigChangedEvent): Juju event.
+            event (InstallEvent): Juju event.
 
         Returns:
             None

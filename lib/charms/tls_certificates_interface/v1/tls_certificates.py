@@ -60,10 +60,12 @@ class ExampleProviderCharm(CharmBase):
         super().__init__(*args)
         self.certificates = TLSCertificatesProvidesV1(self, "certificates")
         self.framework.observe(
-            self.certificates.on.certificate_request, self._on_certificate_request
+            self.certificates.on.certificate_request,
+            self._on_certificate_request
         )
         self.framework.observe(
-            self.certificates.on.certificate_revoked, self._on_certificate_revocation_request
+            self.certificates.on.certificate_revocation_request,
+            self._on_certificate_revocation_request
         )
         self.framework.observe(self.on.install, self._on_install)
 
@@ -134,6 +136,7 @@ from charms.tls_certificates_interface.v1.tls_certificates import (
 from ops.charm import CharmBase, RelationJoinedEvent
 from ops.main import main
 from ops.model import ActiveStatus, WaitingStatus
+from typing import Union
 
 
 class ExampleRequirerCharm(CharmBase):
@@ -153,7 +156,11 @@ class ExampleRequirerCharm(CharmBase):
             self.certificates.on.certificate_expiring, self._on_certificate_expiring
         )
         self.framework.observe(
-            self.certificates.on.certificate_revoked, self._on_certificate_revoked
+            self.certificates.on.certificate_invalidated, self._on_certificate_invalidated
+        )
+        self.framework.observe(
+            self.certificates.on.all_certificates_invalidated,
+            self._on_all_certificates_invalidated
         )
 
     def _on_install(self, event) -> None:
@@ -195,7 +202,7 @@ class ExampleRequirerCharm(CharmBase):
         replicas_relation.data[self.app].update({"chain": event.chain})
         self.unit.status = ActiveStatus()
 
-    def _on_certificate_expiring(self, event: CertificateExpiringEvent) -> None:
+    def _on_certificate_expiring(self, event: Union[CertificateExpiringEvent, CertificateInvalidatedEvent]) -> None:  # noqa
         replicas_relation = self.model.get_relation("replicas")
         if not replicas_relation:
             self.unit.status = WaitingStatus("Waiting for peer relation to be created")
@@ -215,12 +222,7 @@ class ExampleRequirerCharm(CharmBase):
         )
         replicas_relation.data[self.app].update({"csr": new_csr.decode()})
 
-    def _on_certificate_revoked(self, event: CertificateRevokedEvent) -> None:
-        replicas_relation = self.model.get_relation("replicas")
-        if not replicas_relation:
-            self.unit.status = WaitingStatus("Waiting for peer relation to be created")
-            event.defer()
-            return
+    def _certificate_revoked(self) -> None:
         old_csr = replicas_relation.data[self.app].get("csr")
         private_key_password = replicas_relation.data[self.app].get("private_key_password")
         private_key = replicas_relation.data[self.app].get("private_key")
@@ -239,10 +241,32 @@ class ExampleRequirerCharm(CharmBase):
         replicas_relation.data[self.app].pop("chain")
         self.unit.status = WaitingStatus("Waiting for new certificate")
 
+    def _on_certificate_invalidated(self, event: CertificateInvalidatedEvent) -> None:
+        replicas_relation = self.model.get_relation("replicas")
+        if not replicas_relation:
+            self.unit.status = WaitingStatus("Waiting for peer relation to be created")
+            event.defer()
+            return
+        if event.reason == "revoked":
+            self._on_certificate_revoked()
+        if event.reason == "expired":
+            self._on_certificate_expiring(event)
+
+    def _on_all_certificates_invalidated(self, event: AllCertificatesInvalidatedEvent) -> None:
+        # Do what you want with this information, probably remove all certificates.
+        pass
+
 
 if __name__ == "__main__":
     main(ExampleRequirerCharm)
 ```
+
+You can relate both chars by running:
+
+```bash
+juju relate <tls-certificates provider charm> <tls-certificates requirer charm>
+```
+
 """  # noqa: D405, D410, D411, D214, D416
 
 import copy
@@ -251,7 +275,7 @@ import logging
 import uuid
 from datetime import datetime, timedelta
 from ipaddress import IPv4Address
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from cryptography import x509
 from cryptography.hazmat._oid import ExtensionOID
@@ -260,18 +284,24 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import pkcs12
 from cryptography.x509.extensions import Extension, ExtensionNotFound
 from jsonschema import exceptions, validate  # type: ignore[import]
-from ops.charm import CharmBase, CharmEvents, RelationChangedEvent, UpdateStatusEvent
+from ops.charm import (
+    CharmBase,
+    CharmEvents,
+    RelationBrokenEvent,
+    RelationChangedEvent,
+    UpdateStatusEvent,
+)
 from ops.framework import EventBase, EventSource, Handle, Object
 
 # The unique Charmhub library identifier, never change it
 LIBID = "afd8c2bccf834997afce12c2706d2ede"
 
 # Increment this major API version when introducing breaking changes
-LIBAPI = 1
+LIBAPI = 2
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 10
+LIBPATCH = 11
 
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
@@ -441,58 +471,48 @@ class CertificateExpiringEvent(EventBase):
         self.expiry = snapshot["expiry"]
 
 
-class CertificateExpiredEvent(EventBase):
-    """Charm Event triggered when a TLS certificate is expired."""
-
-    def __init__(self, handle: Handle, certificate: str):
-        super().__init__(handle)
-        self.certificate = certificate
-
-    def snapshot(self) -> dict:
-        """Returns snapshot."""
-        return {"certificate": self.certificate}
-
-    def restore(self, snapshot: dict):
-        """Restores snapshot."""
-        self.certificate = snapshot["certificate"]
-
-
-class CertificateRevokedEvent(EventBase):
-    """Charm Event triggered when a TLS certificate is revoked."""
+class CertificateInvalidatedEvent(EventBase):
+    """Charm Event triggered when a TLS certificate is invalidated."""
 
     def __init__(
         self,
         handle: Handle,
-        certificate: str,
-        certificate_signing_request: str,
-        ca: str,
-        chain: List[str],
-        revoked: bool,
+        reason: Literal["expired", "revoked"],
+        context: Optional[dict] = None,
     ):
         super().__init__(handle)
-        self.certificate = certificate
-        self.certificate_signing_request = certificate_signing_request
-        self.ca = ca
-        self.chain = chain
-        self.revoked = revoked
+        self.reason = self._reason_is_valid(reason)
+        self.context = context
+
+    @staticmethod
+    def _reason_is_valid(reason: Literal["expired", "revoked"]) -> Literal["expired", "revoked"]:
+        if reason not in ["expired", "revoked"]:
+            raise TypeError(f"Invalid reason: {reason}. Must be one of 'expired', 'revoked'.")
+        return reason
 
     def snapshot(self) -> dict:
         """Returns snapshot."""
-        return {
-            "certificate": self.certificate,
-            "certificate_signing_request": self.certificate_signing_request,
-            "ca": self.ca,
-            "chain": self.chain,
-            "revoked": self.revoked,
-        }
+        return {"reason": self.reason, "context": self.context}
 
     def restore(self, snapshot: dict):
         """Restores snapshot."""
-        self.certificate = snapshot["certificate"]
-        self.certificate_signing_request = snapshot["certificate_signing_request"]
-        self.ca = snapshot["ca"]
-        self.chain = snapshot["chain"]
-        self.revoked = snapshot["revoked"]
+        self.reason = snapshot["reason"]
+        self.context = snapshot["context"]
+
+
+class AllCertificatesInvalidatedEvent(EventBase):
+    """Charm Event triggered when all TLS certificates are invalidated."""
+
+    def __init__(self, handle: Handle):
+        super().__init__(handle)
+
+    def snapshot(self) -> dict:
+        """Returns snapshot."""
+        return {}
+
+    def restore(self, snapshot: dict):
+        """Restores snapshot."""
+        pass
 
 
 class CertificateCreationRequestEvent(EventBase):
@@ -842,8 +862,8 @@ class CertificatesRequirerCharmEvents(CharmEvents):
 
     certificate_available = EventSource(CertificateAvailableEvent)
     certificate_expiring = EventSource(CertificateExpiringEvent)
-    certificate_expired = EventSource(CertificateExpiredEvent)
-    certificate_revoked = EventSource(CertificateRevokedEvent)
+    certificate_invalidated = EventSource(CertificateInvalidatedEvent)
+    all_certificates_invalidated = EventSource(AllCertificatesInvalidatedEvent)
 
 
 class TLSCertificatesProvidesV1(Object):
@@ -1121,6 +1141,9 @@ class TLSCertificatesRequiresV1(Object):
         self.framework.observe(
             charm.on[relationship_name].relation_changed, self._on_relation_changed
         )
+        self.framework.observe(
+            charm.on[relationship_name].relation_broken, self._on_relation_broken
+        )
         self.framework.observe(charm.on.update_status, self._on_update_status)
 
     @property
@@ -1296,12 +1319,17 @@ class TLSCertificatesRequiresV1(Object):
         for certificate in self._provider_certificates:
             if certificate["certificate_signing_request"] in requirer_csrs:
                 if certificate.get("revoked", False):
-                    self.on.certificate_revoked.emit(
-                        certificate_signing_request=certificate["certificate_signing_request"],
-                        certificate=certificate["certificate"],
-                        ca=certificate["ca"],
-                        chain=certificate["chain"],
-                        revoked=True,
+                    self.on.certificate_invalidated.emit(
+                        reason="revoked",
+                        context={
+                            "certificate_signing_request": certificate[
+                                "certificate_signing_request"
+                            ],
+                            "certificate": certificate["certificate"],
+                            "ca": certificate["ca"],
+                            "chain": certificate["chain"],
+                            "revoked": True,
+                        },
                     )
                 else:
                     self.on.certificate_available.emit(
@@ -1310,6 +1338,17 @@ class TLSCertificatesRequiresV1(Object):
                         ca=certificate["ca"],
                         chain=certificate["chain"],
                     )
+
+    def _on_relation_broken(self, event: RelationBrokenEvent) -> None:
+        """Handler triggerred on relation broken event.
+
+        Args:
+            event: Juju event
+
+        Returns:
+            None
+        """
+        self.on.all_certificates_invalidated.emit()
 
     def _on_update_status(self, event: UpdateStatusEvent) -> None:
         """Triggered on update status event.
@@ -1348,7 +1387,9 @@ class TLSCertificatesRequiresV1(Object):
             time_difference = certificate_object.not_valid_after - datetime.utcnow()
             if time_difference.total_seconds() < 0:
                 logger.warning("Certificate is expired")
-                self.on.certificate_expired.emit(certificate=certificate)
+                self.on.certificate_invalidated.emit(
+                    reason="expired", context={"certificate": certificate}
+                )
                 self.request_certificate_revocation(certificate.encode())
                 continue
             if time_difference.total_seconds() < (self.expiry_notification_time * 60 * 60):
