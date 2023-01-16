@@ -844,6 +844,4 @@ class Test(unittest.TestCase):
         )
 
         with pytest.raises(TypeError):
-            self.harness.charm.certificates.on.certificate_invalidated.emit(
-                reason="expired"
-            )
+            self.harness.charm.certificates.on.certificate_invalidated.emit(reason="expired")
