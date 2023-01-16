@@ -248,7 +248,7 @@ class ExampleRequirerCharm(CharmBase):
             event.defer()
             return
         if event.reason == "revoked":
-            self._on_certificate_revoked()
+            self._certificate_revoked()
         if event.reason == "expired":
             self._on_certificate_expiring(event)
 
@@ -478,11 +478,19 @@ class CertificateInvalidatedEvent(EventBase):
         self,
         handle: Handle,
         reason: Literal["expired", "revoked"],
-        context: Optional[dict] = None,
+        certificate: str,
+        certificate_signing_request: Optional[str] = None,
+        ca: Optional[str] = None,
+        chain: Optional[List[str]] = None,
+        revoked: bool = False,
     ):
         super().__init__(handle)
         self.reason = self._reason_is_valid(reason)
-        self.context = context
+        self.certificate_signing_request = certificate_signing_request
+        self.certificate = certificate
+        self.ca = ca
+        self.chain = chain
+        self.revoked = revoked
 
     @staticmethod
     def _reason_is_valid(reason: Literal["expired", "revoked"]) -> Literal["expired", "revoked"]:
@@ -492,12 +500,23 @@ class CertificateInvalidatedEvent(EventBase):
 
     def snapshot(self) -> dict:
         """Returns snapshot."""
-        return {"reason": self.reason, "context": self.context}
+        return {
+            "reason": self.reason,
+            "certificate_signing_request": self.certificate_signing_request,
+            "certificate": self.certificate,
+            "ca": self.ca,
+            "chain": self.chain,
+            "revoked": self.revoked,
+        }
 
     def restore(self, snapshot: dict):
         """Restores snapshot."""
         self.reason = snapshot["reason"]
-        self.context = snapshot["context"]
+        self.certificate_signing_request = snapshot["certificate_signing_request"]
+        self.certificate = snapshot["certificate"]
+        self.ca = snapshot["ca"]
+        self.chain = snapshot["chain"]
+        self.revoked = snapshot["revoked"]
 
 
 class AllCertificatesInvalidatedEvent(EventBase):
@@ -1321,15 +1340,11 @@ class TLSCertificatesRequiresV1(Object):
                 if certificate.get("revoked", False):
                     self.on.certificate_invalidated.emit(
                         reason="revoked",
-                        context={
-                            "certificate_signing_request": certificate[
-                                "certificate_signing_request"
-                            ],
-                            "certificate": certificate["certificate"],
-                            "ca": certificate["ca"],
-                            "chain": certificate["chain"],
-                            "revoked": True,
-                        },
+                        certificate=certificate["certificate"],
+                        certificate_signing_request=certificate["certificate_signing_request"],
+                        ca=certificate["ca"],
+                        chain=certificate["chain"],
+                        revoked=True,
                     )
                 else:
                     self.on.certificate_available.emit(
@@ -1387,9 +1402,7 @@ class TLSCertificatesRequiresV1(Object):
             time_difference = certificate_object.not_valid_after - datetime.utcnow()
             if time_difference.total_seconds() < 0:
                 logger.warning("Certificate is expired")
-                self.on.certificate_invalidated.emit(
-                    reason="expired", context={"certificate": certificate}
-                )
+                self.on.certificate_invalidated.emit(reason="expired", certificate=certificate)
                 self.request_certificate_revocation(certificate.encode())
                 continue
             if time_difference.total_seconds() < (self.expiry_notification_time * 60 * 60):
