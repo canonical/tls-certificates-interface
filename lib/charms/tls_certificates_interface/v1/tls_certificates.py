@@ -251,7 +251,7 @@ import logging
 import uuid
 from datetime import datetime, timedelta
 from ipaddress import IPv4Address
-from typing import Dict, List, Optional
+from typing import Dict, Literal, List, Optional
 
 from cryptography import x509
 from cryptography.hazmat._oid import ExtensionOID
@@ -493,6 +493,36 @@ class CertificateRevokedEvent(EventBase):
         self.ca = snapshot["ca"]
         self.chain = snapshot["chain"]
         self.revoked = snapshot["revoked"]
+
+
+class CertificateInvalidatedEvent(EventBase):
+    """Charm Event triggered when a TLS certificate is invalidated."""
+
+    def __init__(
+        self,
+        handle: Handle,
+        certificate: str,
+        reason: Literal["expired", "revoked", "relation-removed"],
+        context: Optional[dict] = None,
+    ):
+        super().__init__(handle)
+        self.certificate = certificate
+        self.reason = reason
+        self.context = context
+
+    def snapshot(self) -> dict:
+        """Returns snapshot."""
+        return {
+            "certificate": self.certificate,
+            "reason": self.reason,
+            "context": self.context
+        }
+
+    def restore(self, snapshot: dict):
+        """Restores snapshot."""
+        self.certificate = snapshot["certificate"]
+        self.reason = snapshot["reason"]
+        self.context = snapshot["context"]
 
 
 class CertificateCreationRequestEvent(EventBase):
@@ -844,6 +874,7 @@ class CertificatesRequirerCharmEvents(CharmEvents):
     certificate_expiring = EventSource(CertificateExpiringEvent)
     certificate_expired = EventSource(CertificateExpiredEvent)
     certificate_revoked = EventSource(CertificateRevokedEvent)
+    certificate_invalidated = EventSource(CertificateInvalidatedEvent)
 
 
 class TLSCertificatesProvidesV1(Object):
@@ -1302,6 +1333,15 @@ class TLSCertificatesRequiresV1(Object):
                         ca=certificate["ca"],
                         chain=certificate["chain"],
                         revoked=True,
+                    )
+                    self.on.certificate_invalidated.emit(
+                        reason="revoked",
+                        context={
+                            certificate["certificate_signing_request"],certificate["certificate"],
+                                                                        ca = certificate["ca"],
+                                                                             chain = certificate["chain"],
+                        }
+
                     )
                 else:
                     self.on.certificate_available.emit(
