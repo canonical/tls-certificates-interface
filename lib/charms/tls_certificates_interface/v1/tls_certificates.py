@@ -1,6 +1,7 @@
 # Copyright 2021 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+
 """Library for the tls-certificates relation.
 
 This library contains the Requires and Provides classes for handling the tls-certificates
@@ -456,7 +457,7 @@ class CertificateExpiringEvent(EventBase):
         Args:
             handle (Handle): Juju framework handle
             certificate (str): TLS Certificate
-            expiry (str): Datetime string reprensenting the time at which the certificate
+            expiry (str): Datetime string representing the time at which the certificate
                 won't be valid anymore.
         """
         super().__init__(handle)
@@ -484,7 +485,6 @@ class CertificateInvalidatedEvent(EventBase):
         certificate_signing_request: str,
         ca: str,
         chain: List[str],
-        revoked: bool = False,
     ):
         super().__init__(handle)
         self.reason = reason
@@ -492,7 +492,6 @@ class CertificateInvalidatedEvent(EventBase):
         self.certificate = certificate
         self.ca = ca
         self.chain = chain
-        self.revoked = revoked
 
     def snapshot(self) -> dict:
         """Returns snapshot."""
@@ -502,7 +501,6 @@ class CertificateInvalidatedEvent(EventBase):
             "certificate": self.certificate,
             "ca": self.ca,
             "chain": self.chain,
-            "revoked": self.revoked,
         }
 
     def restore(self, snapshot: dict):
@@ -512,7 +510,6 @@ class CertificateInvalidatedEvent(EventBase):
         self.certificate = snapshot["certificate"]
         self.ca = snapshot["ca"]
         self.chain = snapshot["chain"]
-        self.revoked = snapshot["revoked"]
 
 
 class AllCertificatesInvalidatedEvent(EventBase):
@@ -1098,7 +1095,7 @@ class TLSCertificatesProvidesV1(Object):
     def _revoke_certificates_for_which_no_csr_exists(self, relation_id: int) -> None:
         """Revokes certificates for which no unit has a CSR.
 
-        Goes through all generated certificates and compare agains the list of CSRS for all units
+        Goes through all generated certificates and compare against the list of CSRs for all units
         of a given relationship.
 
         Args:
@@ -1172,7 +1169,7 @@ class TLSCertificatesRequiresV1(Object):
 
     @property
     def _provider_certificates(self) -> List[Dict[str, str]]:
-        """Returns list of provider CSR's from relation data."""
+        """Returns list of provider CSRs from relation data."""
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
             raise RuntimeError(f"Relation {self.relationship_name} does not exist")
@@ -1305,7 +1302,7 @@ class TLSCertificatesRequiresV1(Object):
             return False
 
     def _on_relation_changed(self, event: RelationChangedEvent) -> None:
-        """Handler triggerred on relation changed events.
+        """Handler triggered on relation changed events.
 
         Args:
             event: Juju event
@@ -1340,7 +1337,6 @@ class TLSCertificatesRequiresV1(Object):
                         certificate_signing_request=certificate["certificate_signing_request"],
                         ca=certificate["ca"],
                         chain=certificate["chain"],
-                        revoked=True,
                     )
                 else:
                     self.on.certificate_available.emit(
@@ -1351,7 +1347,7 @@ class TLSCertificatesRequiresV1(Object):
                     )
 
     def _on_relation_broken(self, event: RelationBrokenEvent) -> None:
-        """Handler triggerred on relation broken event.
+        """Handler triggered on relation broken event.
 
         Args:
             event: Juju event
@@ -1410,7 +1406,6 @@ class TLSCertificatesRequiresV1(Object):
                     certificate_signing_request=certificate_dict["certificate_signing_request"],
                     ca=certificate_dict["ca"],
                     chain=certificate_dict["chain"],
-                    revoked=False,
                 )
                 self.request_certificate_revocation(certificate_dict["certificate"].encode())
                 continue

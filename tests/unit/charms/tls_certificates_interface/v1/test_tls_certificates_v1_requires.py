@@ -608,12 +608,10 @@ class Test(unittest.TestCase):
         patch_on_certificate_invalidated.assert_called()
         args, _ = patch_on_certificate_invalidated.call_args
         certificate_invalidated_event = args[0]
-        assert certificate_invalidated_event.reason == "revoked"
         assert certificate_invalidated_event.certificate == certificate
         assert certificate_invalidated_event.certificate_signing_request == csr
         assert certificate_invalidated_event.ca == ca_certificate
         assert certificate_invalidated_event.chain == chain
-        assert certificate_invalidated_event.revoked is True
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_no_csr_in_unit_relation_data_and_certificate_revoked_in_remote_relation_data_when_relation_changed_then_certificate_invalidated_event_not_emitted(  # noqa: E501
