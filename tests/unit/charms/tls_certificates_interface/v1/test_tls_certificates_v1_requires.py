@@ -762,10 +762,7 @@ class Test(unittest.TestCase):
 
         with pytest.raises(TypeError):
             self.harness.charm.certificates.on.certificate_invalidated.emit(
-                reason="expired",
-                certificate_signing_request=csr,
-                ca=ca_certificate,
-                chain=chain
+                reason="expired", certificate_signing_request=csr, ca=ca_certificate, chain=chain
             )
 
     @patch(f"{BASE_CHARM_DIR}._on_all_certificates_invalidated")

@@ -1362,7 +1362,7 @@ class TLSCertificatesRequiresV1(Object):
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
             return
-        if not relation.data[relation.app].get("certificates"):
+        if not relation.data[relation.app].get("certificates"):  # type: ignore[index]
             return
         self.on.all_certificates_invalidated.emit()
 
