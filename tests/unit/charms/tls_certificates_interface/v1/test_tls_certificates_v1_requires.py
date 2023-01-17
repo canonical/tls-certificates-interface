@@ -724,89 +724,6 @@ class Test(unittest.TestCase):
         pach_on_all_certificates_invalidated.assert_called()
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
-    def test_given_certificate_in_relation_data_when_certificate_invalidated_event_with_empty_reason_emitted_then_type_error_is_raised(  # noqa: E501
-        self, pach_on_certificate_invalidated
-    ):
-        relation_id = self.create_certificates_relation()
-        ca_certificate = "whatever certificate"
-        chain = ["certificate 1", "certiicate 2", "certificate 3"]
-        csr = "whatever csr"
-        certificate = "whatever certificate"
-        unit_relation_data = {
-            "certificate_signing_requests": json.dumps([{"certificate_signing_request": csr}])
-        }
-        remote_app_relation_data = {
-            "certificates": json.dumps(
-                [
-                    {
-                        "ca": ca_certificate,
-                        "chain": chain,
-                        "certificate_signing_request": csr,
-                        "certificate": certificate,
-                        "revoked": False,
-                    }
-                ]
-            )
-        }
-        self.harness.update_relation_data(
-            relation_id=relation_id,
-            app_or_unit=self.harness.charm.unit.name,
-            key_values=unit_relation_data,
-        )
-        self.harness.update_relation_data(
-            relation_id=relation_id,
-            app_or_unit=self.remote_app,
-            key_values=remote_app_relation_data,
-        )
-
-        with pytest.raises(TypeError):
-            self.harness.charm.certificates.on.certificate_invalidated.emit(
-                reason="", certificate=certificate
-            )
-
-    @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
-    def test_given_certificate_in_relation_data_when_certificate_invalidated_event_with_invalid_reason_emitted_then_type_error_is_raised(  # noqa: E501
-        self, pach_on_certificate_invalidated
-    ):
-        relation_id = self.create_certificates_relation()
-        ca_certificate = "whatever certificate"
-        chain = ["certificate 1", "certiicate 2", "certificate 3"]
-        csr = "whatever csr"
-        certificate = "whatever certificate"
-        unit_relation_data = {
-            "certificate_signing_requests": json.dumps([{"certificate_signing_request": csr}])
-        }
-        remote_app_relation_data = {
-            "certificates": json.dumps(
-                [
-                    {
-                        "ca": ca_certificate,
-                        "chain": chain,
-                        "certificate_signing_request": csr,
-                        "certificate": certificate,
-                        "revoked": False,
-                    }
-                ]
-            )
-        }
-
-        self.harness.update_relation_data(
-            relation_id=relation_id,
-            app_or_unit=self.harness.charm.unit.name,
-            key_values=unit_relation_data,
-        )
-        self.harness.update_relation_data(
-            relation_id=relation_id,
-            app_or_unit=self.remote_app,
-            key_values=remote_app_relation_data,
-        )
-
-        with pytest.raises(TypeError):
-            self.harness.charm.certificates.on.certificate_invalidated.emit(
-                reason="invalid reason", certificate=certificate
-            )
-
-    @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_certificate_in_relation_data_when_certificate_invalidated_event_with_no_certificate_emitted_then_type_error_is_raised(  # noqa: E501
         self, pach_on_certificate_invalidated
     ):
@@ -844,4 +761,19 @@ class Test(unittest.TestCase):
         )
 
         with pytest.raises(TypeError):
-            self.harness.charm.certificates.on.certificate_invalidated.emit(reason="expired")
+            self.harness.charm.certificates.on.certificate_invalidated.emit(
+                reason="expired",
+                certificate_signing_request=csr,
+                ca=ca_certificate,
+                chain=chain
+            )
+
+    @patch(f"{BASE_CHARM_DIR}._on_all_certificates_invalidated")
+    def test_given_no_certificates_in_relation_data_when_relation_broken_then_all_certificates_invalidated_event_not_emitted(  # noqa: E501
+        self, pach_on_all_certificates_invalidated
+    ):
+        relation_id = self.create_certificates_relation()
+
+        self.harness.remove_relation(relation_id)
+
+        pach_on_all_certificates_invalidated.assert_not_called()

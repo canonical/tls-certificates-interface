@@ -202,7 +202,9 @@ class ExampleRequirerCharm(CharmBase):
         replicas_relation.data[self.app].update({"chain": event.chain})
         self.unit.status = ActiveStatus()
 
-    def _on_certificate_expiring(self, event: Union[CertificateExpiringEvent, CertificateInvalidatedEvent]) -> None:  # noqa
+    def _on_certificate_expiring(
+        self, event: Union[CertificateExpiringEvent, CertificateInvalidatedEvent]
+    ) -> None:
         replicas_relation = self.model.get_relation("replicas")
         if not replicas_relation:
             self.unit.status = WaitingStatus("Waiting for peer relation to be created")
@@ -261,7 +263,7 @@ if __name__ == "__main__":
     main(ExampleRequirerCharm)
 ```
 
-You can relate both chars by running:
+You can relate both charms by running:
 
 ```bash
 juju relate <tls-certificates provider charm> <tls-certificates requirer charm>
@@ -479,24 +481,18 @@ class CertificateInvalidatedEvent(EventBase):
         handle: Handle,
         reason: Literal["expired", "revoked"],
         certificate: str,
-        certificate_signing_request: Optional[str] = None,
-        ca: Optional[str] = None,
-        chain: Optional[List[str]] = None,
+        certificate_signing_request: str,
+        ca: str,
+        chain: List[str],
         revoked: bool = False,
     ):
         super().__init__(handle)
-        self.reason = self._reason_is_valid(reason)
+        self.reason = reason
         self.certificate_signing_request = certificate_signing_request
         self.certificate = certificate
         self.ca = ca
         self.chain = chain
         self.revoked = revoked
-
-    @staticmethod
-    def _reason_is_valid(reason: Literal["expired", "revoked"]) -> Literal["expired", "revoked"]:
-        if reason not in ["expired", "revoked"]:
-            raise TypeError(f"Invalid reason: {reason}. Must be one of 'expired', 'revoked'.")
-        return reason
 
     def snapshot(self) -> dict:
         """Returns snapshot."""
@@ -1363,6 +1359,11 @@ class TLSCertificatesRequiresV1(Object):
         Returns:
             None
         """
+        relation = self.model.get_relation(self.relationship_name)
+        if not relation:
+            return
+        if not relation.data[relation.app].get("certificates"):
+            return
         self.on.all_certificates_invalidated.emit()
 
     def _on_update_status(self, event: UpdateStatusEvent) -> None:
@@ -1393,20 +1394,29 @@ class TLSCertificatesRequiresV1(Object):
             )
             return
         for certificate_dict in self._provider_certificates:
-            certificate = certificate_dict["certificate"]
             try:
-                certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
+                certificate_object = x509.load_pem_x509_certificate(
+                    data=certificate_dict["certificate"].encode()
+                )
             except ValueError:
                 logger.warning("Could not load certificate.")
                 continue
             time_difference = certificate_object.not_valid_after - datetime.utcnow()
             if time_difference.total_seconds() < 0:
                 logger.warning("Certificate is expired")
-                self.on.certificate_invalidated.emit(reason="expired", certificate=certificate)
-                self.request_certificate_revocation(certificate.encode())
+                self.on.certificate_invalidated.emit(
+                    reason="expired",
+                    certificate=certificate_dict["certificate"],
+                    certificate_signing_request=certificate_dict["certificate_signing_request"],
+                    ca=certificate_dict["ca"],
+                    chain=certificate_dict["chain"],
+                    revoked=False,
+                )
+                self.request_certificate_revocation(certificate_dict["certificate"].encode())
                 continue
             if time_difference.total_seconds() < (self.expiry_notification_time * 60 * 60):
                 logger.warning("Certificate almost expired")
                 self.on.certificate_expiring.emit(
-                    certificate=certificate, expiry=certificate_object.not_valid_after.isoformat()
+                    certificate=certificate_dict["certificate"],
+                    expiry=certificate_object.not_valid_after.isoformat(),
                 )

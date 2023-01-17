@@ -96,7 +96,7 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
             bool: True/False
         """
         try:
-            return bool(self.model.get_relation(relation_name))
+            return bool(self.charm.model.relations[relation_name])
         except KeyError:
             return False
 
