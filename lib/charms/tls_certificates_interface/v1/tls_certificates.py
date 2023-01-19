@@ -306,6 +306,7 @@ LIBAPI = 2
 # to 0 if you are raising the major API version
 LIBPATCH = 0
 
+
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
     "$id": "https://canonical.github.io/charm-relation-interfaces/tls_certificates/v1/schemas/requirer.json",  # noqa: E501
