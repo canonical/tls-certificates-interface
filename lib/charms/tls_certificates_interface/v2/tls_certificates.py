@@ -1349,6 +1349,9 @@ class TLSCertificatesRequiresV2(Object):
     def _on_relation_broken(self, event: RelationBrokenEvent) -> None:
         """Handler triggered on relation broken event.
 
+        Emitting `all_certificates_invalidated` from `relation-broken` rather
+        than `relation-departed` since certs are stored in app data.
+
         Args:
             event: Juju event
 
