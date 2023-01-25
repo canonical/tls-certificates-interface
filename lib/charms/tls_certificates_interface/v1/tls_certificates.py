@@ -272,7 +272,7 @@ LIBAPI = 1
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 11
+LIBPATCH = 12
 
 
 REQUIRER_JSON_SCHEMA = {
