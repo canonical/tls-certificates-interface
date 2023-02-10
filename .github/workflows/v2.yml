@@ -1,9 +1,9 @@
-name: CI
+name: CI for tls-certificates-interface V2
 
 on:
   push:
-#    paths:
-#      - "lib/charms/tls_certificates_interface/v2/**"
+    paths:
+      - "lib/charms/tls_certificates_interface/v2/**"
 
 jobs:
   lint-report:
