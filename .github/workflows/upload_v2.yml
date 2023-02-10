@@ -1,4 +1,4 @@
-name: Upload tls-certificates-interface-v2
+name: Upload tls-certificates-interface
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
       - "lib/charms/tls_certificates_interface/v2/**"
 
 jobs:
-  charmhub-upload-v2:
+  charmhub-upload:
     runs-on: ubuntu-22.04
     name: Charmhub upload lib
     steps:
