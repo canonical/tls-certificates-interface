@@ -1,14 +1,14 @@
-name: Upload tls-certificates-interface-v0
+name: Upload tls-certificates-interface-v2
 
 on:
   push:
     branches:
       - "main"
     paths:
-      - "lib/charms/tls_certificates_interface/v0/**"
+      - "lib/charms/tls_certificates_interface/v2/**"
 
 jobs:
-  charmhub-upload-v0:
+  charmhub-upload-v2:
     runs-on: ubuntu-22.04
     name: Charmhub upload lib
     steps:
@@ -26,4 +26,4 @@ jobs:
         env:
           CHARMCRAFT_AUTH: "${{ secrets.CHARMCRAFT_AUTH }}"
         run: |
-          charmcraft publish-lib charms.tls_certificates_interface.v0.tls_certificates
+          charmcraft publish-lib charms.tls_certificates_interface.v2.tls_certificates
