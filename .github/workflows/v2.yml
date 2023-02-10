@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+#    paths:
+#      - "lib/charms/tls_certificates_interface/v2/**"
 
 jobs:
   lint-report:
@@ -12,7 +14,7 @@ jobs:
       - name: Install tox
         run: pip install tox
       - name: Run tests using tox
-        run: tox -e lint
+        run: tox -e lint-v2
 
   static-analysis:
     name: Static analysis
@@ -22,7 +24,7 @@ jobs:
       - name: Install tox
         run: pip install tox
       - name: Run tests using tox
-        run: tox -e static
+        run: tox -e static-v2
 
   unit-tests-with-coverage:
     name: Unit tests
@@ -32,7 +34,7 @@ jobs:
       - name: Install tox
         run: pip install tox
       - name: Run tests using tox
-        run: tox -e unit
+        run: tox -e unit-v2
 
   integration-tests:
     name: Integration tests
@@ -46,4 +48,4 @@ jobs:
         with:
           provider: microk8s
       - name: Run tests using tox
-        run: tox -e integration
+        run: tox -e integration-v2

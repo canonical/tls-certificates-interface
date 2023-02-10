@@ -7,9 +7,9 @@ import shutil
 
 logger = logging.getLogger(__name__)
 
-LIB_DIR = "lib/charms/tls_certificates_interface/v1/tls_certificates.py"
-REQUIRER_CHARM_DIR = "tests/integration/v1/requirer_charm"
-PROVIDER_CHARM_DIR = "tests/integration/v1/provider_charm"
+LIB_DIR = "lib/charms/tls_certificates_interface/v2/tls_certificates.py"
+REQUIRER_CHARM_DIR = "tests/integration/v2/requirer_charm"
+PROVIDER_CHARM_DIR = "tests/integration/v2/provider_charm"
 TLS_CERTIFICATES_PROVIDER_APP_NAME = "tls-certificates-provider"
 TLS_CERTIFICATES_REQUIRER_APP_NAME = "tls-certificates-requirer"
 

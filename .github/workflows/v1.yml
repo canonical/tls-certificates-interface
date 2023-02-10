@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+#    paths:
+#      - "lib/charms/tls_certificates_interface/v1/**"
+
+jobs:
+  lint-report:
+    name: Lint report
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install tox
+        run: pip install tox
+      - name: Run tests using tox
+        run: tox -e lint-v1
+
+  static-analysis:
+    name: Static analysis
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install tox
+        run: pip install tox
+      - name: Run tests using tox
+        run: tox -e static-v1
+
+  unit-tests-with-coverage:
+    name: Unit tests
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install tox
+        run: pip install tox
+      - name: Run tests using tox
+        run: tox -e unit-v1
+
+  integration-tests:
+    name: Integration tests
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install tox
+        run: pip install tox
+      - name: Setup operator environment
+        uses: charmed-kubernetes/actions-operator@main
+        with:
+          provider: microk8s
+      - name: Run tests using tox
+        run: tox -e integration-v1
