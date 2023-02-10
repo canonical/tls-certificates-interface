@@ -2,8 +2,8 @@ name: CI for tls-certificates-interface V1
 
 on:
   push:
-    paths:
-      - "lib/charms/tls_certificates_interface/v1/**"
+#    paths:
+#      - "lib/charms/tls_certificates_interface/v1/**"
 
 jobs:
   tests:
