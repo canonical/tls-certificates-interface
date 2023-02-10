@@ -1,9 +1,11 @@
-name: CI for tls-certificates-interface V1
+name: Test library
 
 on:
-  push:
-    paths:
-      - "lib/charms/tls_certificates_interface/v1/**"
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
 
 jobs:
   lint-report:
@@ -14,7 +16,7 @@ jobs:
       - name: Install tox
         run: pip install tox
       - name: Run tests using tox
-        run: tox -e lint-v1
+        run: tox -e lint-${{ inputs.version }}
 
   static-analysis:
     name: Static analysis
@@ -24,7 +26,7 @@ jobs:
       - name: Install tox
         run: pip install tox
       - name: Run tests using tox
-        run: tox -e static-v1
+        run: tox -e static-${{ inputs.version }}
 
   unit-tests-with-coverage:
     name: Unit tests
@@ -34,7 +36,7 @@ jobs:
       - name: Install tox
         run: pip install tox
       - name: Run tests using tox
-        run: tox -e unit-v1
+        run: tox -e unit-${{ inputs.version }}
 
   integration-tests:
     name: Integration tests
@@ -48,4 +50,4 @@ jobs:
         with:
           provider: microk8s
       - name: Run tests using tox
-        run: tox -e integration-v1
+        run: tox -e integration-${{ inputs.version }}
