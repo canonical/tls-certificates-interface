@@ -36,14 +36,13 @@ SECONDS_IN_ONE_HOUR = 60 * 60
 class Test(unittest.TestCase):
     def setUp(self):
         self.relation_name = "certificates"
-        self.remote_app = "tls-certificates-provider"
         self.harness = testing.Harness(DummyTLSCertificatesRequirerCharm)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
-    def create_certificates_relation(self) -> int:
+    def create_certificates_relation(self, remote_app: str) -> int:
         relation_id = self.harness.add_relation(
-            relation_name=self.relation_name, remote_app=self.remote_app
+            relation_name=self.relation_name, remote_app=remote_app
         )
         return relation_id
 
@@ -56,7 +55,7 @@ class Test(unittest.TestCase):
             )
 
     def test_given_csr_when_request_certificate_creation_then_csr_is_sent_in_relation_data(self):
-        relation_id = self.create_certificates_relation()
+        relation_id = self.create_certificates_relation(remote_app="tls-certificates-provider")
         private_key_password = b"whatever"
         private_key = generate_private_key_helper(password=private_key_password)
         csr = generate_csr_helper(
@@ -80,7 +79,7 @@ class Test(unittest.TestCase):
     def test_given_relation_data_already_contains_csr_when_request_certificate_creation_then_csr_is_not_sent_again(  # noqa: E501
         self,
     ):
-        relation_id = self.create_certificates_relation()
+        relation_id = self.create_certificates_relation(remote_app="tls-certificates-provider")
         common_name = "whatever common name"
         private_key_password = b"whatever"
         private_key = generate_private_key_helper(password=private_key_password)
@@ -113,7 +112,7 @@ class Test(unittest.TestCase):
     def test_given_different_csr_in_relation_data_when_request_certificate_creation_then_new_csr_is_added(  # noqa: E501
         self,
     ):
-        relation_id = self.create_certificates_relation()
+        relation_id = self.create_certificates_relation(remote_app="tls-certificates-provider")
         initial_common_name = "whatever initial common name"
         new_common_name = "whatever new common name"
         private_key_password = b"whatever"
@@ -167,7 +166,7 @@ class Test(unittest.TestCase):
     def test_given_csr_when_request_certificate_revocation_then_csr_is_removed_from_relation_data(
         self,
     ):
-        relation_id = self.create_certificates_relation()
+        relation_id = self.create_certificates_relation(remote_app="tls-certificates-provider")
         certificate_signing_request = b"whatever csr"
         key_values = {
             "certificate_signing_requests": json.dumps(
@@ -193,7 +192,7 @@ class Test(unittest.TestCase):
     def test_given_no_csr_in_relation_data_when_request_certificate_revocation_then_nothing_is_done(
         self,
     ):
-        relation_id = self.create_certificates_relation()
+        relation_id = self.create_certificates_relation(remote_app="tls-certificates-provider")
         certificate_signing_request = b"whatever csr"
 
         self.harness.update_relation_data(
@@ -243,7 +242,7 @@ class Test(unittest.TestCase):
     def test_given_csr_in_unit_relation_data_and_certificate_in_remote_relation_data_when_relation_changed_then_certificate_available_event_emitted(  # noqa: E501
         self, patch_on_certificate_available
     ):
-        relation_id = self.create_certificates_relation()
+        relation_id = self.create_certificates_relation(remote_app="tls-certificates-provider")
         ca_certificate = "whatever certificate"
         chain = ["certificate 1", "certiicate 2", "certificate 3"]
         csr = "whatever csr"
@@ -270,7 +269,7 @@ class Test(unittest.TestCase):
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
-            app_or_unit=self.remote_app,
+            app_or_unit="tls-certificates-provider",
             key_values=remote_app_relation_data,
         )
 
@@ -286,7 +285,7 @@ class Test(unittest.TestCase):
     def test_given_no_csr_in_unit_relation_data_and_certificate_in_remote_relation_data_when_relation_changed_then_certificate_available_event_not_emitted(  # noqa: E501
         self, patch_on_certificate_available
     ):
-        relation_id = self.create_certificates_relation()
+        relation_id = self.create_certificates_relation(remote_app="tls-certificates-provider")
         ca_certificate = "whatever certificate"
         chain = ["certificate 1", "certiicate 2", "certificate 3"]
         csr = "whatever csr"
@@ -306,7 +305,7 @@ class Test(unittest.TestCase):
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
-            app_or_unit=self.remote_app,
+            app_or_unit="tls-certificates-provider",
             key_values=remote_app_relation_data,
         )
 
@@ -316,7 +315,7 @@ class Test(unittest.TestCase):
     def test_given_csr_in_unit_relation_data_and_certificate_in_remote_relation_data_badly_formatted_when_relation_changed_then_certificate_available_event_not_emitted(  # noqa: E501
         self, patch_on_certificate_available
     ):
-        relation_id = self.create_certificates_relation()
+        relation_id = self.create_certificates_relation(remote_app="tls-certificates-provider")
         ca_certificate = "whatever certificate"
         chain = ["certificate 1", "certiicate 2", "certificate 3"]
         csr = "whatever csr"
@@ -342,7 +341,7 @@ class Test(unittest.TestCase):
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
-            app_or_unit=self.remote_app,
+            app_or_unit="tls-certificates-provider",
             key_values=remote_app_relation_data,
         )
 
@@ -352,7 +351,7 @@ class Test(unittest.TestCase):
     def test_given_expired_certificate_in_relation_data_when_update_status_then_certificate_invalidated_event_with_reason_expired_emitted(  # noqa: E501
         self, patch_certificate_invalidated
     ):
-        relation_id = self.create_certificates_relation()
+        relation_id = self.create_certificates_relation(remote_app="tls-certificates-provider")
         hours_before_expiry = -1
         private_key_password = b"whatever1"
         ca_private_key_password = b"whatever2"
@@ -388,7 +387,7 @@ class Test(unittest.TestCase):
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
-            app_or_unit=self.remote_app,
+            app_or_unit="tls-certificates-provider",
             key_values=remote_app_relation_data,
         )
 
@@ -403,7 +402,7 @@ class Test(unittest.TestCase):
     def test_given_certificate_in_relation_data_is_not_expired_when_update_status_then_certificate_invalidated_event_with_reason_expired_not_emitted(  # noqa: E501
         self, patch_certificate_invalidated
     ):
-        relation_id = self.create_certificates_relation()
+        relation_id = self.create_certificates_relation(remote_app="tls-certificates-provider")
         hours_before_expiry = 100
         private_key_password = b"whatever1"
         ca_private_key_password = b"whatever2"
@@ -439,7 +438,7 @@ class Test(unittest.TestCase):
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
-            app_or_unit=self.remote_app,
+            app_or_unit="tls-certificates-provider",
             key_values=remote_app_relation_data,
         )
 
@@ -451,7 +450,7 @@ class Test(unittest.TestCase):
     def test_given_certificate_expires_in_shorter_amount_of_time_than_expiry_notification_time_when_update_status_then_certificate_expiring_is_emitted(  # noqa: E501
         self, patch_certificate_expiring
     ):
-        relation_id = self.create_certificates_relation()
+        relation_id = self.create_certificates_relation(remote_app="tls-certificates-provider")
         hours_before_expiry = 8
         private_key_password = b"whatever1"
         ca_private_key_password = b"whatever2"
@@ -487,7 +486,7 @@ class Test(unittest.TestCase):
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
-            app_or_unit=self.remote_app,
+            app_or_unit="tls-certificates-provider",
             key_values=remote_app_relation_data,
         )
 
@@ -508,7 +507,7 @@ class Test(unittest.TestCase):
     def test_given_certificate_expires_in_longer_amount_of_time_than_expiry_notification_time_when_update_status_then_certificate_expiring_is_not_emitted(  # noqa: E501
         self, patch_certificate_expiring
     ):
-        relation_id = self.create_certificates_relation()
+        relation_id = self.create_certificates_relation(remote_app="tls-certificates-provider")
         hours_before_expiry = 200
         private_key_password = b"whatever1"
         ca_private_key_password = b"whatever2"
@@ -544,7 +543,7 @@ class Test(unittest.TestCase):
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
-            app_or_unit=self.remote_app,
+            app_or_unit="tls-certificates-provider",
             key_values=remote_app_relation_data,
         )
 
@@ -557,10 +556,10 @@ class Test(unittest.TestCase):
     def test_given_no_certificate_in_relation_data_when_update_status_then_no_event_emitted(  # noqa: E501
         self, patch_certificate_invalidated, patch_certificate_expiring
     ):
-        relation_id = self.create_certificates_relation()
+        relation_id = self.create_certificates_relation(remote_app="tls-certificates-provider")
         self.harness.update_relation_data(
             relation_id=relation_id,
-            app_or_unit=self.remote_app,
+            app_or_unit="tls-certificates-provider",
             key_values={},
         )
 
@@ -573,7 +572,7 @@ class Test(unittest.TestCase):
     def test_given_csr_in_unit_relation_data_and_certificate_revoked_in_remote_relation_data_when_relation_changed_then_certificate_invalidated_event_with_reason_revoked_emitted(  # noqa: E501
         self, patch_on_certificate_invalidated
     ):
-        relation_id = self.create_certificates_relation()
+        relation_id = self.create_certificates_relation(remote_app="tls-certificates-provider")
         ca_certificate = "whatever certificate"
         chain = ["certificate 1", "certiicate 2", "certificate 3"]
         csr = "whatever csr"
@@ -601,7 +600,7 @@ class Test(unittest.TestCase):
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
-            app_or_unit=self.remote_app,
+            app_or_unit="tls-certificates-provider",
             key_values=remote_app_relation_data,
         )
 
@@ -617,7 +616,7 @@ class Test(unittest.TestCase):
     def test_given_no_csr_in_unit_relation_data_and_certificate_revoked_in_remote_relation_data_when_relation_changed_then_certificate_invalidated_event_not_emitted(  # noqa: E501
         self, patch_on_certificate_invalidated
     ):
-        relation_id = self.create_certificates_relation()
+        relation_id = self.create_certificates_relation(remote_app="tls-certificates-provider")
         ca_certificate = "whatever certificate"
         chain = ["certificate 1", "certiicate 2", "certificate 3"]
         csr = "whatever csr"
@@ -638,7 +637,7 @@ class Test(unittest.TestCase):
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
-            app_or_unit=self.remote_app,
+            app_or_unit="tls-certificates-provider",
             key_values=remote_app_relation_data,
         )
 
@@ -648,7 +647,7 @@ class Test(unittest.TestCase):
     def test_given_csr_in_unit_relation_data_and_certificate_revoked_in_remote_relation_data_badly_formatted_when_relation_changed_then_certificate_invalidated_event_not_emitted(  # noqa: E501
         self, patch_on_certificate_invalidated
     ):
-        relation_id = self.create_certificates_relation()
+        relation_id = self.create_certificates_relation(remote_app="tls-certificates-provider")
         ca_certificate = "whatever certificate"
         chain = ["certificate 1", "certiicate 2", "certificate 3"]
         csr = "whatever csr"
@@ -675,7 +674,7 @@ class Test(unittest.TestCase):
         }
         self.harness.update_relation_data(
             relation_id=relation_id,
-            app_or_unit=self.remote_app,
+            app_or_unit="tls-certificates-provider",
             key_values=remote_app_relation_data,
         )
 
@@ -685,7 +684,7 @@ class Test(unittest.TestCase):
     def test_given_certificate_in_relation_data_when_relation_broken_then_all_certificates_invalidated_event_is_emitted(  # noqa: E501
         self, pach_on_all_certificates_invalidated
     ):
-        relation_id = self.create_certificates_relation()
+        relation_id = self.create_certificates_relation(remote_app="tls-certificates-provider")
         ca_certificate = "whatever certificate"
         chain = ["certificate 1", "certiicate 2", "certificate 3"]
         csr = "whatever csr"
@@ -714,7 +713,7 @@ class Test(unittest.TestCase):
         )
         self.harness.update_relation_data(
             relation_id=relation_id,
-            app_or_unit=self.remote_app,
+            app_or_unit="tls-certificates-provider",
             key_values=remote_app_relation_data,
         )
         self.harness.remove_relation(relation_id)
@@ -725,7 +724,7 @@ class Test(unittest.TestCase):
     def test_given_certificate_in_relation_data_when_certificate_invalidated_event_with_no_certificate_emitted_then_type_error_is_raised(  # noqa: E501
         self, pach_on_certificate_invalidated
     ):
-        relation_id = self.create_certificates_relation()
+        relation_id = self.create_certificates_relation(remote_app="tls-certificates-provider")
         ca_certificate = "whatever certificate"
         chain = ["certificate 1", "certiicate 2", "certificate 3"]
         csr = "whatever csr"
@@ -754,7 +753,7 @@ class Test(unittest.TestCase):
         )
         self.harness.update_relation_data(
             relation_id=relation_id,
-            app_or_unit=self.remote_app,
+            app_or_unit="tls-certificates-provider",
             key_values=remote_app_relation_data,
         )
 
@@ -767,8 +766,55 @@ class Test(unittest.TestCase):
     def test_given_no_certificates_in_relation_data_when_relation_broken_then_all_certificates_invalidated_event_not_emitted(  # noqa: E501
         self, pach_on_all_certificates_invalidated
     ):
-        relation_id = self.create_certificates_relation()
+        relation_id = self.create_certificates_relation(remote_app="tls-certificates-provider")
 
         self.harness.remove_relation(relation_id)
 
         pach_on_all_certificates_invalidated.assert_not_called()
+
+    @patch(f"{BASE_CHARM_DIR}._on_certificate_available")
+    def test_given_multiple_providers_and_csr_in_requirer_relation_data_when_a_provider_adds_a_certificate_then_certificate_available_event_is_emitted(
+        self, certificate_available_patch
+    ):
+        remote_app_1 = "tls-certificates-provider-1"
+        remote_app_2 = "tls-certificates-provider-2"
+        relation_1_id = self.create_certificates_relation(remote_app=remote_app_1)
+        self.create_certificates_relation(remote_app=remote_app_2)
+
+        certificate = "whatever certificate"
+        ca_certificate = "whatever ca certificate"
+        csr = "whatever csr"
+        chain = ["whatever cert 1", "whatever cert 2"]
+        requirer_unit_relation_data = {
+            "certificate_signing_requests": json.dumps([{"certificate_signing_request": csr}])
+        }
+        provider_1_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate,
+                        "chain": chain,
+                        "certificate_signing_request": csr,
+                        "certificate": certificate,
+                    }
+                ]
+            )
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_1_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values=requirer_unit_relation_data,
+        )
+
+        self.harness.update_relation_data(
+            relation_id=relation_1_id,
+            app_or_unit=remote_app_1,
+            key_values=provider_1_relation_data,
+        )
+
+        args, _ = certificate_available_patch.call_args
+        certificate_available_event = args[0]
+        assert certificate_available_event.certificate == certificate
+        assert certificate_available_event.certificate_signing_request == csr
+        assert certificate_available_event.ca == ca_certificate
+        assert certificate_available_event.chain == chain
