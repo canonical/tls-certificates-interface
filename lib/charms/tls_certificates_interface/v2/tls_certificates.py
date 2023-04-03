@@ -1158,19 +1158,17 @@ class TLSCertificatesRequiresV2(Object):
         )
         self.framework.observe(charm.on.update_status, self._on_update_status)
 
-    @property
-    def _requirer_csrs(self) -> List[Dict[str, str]]:
+    def _requirer_csrs(self, relation_id: int) -> List[Dict[str, str]]:
         """Returns list of requirer CSR's from relation data."""
-        relation = self.model.get_relation(self.relationship_name)
+        relation = self.model.get_relation(self.relationship_name, relation_id=relation_id)
         if not relation:
             raise RuntimeError(f"Relation {self.relationship_name} does not exist")
         requirer_relation_data = _load_relation_data(relation.data[self.model.unit])
         return requirer_relation_data.get("certificate_signing_requests", [])
 
-    @property
-    def _provider_certificates(self) -> List[Dict[str, str]]:
+    def _provider_certificates(self, relation_id: int) -> List[Dict[str, str]]:
         """Returns list of provider CSRs from relation data."""
-        relation = self.model.get_relation(self.relationship_name)
+        relation = self.model.get_relation(self.relationship_name, relation_id)
         if not relation:
             raise RuntimeError(f"Relation {self.relationship_name} does not exist")
         if not relation.app:
@@ -1310,7 +1308,7 @@ class TLSCertificatesRequiresV2(Object):
         Returns:
             None
         """
-        relation = self.model.get_relation(self.relationship_name)
+        relation = self.model.get_relation(self.relationship_name, relation_id=event.relation.id)
         if not relation:
             logger.warning(f"No relation: {self.relationship_name}")
             return
@@ -1326,9 +1324,9 @@ class TLSCertificatesRequiresV2(Object):
             return
         requirer_csrs = [
             certificate_creation_request["certificate_signing_request"]
-            for certificate_creation_request in self._requirer_csrs
+            for certificate_creation_request in self._requirer_csrs(event.relation.id)
         ]
-        for certificate in self._provider_certificates:
+        for certificate in self._provider_certificates(relation_id=relation.id):
             if certificate["certificate_signing_request"] in requirer_csrs:
                 if certificate.get("revoked", False):
                     self.on.certificate_invalidated.emit(
