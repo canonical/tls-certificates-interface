@@ -436,7 +436,9 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             },
         )
 
-    def test_given_unit_is_not_leader_when_set_relation_certificate_then(self):
+    def test_given_unit_is_not_leader_when_set_relation_certificate_then_relation_data_is_not_modified(  # noqa: E501
+        self,
+    ):
         self.harness.set_leader(is_leader=False)
         remote_app_1 = "tls-requirer-1"
         remote_app_1_unit_name = "tls-requirer-1/0"
@@ -445,6 +447,9 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         )
         self.harness.add_relation_unit(
             relation_id=relation_id, remote_unit_name=remote_app_1_unit_name
+        )
+        initial_relation_data = self.harness.get_relation_data(
+            relation_id=relation_id, app_or_unit=self.harness.charm.app
         )
 
         self.harness.charm.certificates.set_relation_certificate(
@@ -455,11 +460,11 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             relation_id=relation_id,
         )
 
-        relation_data = self.harness.get_relation_data(
+        final_relation_data = self.harness.get_relation_data(
             relation_id=relation_id, app_or_unit=self.harness.charm.app
         )
 
-        self.assertEqual(relation_data, {})
+        self.assertEqual(initial_relation_data, final_relation_data)
 
     def test_given_certificate_in_relation_data_when_remove_certificate_then_certificate_is_removed_from_relation(  # noqa: E501
         self,
