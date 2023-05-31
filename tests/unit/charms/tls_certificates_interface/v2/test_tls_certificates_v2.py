@@ -5,7 +5,7 @@
 import uuid
 
 import pytest
-from charms.tls_certificates_interface.v1.tls_certificates import (
+from charms.tls_certificates_interface.v2.tls_certificates import (
     generate_ca,
     generate_certificate,
     generate_csr,
@@ -17,16 +17,16 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, pkcs12
 
-from tests.unit.charms.tls_certificates_interface.v1.certificates import (
+from tests.unit.charms.tls_certificates_interface.v2.certificates import (
     generate_ca as generate_ca_helper,
 )
-from tests.unit.charms.tls_certificates_interface.v1.certificates import (
+from tests.unit.charms.tls_certificates_interface.v2.certificates import (
     generate_certificate as generate_certificate_helper,
 )
-from tests.unit.charms.tls_certificates_interface.v1.certificates import (
+from tests.unit.charms.tls_certificates_interface.v2.certificates import (
     generate_csr as generate_csr_helper,
 )
-from tests.unit.charms.tls_certificates_interface.v1.certificates import (
+from tests.unit.charms.tls_certificates_interface.v2.certificates import (
     generate_private_key as generate_private_key_helper,
 )
 

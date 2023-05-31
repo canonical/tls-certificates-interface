@@ -304,7 +304,7 @@ LIBAPI = 2
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 1
+LIBPATCH = 2
 
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
@@ -1019,6 +1019,8 @@ class TLSCertificatesProvidesV2(Object):
         Returns:
             None
         """
+        if not self.model.unit.is_leader():
+            return
         certificates_relation = self.model.get_relation(
             relation_name=self.relationship_name, relation_id=relation_id
         )

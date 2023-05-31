@@ -8,14 +8,14 @@ from unittest.mock import PropertyMock, call, patch
 
 from ops import testing
 
-from tests.unit.charms.tls_certificates_interface.v1.dummy_provider_charm.src.charm import (
+from tests.unit.charms.tls_certificates_interface.v2.dummy_provider_charm.src.charm import (
     DummyTLSCertificatesProviderCharm,
 )
 
 testing.SIMULATE_CAN_CONNECT = True
 
-BASE_CHARM_DIR = "tests.unit.charms.tls_certificates_interface.v1.dummy_provider_charm.src.charm.DummyTLSCertificatesProviderCharm"  # noqa: E501
-LIB_DIR = "lib.charms.tls_certificates_interface.v1.tls_certificates"
+BASE_CHARM_DIR = "tests.unit.charms.tls_certificates_interface.v2.dummy_provider_charm.src.charm.DummyTLSCertificatesProviderCharm"  # noqa: E501
+LIB_DIR = "lib.charms.tls_certificates_interface.v2.tls_certificates"
 
 
 def _load_relation_data(raw_relation_data: dict) -> dict:
@@ -150,7 +150,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         patch_certificate_creation_request.assert_not_called()
 
-    @patch(f"{LIB_DIR}.TLSCertificatesProvidesV1.remove_certificate")
+    @patch(f"{LIB_DIR}.TLSCertificatesProvidesV2.remove_certificate")
     @patch(
         f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_revocation_request",
     )
@@ -194,7 +194,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             chain=chain,
         )
 
-    @patch(f"{LIB_DIR}.TLSCertificatesProvidesV1.remove_certificate")
+    @patch(f"{LIB_DIR}.TLSCertificatesProvidesV2.remove_certificate")
     @patch(
         f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_revocation_request",
         new_callable=PropertyMock,
@@ -435,6 +435,36 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 )
             },
         )
+
+    def test_given_unit_is_not_leader_when_set_relation_certificate_then_relation_data_is_not_modified(  # noqa: E501
+        self,
+    ):
+        self.harness.set_leader(is_leader=False)
+        remote_app_1 = "tls-requirer-1"
+        remote_app_1_unit_name = "tls-requirer-1/0"
+        relation_id = self.harness.add_relation(
+            relation_name=self.relation_name, remote_app=remote_app_1
+        )
+        self.harness.add_relation_unit(
+            relation_id=relation_id, remote_unit_name=remote_app_1_unit_name
+        )
+        initial_relation_data = self.harness.get_relation_data(
+            relation_id=relation_id, app_or_unit=self.harness.charm.app
+        )
+
+        self.harness.charm.certificates.set_relation_certificate(
+            certificate="whatever certificate",
+            ca="whatever ca",
+            chain=["whatever cert 1", "whatever cert 2"],
+            certificate_signing_request="whatever certificate signing request",
+            relation_id=relation_id,
+        )
+
+        final_relation_data = self.harness.get_relation_data(
+            relation_id=relation_id, app_or_unit=self.harness.charm.app
+        )
+
+        self.assertEqual(initial_relation_data, final_relation_data)
 
     def test_given_certificate_in_relation_data_when_remove_certificate_then_certificate_is_removed_from_relation(  # noqa: E501
         self,
