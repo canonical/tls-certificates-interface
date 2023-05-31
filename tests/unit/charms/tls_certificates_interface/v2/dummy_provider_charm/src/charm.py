@@ -4,17 +4,17 @@
 from ops.charm import CharmBase
 from ops.main import main
 
-from lib.charms.tls_certificates_interface.v1.tls_certificates import (
+from lib.charms.tls_certificates_interface.v2.tls_certificates import (
     CertificateCreationRequestEvent,
     CertificateRevocationRequestEvent,
-    TLSCertificatesProvidesV1,
+    TLSCertificatesProvidesV2,
 )
 
 
 class DummyTLSCertificatesProviderCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
-        self.certificates = TLSCertificatesProvidesV1(self, "certificates")
+        self.certificates = TLSCertificatesProvidesV2(self, "certificates")
         self.framework.observe(
             self.certificates.on.certificate_creation_request,
             self._on_certificate_creation_request,

@@ -1019,6 +1019,8 @@ class TLSCertificatesProvidesV2(Object):
         Returns:
             None
         """
+        if not self.model.unit.is_leader():
+            return
         certificates_relation = self.model.get_relation(
             relation_name=self.relationship_name, relation_id=relation_id
         )
