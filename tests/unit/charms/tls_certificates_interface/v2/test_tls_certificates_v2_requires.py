@@ -683,7 +683,7 @@ class Test(unittest.TestCase):
 
     @patch(f"{BASE_CHARM_DIR}._on_all_certificates_invalidated")
     def test_given_certificate_in_relation_data_when_relation_broken_then_all_certificates_invalidated_event_is_emitted(  # noqa: E501
-        self, pach_on_all_certificates_invalidated
+        self, patch_on_all_certificates_invalidated
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -719,11 +719,11 @@ class Test(unittest.TestCase):
         )
         self.harness.remove_relation(relation_id)
 
-        pach_on_all_certificates_invalidated.assert_called()
+        patch_on_all_certificates_invalidated.assert_called()
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_certificate_in_relation_data_when_certificate_invalidated_event_with_no_certificate_emitted_then_type_error_is_raised(  # noqa: E501
-        self, pach_on_certificate_invalidated
+        self, patch_on_certificate_invalidated
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -762,3 +762,13 @@ class Test(unittest.TestCase):
             self.harness.charm.certificates.on.certificate_invalidated.emit(
                 reason="expired", certificate_signing_request=csr, ca=ca_certificate, chain=chain
             )
+
+    @patch(f"{BASE_CHARM_DIR}._on_all_certificates_invalidated")
+    def test_given_no_certificates_in_relation_data_when_relation_broken_then_all_certificates_invalidated_event_emitted(  # noqa: E501
+        self, patch_on_all_certificates_invalidated
+    ):
+        relation_id = self.create_certificates_relation()
+
+        self.harness.remove_relation(relation_id)
+
+        patch_on_all_certificates_invalidated.assert_called()
