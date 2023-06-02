@@ -1179,10 +1179,18 @@ class TLSCertificatesRequiresV2(Object):
         """Returns list of provider CSRs from relation data."""
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
-            raise RuntimeError(f"Relation {self.relationship_name} does not exist")
+            logger.debug(f"No relation: {self.relationship_name}")
+            return []
         if not relation.app:
-            raise RuntimeError(f"Remote app for relation {self.relationship_name} does not exist")
+            logger.debug(f"No remote app in relation: {self.relationship_name}")
+            return []
         provider_relation_data = _load_relation_data(relation.data[relation.app])
+        if not self._relation_data_is_valid(provider_relation_data):
+            logger.warning(
+                f"Provider relation data did not pass JSON Schema validation: "
+                f"{relation.data[relation.app]}"
+            )
+            return []
         return provider_relation_data.get("certificates", [])
 
     def _add_requirer_csr(self, csr: str) -> None:
@@ -1315,14 +1323,6 @@ class TLSCertificatesRequiresV2(Object):
         Returns:
             None
         """
-        relation = event.relation
-        if not relation.app:
-            logger.warning("No remote app in relation: %s", self.relationship_name)
-            return
-        provider_relation_data = _load_relation_data(relation.data[relation.app])
-        if not self._relation_data_is_valid(provider_relation_data):
-            logger.debug("Provider relation data did not pass JSON Schema validation")
-            return
         requirer_csrs = [
             certificate_creation_request["certificate_signing_request"]
             for certificate_creation_request in self._requirer_csrs
@@ -1444,20 +1444,6 @@ class TLSCertificatesRequiresV2(Object):
             )
 
     def _find_certificate_in_relation_data(self, csr: str) -> Optional[Dict[str, Any]]:
-        relation = self.model.get_relation(self.relationship_name)
-        if not relation:
-            logger.debug(f"No relation: {self.relationship_name}")
-            return None
-        if not relation.app:
-            logger.debug(f"No remote app in relation: {self.relationship_name}")
-            return None
-        provider_relation_data = _load_relation_data(relation.data[relation.app])
-        if not self._relation_data_is_valid(provider_relation_data):
-            logger.warning(
-                f"Provider relation data did not pass JSON Schema validation: "
-                f"{relation.data[relation.app]}"
-            )
-            return None
         for certificate_dict in self._provider_certificates:
             if certificate_dict["certificate_signing_request"] != csr:
                 continue
@@ -1477,17 +1463,6 @@ class TLSCertificatesRequiresV2(Object):
         Returns:
             None
         """
-        relation = self.model.get_relation(self.relationship_name)
-        if not relation:
-            logger.debug("No relation: %s", self.relationship_name)
-            return
-        if not relation.app:
-            logger.debug("No remote app in relation: %s", self.relationship_name)
-            return
-        provider_relation_data = _load_relation_data(relation.data[relation.app])
-        if not self._relation_data_is_valid(provider_relation_data):
-            logger.debug("Provider relation data did not pass JSON Schema validation")
-            return
         for certificate_dict in self._provider_certificates:
             expiry_time = _get_certificate_expiry_time(certificate_dict["certificate"])
             if not expiry_time:
