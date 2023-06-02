@@ -6,9 +6,9 @@ import json
 import logging
 from typing import List, Optional
 
-from charms.tls_certificates_interface.v1.tls_certificates import (
+from charms.tls_certificates_interface.v2.tls_certificates import (
     CertificateAvailableEvent,
-    TLSCertificatesRequiresV1,
+    TLSCertificatesRequiresV2,
     generate_csr,
     generate_private_key,
 )
@@ -25,7 +25,7 @@ CONFIG_CHANGED = "banana"
 class DummyTLSCertificatesRequirerCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
-        self.certificates = TLSCertificatesRequiresV1(
+        self.certificates = TLSCertificatesRequiresV2(
             self, "certificates", expiry_notification_time=168
         )
         self.framework.observe(self.on.install, self._on_install)
