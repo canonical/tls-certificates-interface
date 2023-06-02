@@ -1179,16 +1179,16 @@ class TLSCertificatesRequiresV2(Object):
         """Returns list of provider CSRs from relation data."""
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
-            logger.debug(f"No relation: {self.relationship_name}")
+            logger.debug("No relation: %s", self.relationship_name)
             return []
         if not relation.app:
-            logger.debug(f"No remote app in relation: {self.relationship_name}")
+            logger.debug("No remote app in relation: %s", self.relationship_name)
             return []
         provider_relation_data = _load_relation_data(relation.data[relation.app])
         if not self._relation_data_is_valid(provider_relation_data):
             logger.warning(
-                f"Provider relation data did not pass JSON Schema validation: "
-                f"{relation.data[relation.app]}"
+                "Provider relation data did not pass JSON Schema validation: %s",
+                relation.data[relation.app],
             )
             return []
         return provider_relation_data.get("certificates", [])
