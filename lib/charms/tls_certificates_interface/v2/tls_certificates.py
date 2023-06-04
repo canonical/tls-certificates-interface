@@ -304,7 +304,7 @@ LIBAPI = 2
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 1
+LIBPATCH = 2
 
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
@@ -1037,6 +1037,55 @@ class TLSCertificatesProvidesV2(Object):
             ca=ca.strip(),
             chain=[cert.strip() for cert in chain],
         )
+
+    def get_relation_certificates(self, relation_id: int) -> list[dict]:
+        """Returns all certificates for a given relation.
+
+        The output is the list of emitted certificates. Ex.
+            [
+                {
+                    "certificate_signing_request": "csr 1",
+                    "certificate": "cert 1",
+                    "ca": "whatever ca 1",
+                    "chain": ["cert 1", "whatever cert 2"],
+                }
+            ]
+        """
+        if not self.model.unit.is_leader():
+            raise RuntimeError("Unit is not leader - Can't get relation certificates")
+        relation = self.model.get_relation(
+            relation_name=self.relationship_name, relation_id=relation_id
+        )
+        if not relation:
+            return []
+        provider_relation_data = _load_relation_data(relation.data[self.charm.app])
+        return provider_relation_data.get("certificates", [])
+
+    def get_relations_certificates(self) -> dict[str, list]:
+        """Returns all certificates in relation data.
+
+        The output is a mapping of remote app name to application relation data that contains
+        the emitted certificate. Ex.:
+            {
+                "tls-requirer-1": {
+                    "certificates": [
+                        {
+                            "certificate_signing_request": "csr 1",
+                            "certificate": "cert 1",
+                            "ca": "whatever ca 1",
+                            "chain": ["cert 1", "whatever cert 2"],
+                        }
+                    ]
+            }
+        """
+        if not self.model.unit.is_leader():
+            raise RuntimeError("Unit is not leader - Can't get relations certificates")
+        relations = self.model.relations[self.relationship_name]
+        relation_certs = {}
+        for relation in relations:
+            if relation.app:
+                relation_certs[relation.app.name] = self.get_relation_certificates(relation.id)
+        return relation_certs
 
     def remove_certificate(self, certificate: str) -> None:
         """Removes a given certificate from relation data.
