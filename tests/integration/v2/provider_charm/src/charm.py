@@ -18,7 +18,7 @@ from self_signed_certificates import (
     generate_private_key,
 )
 
-CERTIFICATE_VALIDITY = 168
+CERTIFICATE_VALIDITY = 0.005
 CA_COMMON_NAME = "pizza"
 
 logger = logging.getLogger(__name__)

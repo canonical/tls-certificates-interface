@@ -82,7 +82,6 @@ class TestIntegration:
         )
         await ops_test.model.wait_for_idle(
             apps=[
-                TLS_CERTIFICATES_REQUIRER_APP_NAME,
                 TLS_CERTIFICATES_PROVIDER_APP_NAME,
                 new_requirer_app_name,
             ],
@@ -100,3 +99,17 @@ class TestIntegration:
         assert "ca" in action_output and action_output["ca"] is not None
         assert "certificate" in action_output and action_output["certificate"] is not None
         assert "chain" in action_output and action_output["chain"] is not None
+
+    async def test_given_enough_time_passed_then_certificate_expired(self, ops_test):  # noqa: E501
+        await ops_test.model.wait_for_idle(
+            apps=[
+                TLS_CERTIFICATES_REQUIRER_APP_NAME,
+            ],
+            status="blocked",
+            timeout=1000,
+        )
+        requirer_unit = ops_test.model.units[f"{TLS_CERTIFICATES_REQUIRER_APP_NAME}/0"]
+
+        status_history = await requirer_unit.status_history()
+
+        assert status_history == []

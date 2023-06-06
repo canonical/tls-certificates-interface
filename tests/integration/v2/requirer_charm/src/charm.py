@@ -8,6 +8,8 @@ from typing import List, Optional
 
 from charms.tls_certificates_interface.v2.tls_certificates import (
     CertificateAvailableEvent,
+    CertificateExpiringEvent,
+    CertificateInvalidatedEvent,
     TLSCertificatesRequiresV2,
     generate_csr,
     generate_private_key,
@@ -26,11 +28,17 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
         self.certificates = TLSCertificatesRequiresV2(
-            self, "certificates", expiry_notification_time=168
+            self, "certificates", expiry_notification_time=0.1
         )
         self.framework.observe(self.on.install, self._on_install)
         self.framework.observe(
             self.certificates.on.certificate_available, self._on_certificate_available
+        )
+        self.framework.observe(
+            self.certificates.on.certificate_expiring, self._on_certificate_expiring
+        )
+        self.framework.observe(
+            self.certificates.on.certificate_invalidated, self._on_certificate_invalidated
         )
         self.framework.observe(
             self.on.certificates_relation_joined, self._on_certificates_relation_joined
@@ -181,6 +189,14 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
             )
         else:
             event.fail("Certificate not available")
+
+    def _on_certificate_expiring(self, event: CertificateExpiringEvent) -> None:
+        logger.info("Certificate about to expire")
+        self.unit.status = MaintenanceStatus("Certificate about to expire")
+
+    def _on_certificate_invalidated(self, event: CertificateInvalidatedEvent) -> None:
+        logger.info("Certificate expired")
+        self.unit.status = BlockedStatus("Certificate expired")
 
 
 if __name__ == "__main__":
