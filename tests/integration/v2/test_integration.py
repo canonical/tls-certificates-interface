@@ -110,6 +110,4 @@ class TestIntegration:
         )
         requirer_unit = ops_test.model.units[f"{TLS_CERTIFICATES_REQUIRER_APP_NAME}/0"]
 
-        status_history = await requirer_unit.status_history()
-
-        assert status_history == []
+        assert requirer_unit.workload_status_message == "Told you, now your certificate expired"

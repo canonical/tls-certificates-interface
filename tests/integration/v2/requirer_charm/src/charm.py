@@ -196,7 +196,10 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
 
     def _on_certificate_invalidated(self, event: CertificateInvalidatedEvent) -> None:
         logger.info("Certificate expired")
-        self.unit.status = BlockedStatus("Certificate expired")
+        if self.unit.status == MaintenanceStatus("Certificate about to expire"):
+            self.unit.status = BlockedStatus("Told you, now your certificate expired")
+        else:
+            self.unit.status = BlockedStatus("Surprise! Certificate expired")
 
 
 if __name__ == "__main__":
