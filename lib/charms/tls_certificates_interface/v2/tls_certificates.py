@@ -1186,10 +1186,7 @@ class TLSCertificatesRequiresV2(Object):
             return []
         provider_relation_data = _load_relation_data(relation.data[relation.app])
         if not self._relation_data_is_valid(provider_relation_data):
-            logger.warning(
-                "Provider relation data did not pass JSON Schema validation: %s",
-                relation.data[relation.app],
-            )
+            logger.warning("Provider relation data did not pass JSON Schema validation")
             return []
         return provider_relation_data.get("certificates", [])
 
@@ -1317,6 +1314,15 @@ class TLSCertificatesRequiresV2(Object):
     def _on_relation_changed(self, event: RelationChangedEvent) -> None:
         """Handler triggered on relation changed events.
 
+        Goes through all providers certificates that match a requested CSR.
+
+        If the provider certificate is revoked, emit a CertificateInvalidateEvent,
+        otherwise emit a CertificateAvailableEvent.
+
+        When Juju secrets are available, remove the secret for revoked certificate,
+        or add a secret with the correct expiry time for new certificates.
+
+
         Args:
             event: Juju event
 
@@ -1371,6 +1377,19 @@ class TLSCertificatesRequiresV2(Object):
                     )
 
     def _get_next_secret_expiry_time(self, certificate: str) -> Optional[datetime]:
+        """Return the expiry time or expiry notification time.
+
+        Extracts the expiry time from the provided certificate, calculates the
+        expiry notification time and return the closest of the two, that is in
+        the future.
+
+        Args:
+            certificate: x509 certificate
+
+        Returns:
+            Optional[datetime]: None if the certificate expiry time cannot be read,
+                                next expiry time otherwise.
+        """
         expiry_time = _get_certificate_expiry_time(certificate)
         if not expiry_time:
             return None
