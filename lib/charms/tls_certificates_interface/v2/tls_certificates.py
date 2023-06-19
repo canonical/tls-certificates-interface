@@ -1365,8 +1365,6 @@ class TLSCertificatesRequiresV2(Object):
             return
         if not relation.app or not relation.app.name:
             return
-        if not relation.data[relation.app].get("certificates"):
-            return
         self.on.all_certificates_invalidated.emit()
 
     def _on_update_status(self, event: UpdateStatusEvent) -> None:
