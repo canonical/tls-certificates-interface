@@ -762,13 +762,3 @@ class Test(unittest.TestCase):
             self.harness.charm.certificates.on.certificate_invalidated.emit(
                 reason="expired", certificate_signing_request=csr, ca=ca_certificate, chain=chain
             )
-
-    @patch(f"{BASE_CHARM_DIR}._on_all_certificates_invalidated")
-    def test_given_no_certificates_in_relation_data_when_relation_broken_then_all_certificates_invalidated_event_not_emitted(  # noqa: E501
-        self, pach_on_all_certificates_invalidated
-    ):
-        relation_id = self.create_certificates_relation()
-
-        self.harness.remove_relation(relation_id)
-
-        pach_on_all_certificates_invalidated.assert_not_called()
