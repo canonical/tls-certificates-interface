@@ -1129,7 +1129,7 @@ class TestJuju3(unittest.TestCase):
                 ]
             )
         }
-        expiry_time = datetime.utcnow() + timedelta(days=5)
+        expiry_time = datetime.utcnow() - timedelta(seconds=10)
         patch_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -1181,7 +1181,7 @@ class TestJuju3(unittest.TestCase):
                 ]
             )
         }
-        expiry_time = datetime.utcnow() + timedelta(days=5)
+        expiry_time = datetime.utcnow() - timedelta(seconds=10)
         patch_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -1227,7 +1227,7 @@ class TestJuju3(unittest.TestCase):
                 ]
             )
         }
-        expiry_time = datetime.utcnow() + timedelta(days=5)
+        expiry_time = datetime.utcnow() - timedelta(seconds=10)
         patch_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,

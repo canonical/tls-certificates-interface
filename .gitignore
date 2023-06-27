@@ -8,3 +8,6 @@ __pycache__/
 
 .tox/
 .idea/
+
+tests/integration/v2/provider_charm/lib/charms/tls_certificates_interface/v2/tls_certificates.py
+tests/integration/v2/requirer_charm/lib/charms/tls_certificates_interface/v2/tls_certificates.py

@@ -1441,11 +1441,7 @@ class TLSCertificatesRequiresV2(Object):
             event.secret.remove_all_revisions()
             return
 
-        secret_expiry = event.secret.get_info().expires
-        # Satisfy type checking by ensuring the secret as an expiry time set.
-        # This should always be the case, as the secret just expired.
-        assert secret_expiry is not None
-        if secret_expiry < (expiry_time - timedelta(hours=(self.expiry_notification_time / 2))):
+        if datetime.utcnow() < expiry_time:
             logger.warning("Certificate almost expired")
             self.on.certificate_expiring.emit(
                 certificate=certificate_dict["certificate"],
