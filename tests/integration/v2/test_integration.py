@@ -7,9 +7,9 @@ import shutil
 
 logger = logging.getLogger(__name__)
 
-LIB_DIR = "lib/charms/tls_certificates_interface/v1/tls_certificates.py"
-REQUIRER_CHARM_DIR = "tests/integration/v1/requirer_charm"
-PROVIDER_CHARM_DIR = "tests/integration/v1/provider_charm"
+LIB_DIR = "lib/charms/tls_certificates_interface/v2/tls_certificates.py"
+REQUIRER_CHARM_DIR = "tests/integration/v2/requirer_charm"
+PROVIDER_CHARM_DIR = "tests/integration/v2/provider_charm"
 TLS_CERTIFICATES_PROVIDER_APP_NAME = "tls-certificates-provider"
 TLS_CERTIFICATES_REQUIRER_APP_NAME = "tls-certificates-requirer"
 
@@ -30,12 +30,12 @@ class TestIntegration:
         await ops_test.model.deploy(
             TestIntegration.requirer_charm,
             application_name=TLS_CERTIFICATES_REQUIRER_APP_NAME,
-            series="focal",
+            series="jammy",
         )
         await ops_test.model.deploy(
             TestIntegration.provider_charm,
             application_name=TLS_CERTIFICATES_PROVIDER_APP_NAME,
-            series="focal",
+            series="jammy",
         )
 
         await ops_test.model.wait_for_idle(
@@ -74,7 +74,7 @@ class TestIntegration:
     ):
         new_requirer_app_name = "new-tls-requirer"
         await ops_test.model.deploy(
-            TestIntegration.requirer_charm, application_name=new_requirer_app_name, series="focal"
+            TestIntegration.requirer_charm, application_name=new_requirer_app_name, series="jammy"
         )
         await ops_test.model.add_relation(
             relation1=new_requirer_app_name,
@@ -82,7 +82,6 @@ class TestIntegration:
         )
         await ops_test.model.wait_for_idle(
             apps=[
-                TLS_CERTIFICATES_REQUIRER_APP_NAME,
                 TLS_CERTIFICATES_PROVIDER_APP_NAME,
                 new_requirer_app_name,
             ],
@@ -100,3 +99,15 @@ class TestIntegration:
         assert "ca" in action_output and action_output["ca"] is not None
         assert "certificate" in action_output and action_output["certificate"] is not None
         assert "chain" in action_output and action_output["chain"] is not None
+
+    async def test_given_enough_time_passed_then_certificate_expired(self, ops_test):  # noqa: E501
+        await ops_test.model.wait_for_idle(
+            apps=[
+                TLS_CERTIFICATES_REQUIRER_APP_NAME,
+            ],
+            status="blocked",
+            timeout=1000,
+        )
+        requirer_unit = ops_test.model.units[f"{TLS_CERTIFICATES_REQUIRER_APP_NAME}/0"]
+
+        assert requirer_unit.workload_status_message == "Told you, now your certificate expired"

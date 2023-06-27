@@ -5,9 +5,9 @@
 import logging
 from typing import Optional
 
-from charms.tls_certificates_interface.v1.tls_certificates import (
+from charms.tls_certificates_interface.v2.tls_certificates import (
     CertificateCreationRequestEvent,
-    TLSCertificatesProvidesV1,
+    TLSCertificatesProvidesV2,
 )
 from ops.charm import CharmBase, InstallEvent
 from ops.main import main
@@ -18,7 +18,7 @@ from self_signed_certificates import (
     generate_private_key,
 )
 
-CERTIFICATE_VALIDITY = 168
+CERTIFICATE_VALIDITY = 0.005
 CA_COMMON_NAME = "pizza"
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 class DummyTLSCertificatesProviderCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
-        self.certificates = TLSCertificatesProvidesV1(self, "certificates")
+        self.certificates = TLSCertificatesProvidesV2(self, "certificates")
         self.framework.observe(self.on.install, self._on_install)
         self.framework.observe(
             self.certificates.on.certificate_creation_request,

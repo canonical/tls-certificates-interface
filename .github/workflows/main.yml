@@ -37,6 +37,17 @@ jobs:
   integration-tests:
     name: Integration tests
     runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        juju: ["2.9/stable", "3.1/stable"]
+        include:
+          - libjuju: "3.0.4"
+            juju: "2.9/stable"
+            microk8s: "1.27/stable"
+          - libjuju: "3.1.2.0"
+            juju: "3.1/stable"
+            microk8s: "1.27-strict/stable"
     steps:
       - uses: actions/checkout@v3
       - name: Install tox
@@ -44,9 +55,13 @@ jobs:
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
+          juju-channel: ${{ matrix.juju }}
           provider: microk8s
+          channel: ${{ matrix.microk8s }}
       - name: Run tests using tox
         run: tox -e integration
+        env:
+          LIBJUJU_VERSION: ${{ matrix.libjuju }}
       - name: Archive charmcraft logs
         if: failure()
         uses: actions/upload-artifact@v3
