@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - "main"
-    paths:
-      - "lib/charms/tls_certificates_interface/v2/**"
 
 jobs:
   charmhub-upload:
