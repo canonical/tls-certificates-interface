@@ -14,10 +14,6 @@ From a charm directory, fetch the library using `charmcraft`:
 charmcraft fetch-lib charms.tls_certificates_interface.v2.tls_certificates
 ```
 
-Add the following libraries to the charm's `requirements.txt` file:
-- jsonschema
-- cryptography
-
 Add the following section to the charm's `charmcraft.yaml` file:
 ```yaml
 parts:
@@ -308,7 +304,9 @@ LIBAPI = 2
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 6
+LIBPATCH = 7
+
+PYDEPS = ["cryptography", "jsonschema"]
 
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
