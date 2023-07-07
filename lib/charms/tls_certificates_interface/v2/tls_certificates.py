@@ -308,7 +308,7 @@ LIBAPI = 2
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 6
+LIBPATCH = 8
 
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
@@ -1056,6 +1056,45 @@ class TLSCertificatesProvidesV2(Object):
             raise RuntimeError(f"Relation {self.relationship_name} does not exist")
         for certificate_relation in certificates_relation:
             self._remove_certificate(certificate=certificate, relation_id=certificate_relation.id)
+
+    def get_all_relations_certificates(self) -> Dict[str, List[str]]:
+        """Returns a list of all issued certificates.
+
+        Returns:
+            dict: Certificates per application name.
+        """
+        certificates: Dict[str, List[str]] = {}
+        for relation in self.model.relations[self.relationship_name]:
+            provider_relation_data = _load_relation_data(relation.data[self.charm.app])
+            provider_certificates = provider_relation_data.get("certificates", [])
+            for certificate in provider_certificates:
+                if relation.app.name not in certificates:  # type: ignore[union-attr]
+                    certificates[relation.app.name] = []  # type: ignore[union-attr]
+                certificates[relation.app.name].append(certificate["certificate"])  # type: ignore[union-attr]
+        return certificates
+
+    def get_relation_certificates(self, relation_id: int) -> List[str]:
+        """Returns a list of all issued certificates for a given relation.
+
+        Args:
+            relation_id (int): Id of the relation to get certificates for.
+
+        Returns:
+            list: List of certificates
+        """
+        certificates: List[str] = []
+        relation = self.model.get_relation(
+            relation_name=self.relationship_name, relation_id=relation_id
+        )
+        if not relation:
+            raise RuntimeError(
+                f"Relation {self.relationship_name} with relation id {relation_id} does not exist"
+            )
+        provider_relation_data = _load_relation_data(relation.data[self.charm.app])
+        provider_certificates = provider_relation_data.get("certificates", [])
+        for certificate in provider_certificates:
+            certificates.append(certificate["certificate"])
+        return certificates
 
     def _on_relation_changed(self, event: RelationChangedEvent) -> None:
         """Handler triggered on relation changed event.
