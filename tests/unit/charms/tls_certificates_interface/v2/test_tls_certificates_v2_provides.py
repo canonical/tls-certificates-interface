@@ -731,7 +731,11 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         self.harness.update_relation_data(
             relation_id=relation_id, app_or_unit=self.harness.charm.app.name, key_values=key_values
         )
-        expected_certificate = {self.remote_app: [certificate]}
+        expected_certificate = {
+            self.remote_app: {
+                "whatever csr": "whatever cert",
+            }
+        }
 
         certificates = self.harness.charm.certificates.get_all_relations_certificates()
 
@@ -771,7 +775,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             "certificates": json.dumps(
                 [
                     {
-                        "certificate_signing_request": "new csr",
+                        "certificate_signing_request": "different csr",
                         "certificate": certificate_2,
                         "ca": "whatever ca",
                         "chain": ["whatever cert 1", "whatever cert 2"],
@@ -789,7 +793,14 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             app_or_unit=self.harness.charm.app.name,
             key_values=key_values_requirer_2,
         )
-        expected_certificates = {self.remote_app: [certificate_1], requirer_2_app: [certificate_2]}
+        expected_certificates = {
+            self.remote_app: {
+                "whatever csr": "whatever cert 1",
+            },
+            requirer_2_app: {
+                "different csr": "whatever cert 2",
+            },
+        }
         certificates = self.harness.charm.certificates.get_all_relations_certificates()
         self.assertEqual(certificates, expected_certificates)
 
@@ -799,7 +810,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
         certificates = self.harness.charm.certificates.get_relation_certificates(relation_id)
-        self.assertEqual(certificates, [])
+        self.assertEqual(certificates, {})
 
     def test_given_certificate_in_relation_data_when_get_certificates_by_relation_id_then_certificate_is_returned(
         self,
@@ -822,7 +833,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         self.harness.update_relation_data(
             relation_id=relation_id, app_or_unit=self.harness.charm.app.name, key_values=key_values
         )
-        expected_certificate = [certificate]
+        expected_certificate = {"whatever csr": "whatever cert"}
 
         certificates = self.harness.charm.certificates.get_relation_certificates(
             relation_id=relation_id

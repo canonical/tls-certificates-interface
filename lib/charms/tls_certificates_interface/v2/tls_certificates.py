@@ -1058,21 +1058,25 @@ class TLSCertificatesProvidesV2(Object):
         for certificate_relation in certificates_relation:
             self._remove_certificate(certificate=certificate, relation_id=certificate_relation.id)
 
-    def get_all_relations_certificates(self) -> Dict[str, List[str]]:
-        """Returns a list of all issued certificates.
+    def get_all_relations_certificates(self) -> Dict[str, Dict[str, str]]:
+        """Returns a dictionary of all issued certificates.
+
+        Certificates are returned per application name and CSR.
 
         Returns:
             dict: Certificates per application name.
         """
-        certificates: Dict[str, List[str]] = defaultdict(list)
+        certificates: Dict[str, Dict[str, str]] = defaultdict(dict)
         for relation in self.model.relations[self.relationship_name]:
             provider_relation_data = _load_relation_data(relation.data[self.charm.app])
             provider_certificates = provider_relation_data.get("certificates", [])
             for certificate in provider_certificates:
-                certificates[relation.app.name].append(certificate["certificate"])  # type: ignore[union-attr]
+                certificates[relation.app.name].update(  # type: ignore[union-attr]
+                    {certificate["certificate_signing_request"]: certificate["certificate"]}
+                )
         return certificates
 
-    def get_relation_certificates(self, relation_id: int) -> List[str]:
+    def get_relation_certificates(self, relation_id: int) -> Dict[str, str]:
         """Returns a list of all issued certificates for a given relation.
 
         Args:
@@ -1081,7 +1085,7 @@ class TLSCertificatesProvidesV2(Object):
         Returns:
             list: List of certificates
         """
-        certificates: List[str] = []
+        certificates: Dict[str, str] = {}
         relation = self.model.get_relation(
             relation_name=self.relationship_name, relation_id=relation_id
         )
@@ -1092,7 +1096,7 @@ class TLSCertificatesProvidesV2(Object):
         provider_relation_data = _load_relation_data(relation.data[self.charm.app])
         provider_certificates = provider_relation_data.get("certificates", [])
         for certificate in provider_certificates:
-            certificates.append(certificate["certificate"])
+            certificates[certificate["certificate_signing_request"]] = certificate["certificate"]
         return certificates
 
     def _on_relation_changed(self, event: RelationChangedEvent) -> None:
