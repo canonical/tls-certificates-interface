@@ -791,7 +791,6 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         )
         expected_certificates = {self.remote_app: [certificate_1], requirer_2_app: [certificate_2]}
         certificates = self.harness.charm.certificates.get_all_relations_certificates()
-        print(certificates)
         self.assertEqual(certificates, expected_certificates)
 
     def test_given_no_certificates_in_relation_data_when_get_certificates_by_relation_id_then_returned_dict_is_empty(

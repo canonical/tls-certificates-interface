@@ -276,6 +276,7 @@ import copy
 import json
 import logging
 import uuid
+from collections import defaultdict
 from contextlib import suppress
 from datetime import datetime, timedelta
 from ipaddress import IPv4Address
@@ -1063,13 +1064,11 @@ class TLSCertificatesProvidesV2(Object):
         Returns:
             dict: Certificates per application name.
         """
-        certificates: Dict[str, List[str]] = {}
+        certificates: Dict[str, List[str]] = defaultdict(list)
         for relation in self.model.relations[self.relationship_name]:
             provider_relation_data = _load_relation_data(relation.data[self.charm.app])
             provider_certificates = provider_relation_data.get("certificates", [])
             for certificate in provider_certificates:
-                if relation.app.name not in certificates:  # type: ignore[union-attr]
-                    certificates[relation.app.name] = []  # type: ignore[union-attr]
                 certificates[relation.app.name].append(certificate["certificate"])  # type: ignore[union-attr]
         return certificates
 
