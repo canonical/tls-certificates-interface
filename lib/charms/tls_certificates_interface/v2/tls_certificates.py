@@ -1218,7 +1218,7 @@ class TLSCertificatesRequiresV2(Object):
 
     @property
     def _provider_certificates(self) -> List[Dict[str, str]]:
-        """Returns list of provider CSRs from relation data."""
+        """Returns list of certificates from the provider's relation data."""
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
             logger.debug("No relation: %s", self.relationship_name)
@@ -1505,6 +1505,8 @@ class TLSCertificatesRequiresV2(Object):
             event.secret.remove_all_revisions()
 
     def _find_certificate_in_relation_data(self, csr: str) -> Optional[Dict[str, Any]]:
+        """Returns the certificate that match the given CSR."""
+
         for certificate_dict in self._provider_certificates:
             if certificate_dict["certificate_signing_request"] != csr:
                 continue
