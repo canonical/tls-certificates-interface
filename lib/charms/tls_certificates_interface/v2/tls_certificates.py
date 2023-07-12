@@ -1506,7 +1506,6 @@ class TLSCertificatesRequiresV2(Object):
 
     def _find_certificate_in_relation_data(self, csr: str) -> Optional[Dict[str, Any]]:
         """Returns the certificate that match the given CSR."""
-
         for certificate_dict in self._provider_certificates:
             if certificate_dict["certificate_signing_request"] != csr:
                 continue
