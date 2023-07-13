@@ -311,6 +311,8 @@ LIBAPI = 2
 # to 0 if you are raising the major API version
 LIBPATCH = 8
 
+PYDEPS = ["cryptography", "jsonschema"]
+
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
     "$id": "https://canonical.github.io/charm-relation-interfaces/tls_certificates/v2/schemas/requirer.json",  # noqa: E501
