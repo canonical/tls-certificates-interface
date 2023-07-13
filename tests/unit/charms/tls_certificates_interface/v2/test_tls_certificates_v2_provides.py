@@ -702,15 +702,15 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         provider_relation_data = _load_relation_data(provider_relation_data)
         self.assertEqual({"certificates": []}, provider_relation_data)
 
-    def test_given_no_certificates_in_relation_data_when_get_relations_certificates_then_returned_dict_is_empty(
+    def test_given_no_certificates_in_relation_data_when_get_issued_certificates_then_returned_dict_is_empty(
         self,
     ):
         self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
-        certificates = self.harness.charm.certificates.get_all_relations_certificates()
+        certificates = self.harness.charm.certificates.get_issued_certificates()
         self.assertEqual(certificates, {})
 
-    def test_given_one_certificate_in_relation_data_when_get_relations_certificates_then_certificate_is_returned(
+    def test_given_one_certificate_in_relation_data_when_get_issued_certificates_then_certificate_is_returned(
         self,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -737,11 +737,11 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             }
         }
 
-        certificates = self.harness.charm.certificates.get_all_relations_certificates()
+        certificates = self.harness.charm.certificates.get_issued_certificates()
 
         self.assertEqual(certificates, expected_certificate)
 
-    def test_given_multiple_certificate_in_relation_data_when_get_relations_certificates_then_certificate_are_returned(
+    def test_given_multiple_certificate_in_relation_data_when_get_issued_certificates_then_certificate_are_returned(
         self,
     ):
         relation_id_requirer_1 = self.create_certificates_relation_with_1_remote_unit()
@@ -801,18 +801,18 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 "different csr": "whatever cert 2",
             },
         }
-        certificates = self.harness.charm.certificates.get_all_relations_certificates()
+        certificates = self.harness.charm.certificates.get_issued_certificates()
         self.assertEqual(certificates, expected_certificates)
 
-    def test_given_no_certificates_in_relation_data_when_get_certificates_by_relation_id_then_returned_dict_is_empty(
+    def test_given_no_certificates_in_relation_data_when_get_issued_certificates_by_relation_id_then_returned_dict_is_empty(
         self,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
-        certificates = self.harness.charm.certificates.get_relation_certificates(relation_id)
+        certificates = self.harness.charm.certificates.get_issued_certificates(relation_id)
         self.assertEqual(certificates, {})
 
-    def test_given_certificate_in_relation_data_when_get_certificates_by_relation_id_then_certificate_is_returned(
+    def test_given_certificate_in_relation_data_when_get_issued_certificates_by_relation_id_then_certificate_is_returned(
         self,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -833,9 +833,13 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         self.harness.update_relation_data(
             relation_id=relation_id, app_or_unit=self.harness.charm.app.name, key_values=key_values
         )
-        expected_certificate = {"whatever csr": "whatever cert"}
+        expected_certificate = {
+            self.remote_app: {
+                "whatever csr": "whatever cert",
+            }
+        }
 
-        certificates = self.harness.charm.certificates.get_relation_certificates(
+        certificates = self.harness.charm.certificates.get_issued_certificates(
             relation_id=relation_id
         )
 

@@ -1058,45 +1058,30 @@ class TLSCertificatesProvidesV2(Object):
         for certificate_relation in certificates_relation:
             self._remove_certificate(certificate=certificate, relation_id=certificate_relation.id)
 
-    def get_all_relations_certificates(self) -> Dict[str, Dict[str, str]]:
-        """Returns a dictionary of all issued certificates.
+    def get_issued_certificates(
+        self, relation_id: Optional[int] = None
+    ) -> Dict[str, Dict[str, str]]:
+        """Returns a dictionary of issued certificates.
 
+        It returns certificates from all relations if relation_id is not specified.
         Certificates are returned per application name and CSR.
 
         Returns:
             dict: Certificates per application name.
         """
         certificates: Dict[str, Dict[str, str]] = defaultdict(dict)
-        for relation in self.model.relations[self.relationship_name]:
+        relations = (
+            [self.model.relations[self.relationship_name][relation_id]]
+            if relation_id
+            else self.model.relations.get(self.relationship_name, [])
+        )
+        for relation in relations:
             provider_relation_data = _load_relation_data(relation.data[self.charm.app])
             provider_certificates = provider_relation_data.get("certificates", [])
             for certificate in provider_certificates:
                 certificates[relation.app.name].update(  # type: ignore[union-attr]
                     {certificate["certificate_signing_request"]: certificate["certificate"]}
                 )
-        return certificates
-
-    def get_relation_certificates(self, relation_id: int) -> Dict[str, str]:
-        """Returns a list of all issued certificates for a given relation.
-
-        Args:
-            relation_id (int): Id of the relation to get certificates for.
-
-        Returns:
-            list: List of certificates
-        """
-        certificates: Dict[str, str] = {}
-        relation = self.model.get_relation(
-            relation_name=self.relationship_name, relation_id=relation_id
-        )
-        if not relation:
-            raise RuntimeError(
-                f"Relation {self.relationship_name} with relation id {relation_id} does not exist"
-            )
-        provider_relation_data = _load_relation_data(relation.data[self.charm.app])
-        provider_certificates = provider_relation_data.get("certificates", [])
-        for certificate in provider_certificates:
-            certificates[certificate["certificate_signing_request"]] = certificate["certificate"]
         return certificates
 
     def _on_relation_changed(self, event: RelationChangedEvent) -> None:
