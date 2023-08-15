@@ -280,7 +280,7 @@ from collections import defaultdict
 from contextlib import suppress
 from datetime import datetime, timedelta
 from ipaddress import IPv4Address
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from cryptography import x509
 from cryptography.hazmat._oid import ExtensionOID
@@ -309,7 +309,7 @@ LIBAPI = 2
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 9
+LIBPATCH = 10
 
 PYDEPS = ["cryptography", "jsonschema"]
 
@@ -1159,6 +1159,57 @@ class TLSCertificatesProvidesV2(Object):
                 )
                 self.remove_certificate(certificate=certificate["certificate"])
 
+    def get_requirer_csrs_with_no_certs(self) -> List[str]:
+        """Filters requirer CSRs for which no certificate exists.
+
+        Returns:
+            list: List of requirer CSRs for which no certificate exists.
+        """
+        all_csrs = copy.deepcopy(self.get_requirer_csrs)
+        for unit_csrs in all_csrs:
+            for csr in unit_csrs["unit_csrs"]:
+                if (
+                    csr
+                    in self.get_issued_certificates(csr["relation_id"])[
+                        csr["application_name"]
+                    ].keys()
+                ):
+                    unit_csrs["unit_csrs"].remove(csr)
+            if len(unit_csrs["unit_csrs"]) == 0:
+                all_csrs.remove(unit_csrs)
+        return all_csrs
+
+    def get_requirer_csrs(
+        self, relation_id: Optional[int] = None
+    ) -> List[Dict[str, Union[str, List[str]]]]:
+        """Returns a list of requirers' CSRs.
+
+        It returns CSRs from all relations if relation_id is not specified.
+        CSRs are returned per relation id, application name and unit name.
+
+        Returns:
+            list: CSRs per relation id, application name and unit name.
+        """
+        csrs: List[Dict[str, Union[str, List[str]]]] = []
+        relations = (
+            [self.model.relations[self.relationship_name][relation_id]]
+            if relation_id
+            else self.model.relations.get(self.relationship_name, [])
+        )
+        for relation in relations:
+            for unit in relation.units:
+                requirer_relation_data = _load_relation_data(relation.data[unit])
+                unit_csrs_list = requirer_relation_data.get("certificate_signing_requests", [])
+                csrs.append(
+                    {
+                        "relation_id": relation.id,
+                        "application_name": relation.app.name,
+                        "unit_name": unit.name,
+                        "unit_csrs": unit_csrs_list,
+                    }
+                )
+        return csrs
+
 
 class TLSCertificatesRequiresV2(Object):
     """TLS certificates requirer class to be instantiated by TLS certificates requirers."""
@@ -1196,7 +1247,7 @@ class TLSCertificatesRequiresV2(Object):
 
     @property
     def _requirer_csrs(self) -> List[Dict[str, str]]:
-        """Returns list of requirer CSR's from relation data."""
+        """Returns list of requirer's CSRs from relation data."""
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
             raise RuntimeError(f"Relation {self.relationship_name} does not exist")
