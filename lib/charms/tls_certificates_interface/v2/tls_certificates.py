@@ -1078,7 +1078,11 @@ class TLSCertificatesProvidesV2(Object):
         """
         certificates: Dict[str, Dict[str, str]] = defaultdict(dict)
         relations = (
-            [self.model.relations[self.relationship_name][relation_id]]
+            [
+                relation
+                for relation in self.model.relations[self.relationship_name]
+                if relation.id == relation_id
+            ]  # noqa: E501
             if relation_id is not None
             else self.model.relations.get(self.relationship_name, [])
         )
@@ -1207,11 +1211,17 @@ class TLSCertificatesProvidesV2(Object):
             relation_id, application_name and unit_name.
         """
         unit_csr_mappings: List[Dict[str, Union[int, str, List[Dict[str, str]]]]] = []
+
         relations = (
-            [self.model.relations[self.relationship_name][relation_id]]
+            [
+                relation
+                for relation in self.model.relations[self.relationship_name]
+                if relation.id == relation_id
+            ]  # noqa: E501
             if relation_id is not None
             else self.model.relations.get(self.relationship_name, [])
         )
+
         for relation in relations:
             for unit in relation.units:
                 requirer_relation_data = _load_relation_data(relation.data[unit])
