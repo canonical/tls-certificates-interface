@@ -905,6 +905,7 @@ class TLSCertificatesProvidesV2(Object):
         certificate_signing_request: str,
         ca: str,
         chain: List[str],
+        unit_name: Optional[str] = None,
     ) -> None:
         """Adds certificate to relation data.
 
@@ -931,6 +932,7 @@ class TLSCertificatesProvidesV2(Object):
             "certificate_signing_request": certificate_signing_request,
             "ca": ca,
             "chain": chain,
+            "unit_name": unit_name,
         }
         provider_relation_data = _load_relation_data(relation.data[self.charm.app])
         provider_certificates = provider_relation_data.get("certificates", [])
@@ -1013,6 +1015,7 @@ class TLSCertificatesProvidesV2(Object):
         ca: str,
         chain: List[str],
         relation_id: int,
+        unit_name: Optional[str] = None,
     ) -> None:
         """Adds certificates to relation data.
 
@@ -1043,6 +1046,7 @@ class TLSCertificatesProvidesV2(Object):
             certificate_signing_request=certificate_signing_request.strip(),
             ca=ca.strip(),
             chain=[cert.strip() for cert in chain],
+            unit_name=unit_name,
         )
 
     def remove_certificate(self, certificate: str) -> None:
@@ -1159,38 +1163,45 @@ class TLSCertificatesProvidesV2(Object):
                 )
                 self.remove_certificate(certificate=certificate["certificate"])
 
-    def get_requirer_csrs_with_no_certs(self) -> List[str]:
-        """Filters requirer CSRs for which no certificate exists.
+    def get_requirer_units_csrs_with_no_certs(
+        self,
+    ) -> List[Dict[str, Union[int, str, List[str]]]]:
+        """Filters the requirer's units csrs.
+
+        Keeps the ones for which no certificate was provided.
 
         Returns:
-            list: List of requirer CSRs for which no certificate exists.
+            list: List of dictonries that contain the unit's csrs
+            that don't have a certificate issued.
         """
-        all_csrs = copy.deepcopy(self.get_requirer_csrs)
+        all_csrs = copy.deepcopy(self.get_requirer_csrs_by_unit())
         for unit_csrs in all_csrs:
-            for csr in unit_csrs["unit_csrs"]:
+            for csr in unit_csrs["unit_csrs"]:  # type: ignore[union-attr]
                 if (
-                    csr
-                    in self.get_issued_certificates(csr["relation_id"])[
-                        csr["application_name"]
+                    csr["certificate_signing_request"]  # type: ignore[index]
+                    in self.get_issued_certificates(unit_csrs["relation_id"])[  # type: ignore[arg-type]
+                        unit_csrs["application_name"]  # type: ignore[index]
                     ].keys()
                 ):
-                    unit_csrs["unit_csrs"].remove(csr)
-            if len(unit_csrs["unit_csrs"]) == 0:
+                    unit_csrs["unit_csrs"].remove(csr)  # type: ignore[union-attr]
+            if len(unit_csrs["unit_csrs"]) == 0:  # type: ignore[arg-type]
                 all_csrs.remove(unit_csrs)
         return all_csrs
 
-    def get_requirer_csrs(
+    def get_requirer_csrs_by_unit(
         self, relation_id: Optional[int] = None
-    ) -> List[Dict[str, Union[str, List[str]]]]:
-        """Returns a list of requirers' CSRs.
+    ) -> List[Dict[str, Union[int, str, List[str]]]]:
+        """Returns a list of requirers' CSRs grouped by unit.
 
         It returns CSRs from all relations if relation_id is not specified.
         CSRs are returned per relation id, application name and unit name.
 
         Returns:
-            list: CSRs per relation id, application name and unit name.
+            list: List of dictonries that contain the unit's csrs
+            with the following information
+            relation_id, application_name and unit_name.
         """
-        csrs: List[Dict[str, Union[str, List[str]]]] = []
+        unit_csr_mappings: List[Dict[str, Union[int, str, List[str]]]] = []
         relations = (
             [self.model.relations[self.relationship_name][relation_id]]
             if relation_id
@@ -1200,15 +1211,15 @@ class TLSCertificatesProvidesV2(Object):
             for unit in relation.units:
                 requirer_relation_data = _load_relation_data(relation.data[unit])
                 unit_csrs_list = requirer_relation_data.get("certificate_signing_requests", [])
-                csrs.append(
+                unit_csr_mappings.append(
                     {
                         "relation_id": relation.id,
-                        "application_name": relation.app.name,
+                        "application_name": relation.app.name,  # type: ignore[union-attr]
                         "unit_name": unit.name,
                         "unit_csrs": unit_csrs_list,
                     }
                 )
-        return csrs
+        return unit_csr_mappings
 
 
 class TLSCertificatesRequiresV2(Object):
