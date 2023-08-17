@@ -292,7 +292,6 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                     "certificate_signing_request": certificate_signing_request,
                     "ca": ca,
                     "chain": chain,
-                    "unit_name": None,
                 }
             ]
         }
@@ -326,7 +325,6 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                         "certificate_signing_request": initial_certificate_signing_request,
                         "ca": initial_ca,
                         "chain": initial_chain,
-                        "unit_name": None,
                     }
                 ]
             )
@@ -351,14 +349,12 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                     "certificate_signing_request": initial_certificate_signing_request,
                     "ca": initial_ca,
                     "chain": initial_chain,
-                    "unit_name": None,
                 },
                 {
                     "certificate": new_certificate,
                     "certificate_signing_request": new_certificate_signing_request,
                     "ca": new_ca,
                     "chain": new_chain,
-                    "unit_name": None,
                 },
             ]
         }
@@ -409,7 +405,6 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                     "certificate_signing_request": initial_certificate_signing_request,
                     "ca": initial_ca,
                     "chain": initial_chain,
-                    "unit_name": None,
                 },
             ]
         }
@@ -470,7 +465,6 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                             "certificate_signing_request": certificate_signing_request,
                             "ca": ca,
                             "chain": chain,
-                            "unit_name": None,
                         }
                     ]
                 )
@@ -1207,7 +1201,6 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             chain=chain,
             certificate_signing_request=application_2_csr,
             relation_id=application_2_relation_id,
-            unit_name=application_2_unit_1,
         )
         actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs_with_no_certs()
         self.assertEqual(actual_csrs_info, expected_csrs_info)
