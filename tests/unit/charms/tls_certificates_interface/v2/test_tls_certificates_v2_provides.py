@@ -2,7 +2,6 @@
 # See LICENSE file for licensing details.
 
 
-import base64
 import json
 import unittest
 from unittest.mock import PropertyMock, call, patch
@@ -17,6 +16,41 @@ testing.SIMULATE_CAN_CONNECT = True
 
 BASE_CHARM_DIR = "tests.unit.charms.tls_certificates_interface.v2.dummy_provider_charm.src.charm.DummyTLSCertificatesProviderCharm"  # noqa: E501
 LIB_DIR = "lib.charms.tls_certificates_interface.v2.tls_certificates"
+
+EXAMPLE_CSR = """-----BEGIN CERTIFICATE REQUEST-----
+MIICWzCCAUMCAQAwFjEUMBIGA1UEAwwLZXhhbXBsZS5jb20wggEiMA0GCSqGSIb3
+DQEBAQUAA4IBDwAwggEKAoIBAQCr7Or/bP3HZcsRH3vLk8rB4QXEZsLwlAfctT5h
+GIvp4D1oK6TeNb/gQTH62gthGdbtR2DuMEsUC1deWdJqbbh55NtjwUqGmpj2RDX7
+8ncyIROqlM6yJlMNOv25y0vqPudu62uyYVkmnimJnA0RHEwMUs3tBH2jqEHjRX/u
+9SpT/yjZgb3DdngLzgzxH32VUst+Zp8Q2nDI33bfyKi5FnsI/bTkmT1MClDlHBfC
+wjloF/2TL7nzPiMjv2Of/LKAxJFtG43qaO7Hs3Dg7q9py5iIlh3kljTXbnZg6OGm
+zu/iKTEMrUUI45IlCip9porQuj+v+ES0H5g/L3COF0H+3j2FAgMBAAGgADANBgkq
+hkiG9w0BAQsFAAOCAQEAfjWSRiGsEzgba0uiwHYXT8rCjeh42TruRvdUjA//Z36K
+WyZmwQPIYybAfEAUAodrDOT3Z42L4SEnBkZAZfD9n2fndykdPICutDMwMTDwi1S3
+McoXFQOPUC52VWyMHEGiRpD2RBmzCeyGVaTfvnGHivIkX49Z39gKcm6Csi4N+xaA
++RlNIfwQ8KIfwKUUWsR3ZRXDFgI6nf32ENcjLl1/OXAwHJEbhTZLs/SSAkbU0Oc1
+RvD3wd5eWHhcl3fLJbIjkIeza+/wCduHeAfxfhpiaT5Jv3eJGcFuf7M0HXn6zw73
+c8dChXlMi8iLqIUBOg4Mxcfob9josNsMFvLLqgWJgA==
+-----END CERTIFICATE REQUEST-----"""
+
+
+EXAMPLE_CERT = """-----BEGIN CERTIFICATE-----
+MIICuDCCAaCgAwIBAgIUQxVMITHgrLwWJlCr3Adx4+SSky0wDQYJKoZIhvcNAQEL
+BQAwFjEUMBIGA1UEAwwLZXhhbXBsZS5jb20wHhcNMjMwODE3MTA0MjQ2WhcNMjQw
+ODE2MTA0MjQ2WjAWMRQwEgYDVQQDDAtleGFtcGxlLmNvbTCCASIwDQYJKoZIhvcN
+AQEBBQADggEPADCCAQoCggEBAKvs6v9s/cdlyxEfe8uTysHhBcRmwvCUB9y1PmEY
+i+ngPWgrpN41v+BBMfraC2EZ1u1HYO4wSxQLV15Z0mptuHnk22PBSoaamPZENfvy
+dzIhE6qUzrImUw06/bnLS+o+527ra7JhWSaeKYmcDREcTAxSze0EfaOoQeNFf+71
+KlP/KNmBvcN2eAvODPEffZVSy35mnxDacMjfdt/IqLkWewj9tOSZPUwKUOUcF8LC
+OWgX/ZMvufM+IyO/Y5/8soDEkW0bjepo7sezcODur2nLmIiWHeSWNNdudmDo4abO
+7+IpMQytRQjjkiUKKn2mitC6P6/4RLQfmD8vcI4XQf7ePYUCAwEAATANBgkqhkiG
+9w0BAQsFAAOCAQEAUEc2jfcS12vsSnlSbcfreOKFPDfwttYud7GJhzo46ftLz4QR
+d+jDyKuonok2SuoJWZhPPguYKPOumlkWf+lS7HuoaZTaUmt2UpZU1msUTk5Y76If
+tZKofTo/O/amaK3zoG3pwIhgkGHr0kXqZL//DrSGayZ/SNu/h4R11p4wj52vEbpl
+Mj0IojLvil354ipa08eqtZhp8HdEKTw0YwySTdar34/xQ2swOByfBBnoMLmDMijI
+sPC10bF105CbfRIfOX02whQ1FKDH5fReGgDHR+hcKiQVvgt12n6QD5IPnJn10N1L
+qbNLuwLW2Nhf9xIOLFRoPMUnP7njo0t15qgMfA==
+-----END CERTIFICATE-----"""
 
 
 def _load_relation_data(raw_relation_data: dict) -> dict:
@@ -852,7 +886,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         self.assertEqual(certificates, expected_certificate)
 
-    def test_given_requirer_has_one_unit_and_csr_when_get_requirer_csrs_by_unit_then_csr_information_is_returned(
+    def test_given_requirer_has_one_unit_and_csr_when_get_requirer_csrs_then_csr_information_is_returned(
         self,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -876,16 +910,16 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 "unit_name": self.remote_unit_name,
                 "unit_csrs": [
                     {
-                        "certificate_signing_request": base64.b64encode(csr.encode()).decode(),
+                        "certificate_signing_request": csr,
                     }
                 ],
             }
         ]
 
-        actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs_by_unit()
+        actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs()
         self.assertEqual(actual_csrs_info, expected_csrs_info)
 
-    def test_given_requirer_has_multiple_units_and_csrs_when_get_requirer_csrs_by_unit_then_csrs_information_is_returned(
+    def test_given_requirer_has_multiple_units_and_csrs_when_get_requirer_csrs_then_csrs_information_is_returned(
         self,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -930,14 +964,10 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 "unit_name": self.remote_unit_name,
                 "unit_csrs": [
                     {
-                        "certificate_signing_request": base64.b64encode(
-                            unit_1_csr_1.encode()
-                        ).decode(),
+                        "certificate_signing_request": unit_1_csr_1,
                     },
                     {
-                        "certificate_signing_request": base64.b64encode(
-                            unit_1_csr_2.encode()
-                        ).decode(),
+                        "certificate_signing_request": unit_1_csr_2,
                     },
                 ],
             },
@@ -947,20 +977,18 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 "unit_name": remote_unit_2,
                 "unit_csrs": [
                     {
-                        "certificate_signing_request": base64.b64encode(
-                            unit_2_csr.encode()
-                        ).decode(),
+                        "certificate_signing_request": unit_2_csr,
                     }
                 ],
             },
         ]
-        actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs_by_unit()
+        actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs()
         self.assertEqual(
             sorted(actual_csrs_info, key=lambda x: (x["relation_id"], x["unit_name"])),
             sorted(expected_csrs_info, key=lambda x: (x["relation_id"], x["unit_name"])),
         )
 
-    def test_given_multiple_requirers_with_csrs_when_get_requirer_csrs_by_unit_then_csrs_information_is_returned(
+    def test_given_multiple_requirers_with_csrs_when_get_requirer_csrs_then_csrs_information_is_returned(
         self,
     ):
         application_1_relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -1027,9 +1055,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 "unit_name": self.remote_unit_name,
                 "unit_csrs": [
                     {
-                        "certificate_signing_request": base64.b64encode(
-                            application_1_unit_1_csr.encode()
-                        ).decode(),
+                        "certificate_signing_request": application_1_unit_1_csr,
                     }
                 ],
             },
@@ -1039,9 +1065,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 "unit_name": application_2_remote_unit_1,
                 "unit_csrs": [
                     {
-                        "certificate_signing_request": base64.b64encode(
-                            application_2_unit_1_csr.encode()
-                        ).decode(),
+                        "certificate_signing_request": application_2_unit_1_csr,
                     }
                 ],
             },
@@ -1051,20 +1075,18 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 "unit_name": application_2_remote_unit_2,
                 "unit_csrs": [
                     {
-                        "certificate_signing_request": base64.b64encode(
-                            application_2_unit_2_csr.encode()
-                        ).decode(),
+                        "certificate_signing_request": application_2_unit_2_csr,
                     }
                 ],
             },
         ]
-        actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs_by_unit()
+        actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs()
         self.assertEqual(
             sorted(actual_csrs_info, key=lambda x: (x["relation_id"], x["unit_name"])),
             sorted(expected_csrs_info, key=lambda x: (x["relation_id"], x["unit_name"])),
         )
 
-    def test_given_multiple_requirer_applications_and_relation_id_is_specified_when_get_requirer_csrs_by_unit_then_csrs_information_is_returned(
+    def test_given_multiple_requirer_applications_and_relation_id_is_specified_when_get_requirer_csrs_then_csrs_information_is_returned(
         self,
     ):
         application_1_relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -1112,31 +1134,29 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 "unit_name": self.remote_unit_name,
                 "unit_csrs": [
                     {
-                        "certificate_signing_request": base64.b64encode(
-                            application_1_unit_1_csr.encode()
-                        ).decode(),
+                        "certificate_signing_request": application_1_unit_1_csr,
                     }
                 ],
             },
         ]
-        actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs_by_unit(
+        actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs(
             relation_id=application_1_relation_id
         )
         self.assertEqual(actual_csrs_info, expected_csrs_info)
 
-    def test_given_csrs_with_certs_issued_when_get_requirer_units_csrs_with_no_certs_then_those_info_of_those_certs_not_returned(
+    def test_given_csrs_with_certs_issued_when_get_requirer_csrs_with_no_certs_then_the_info_of_those_certs_not_returned(
         self,
     ):
         application_1_relation_id = self.create_certificates_relation_with_1_remote_unit()
         application_2_relation_id = self.harness.add_relation(
             relation_name=self.relation_name, remote_app="tls-certificates-requirer_2"
         )
-        application_2_unit_1 = "tls-certificates-requirer_2/1"
+        application_2_unit_1 = "tls-certificates-requirer_2/0"
         self.harness.add_relation_unit(
             relation_id=application_2_relation_id, remote_unit_name=application_2_unit_1
         )
         application_1_csr = "whatever csr of unit 1 in application 1"
-        application_2_csr = "whatever csr of unit 1 in application 2"
+        application_2_csr = EXAMPLE_CSR
         application_1_key_values = {
             "certificate_signing_requests": json.dumps(
                 [
@@ -1172,16 +1192,14 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 "unit_name": self.remote_unit_name,
                 "unit_csrs": [
                     {
-                        "certificate_signing_request": base64.b64encode(
-                            application_1_csr.encode()
-                        ).decode(),
+                        "certificate_signing_request": application_1_csr,
                     }
                 ],
             },
         ]
         self.harness.set_leader(is_leader=True)
         ca = "whatever ca"
-        certificate = "whatever certificate"
+        certificate = EXAMPLE_CERT
         chain = ["whatever cert 1", "whatever cert 2"]
         self.harness.charm.certificates.set_relation_certificate(
             certificate=certificate,
@@ -1191,7 +1209,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             relation_id=application_2_relation_id,
             unit_name=application_2_unit_1,
         )
-        actual_csrs_info = self.harness.charm.certificates.get_requirer_units_csrs_with_no_certs()
+        actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs_with_no_certs()
         self.assertEqual(actual_csrs_info, expected_csrs_info)
 
     def test_given_no_csrs_from_requirer_when_get_requirer_units_crs_with_certs_then_empty_list_returned(
@@ -1206,13 +1224,13 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 "unit_csrs": [],
             }
         ]
-        actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs_by_unit()
+        actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs()
         self.assertEqual(actual_csrs_info, excepted_csrs_info)
 
-    def test_given_no_csrs_from_requirer_when_get_requirer_csrs_by_unit_then_empty_list_returned(
+    def test_given_no_csrs_from_requirer_when_get_requirer_csrs_then_empty_list_returned(
         self,
     ):
         self.create_certificates_relation_with_1_remote_unit()
 
-        actual_csrs_info = self.harness.charm.certificates.get_requirer_units_csrs_with_no_certs()
+        actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs_with_no_certs()
         self.assertEqual(actual_csrs_info, [])

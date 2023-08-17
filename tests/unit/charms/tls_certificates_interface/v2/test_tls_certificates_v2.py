@@ -6,6 +6,7 @@ import uuid
 
 import pytest
 from charms.tls_certificates_interface.v2.tls_certificates import (
+    csr_matches_certificate,
     generate_ca,
     generate_certificate,
     generate_csr,
@@ -29,6 +30,41 @@ from tests.unit.charms.tls_certificates_interface.v2.certificates import (
 from tests.unit.charms.tls_certificates_interface.v2.certificates import (
     generate_private_key as generate_private_key_helper,
 )
+
+EXAMPLE_CSR = """-----BEGIN CERTIFICATE REQUEST-----
+MIICWzCCAUMCAQAwFjEUMBIGA1UEAwwLZXhhbXBsZS5jb20wggEiMA0GCSqGSIb3
+DQEBAQUAA4IBDwAwggEKAoIBAQCr7Or/bP3HZcsRH3vLk8rB4QXEZsLwlAfctT5h
+GIvp4D1oK6TeNb/gQTH62gthGdbtR2DuMEsUC1deWdJqbbh55NtjwUqGmpj2RDX7
+8ncyIROqlM6yJlMNOv25y0vqPudu62uyYVkmnimJnA0RHEwMUs3tBH2jqEHjRX/u
+9SpT/yjZgb3DdngLzgzxH32VUst+Zp8Q2nDI33bfyKi5FnsI/bTkmT1MClDlHBfC
+wjloF/2TL7nzPiMjv2Of/LKAxJFtG43qaO7Hs3Dg7q9py5iIlh3kljTXbnZg6OGm
+zu/iKTEMrUUI45IlCip9porQuj+v+ES0H5g/L3COF0H+3j2FAgMBAAGgADANBgkq
+hkiG9w0BAQsFAAOCAQEAfjWSRiGsEzgba0uiwHYXT8rCjeh42TruRvdUjA//Z36K
+WyZmwQPIYybAfEAUAodrDOT3Z42L4SEnBkZAZfD9n2fndykdPICutDMwMTDwi1S3
+McoXFQOPUC52VWyMHEGiRpD2RBmzCeyGVaTfvnGHivIkX49Z39gKcm6Csi4N+xaA
++RlNIfwQ8KIfwKUUWsR3ZRXDFgI6nf32ENcjLl1/OXAwHJEbhTZLs/SSAkbU0Oc1
+RvD3wd5eWHhcl3fLJbIjkIeza+/wCduHeAfxfhpiaT5Jv3eJGcFuf7M0HXn6zw73
+c8dChXlMi8iLqIUBOg4Mxcfob9josNsMFvLLqgWJgA==
+-----END CERTIFICATE REQUEST-----"""
+
+
+EXAMPLE_CERT = """-----BEGIN CERTIFICATE-----
+MIICuDCCAaCgAwIBAgIUQxVMITHgrLwWJlCr3Adx4+SSky0wDQYJKoZIhvcNAQEL
+BQAwFjEUMBIGA1UEAwwLZXhhbXBsZS5jb20wHhcNMjMwODE3MTA0MjQ2WhcNMjQw
+ODE2MTA0MjQ2WjAWMRQwEgYDVQQDDAtleGFtcGxlLmNvbTCCASIwDQYJKoZIhvcN
+AQEBBQADggEPADCCAQoCggEBAKvs6v9s/cdlyxEfe8uTysHhBcRmwvCUB9y1PmEY
+i+ngPWgrpN41v+BBMfraC2EZ1u1HYO4wSxQLV15Z0mptuHnk22PBSoaamPZENfvy
+dzIhE6qUzrImUw06/bnLS+o+527ra7JhWSaeKYmcDREcTAxSze0EfaOoQeNFf+71
+KlP/KNmBvcN2eAvODPEffZVSy35mnxDacMjfdt/IqLkWewj9tOSZPUwKUOUcF8LC
+OWgX/ZMvufM+IyO/Y5/8soDEkW0bjepo7sezcODur2nLmIiWHeSWNNdudmDo4abO
+7+IpMQytRQjjkiUKKn2mitC6P6/4RLQfmD8vcI4XQf7ePYUCAwEAATANBgkqhkiG
+9w0BAQsFAAOCAQEAUEc2jfcS12vsSnlSbcfreOKFPDfwttYud7GJhzo46ftLz4QR
+d+jDyKuonok2SuoJWZhPPguYKPOumlkWf+lS7HuoaZTaUmt2UpZU1msUTk5Y76If
+tZKofTo/O/amaK3zoG3pwIhgkGHr0kXqZL//DrSGayZ/SNu/h4R11p4wj52vEbpl
+Mj0IojLvil354ipa08eqtZhp8HdEKTw0YwySTdar34/xQ2swOByfBBnoMLmDMijI
+sPC10bF105CbfRIfOX02whQ1FKDH5fReGgDHR+hcKiQVvgt12n6QD5IPnJn10N1L
+qbNLuwLW2Nhf9xIOLFRoPMUnP7njo0t15qgMfA==
+-----END CERTIFICATE-----"""
 
 
 def validate_induced_data_from_pfx_is_equal_to_initial_data(
@@ -414,3 +450,15 @@ def test_given_cert_and_private_key_when_generate_pfx_package_then_pfx_file_is_g
         initial_certificate=admin_operator_pem,
         initial_private_key=admin_operator_key_pem,
     )
+
+
+def test_given_matching_cert_for_csr_when_csr_matches_certificate_then_it_returns_true():
+    csr = EXAMPLE_CSR
+    certificate = EXAMPLE_CERT
+    assert csr_matches_certificate(csr, certificate) is True
+
+
+def test_given_non_matching_cert_for_csr_when_csr_matches_certificate_then_it_returns_false():
+    csr = EXAMPLE_CSR
+    certificate = "some random cert"
+    assert csr_matches_certificate(csr, certificate) is False
