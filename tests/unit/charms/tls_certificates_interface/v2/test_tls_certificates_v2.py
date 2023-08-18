@@ -418,9 +418,14 @@ def test_given_cert_and_private_key_when_generate_pfx_package_then_pfx_file_is_g
 
 
 def test_given_matching_cert_for_csr_when_csr_matches_certificate_then_it_returns_true():
+    private_key = generate_private_key_helper()
     csr = generate_csr_helper(
-        private_key=generate_private_key_helper(),
-        subject="whatever subject",
+        private_key=private_key,
+        subject="same subject",
+    )
+    same_csr = generate_csr_helper(
+        private_key=private_key,
+        subject="same subject",
     )
     ca_key = generate_private_key_helper()
     ca = generate_ca_helper(
@@ -432,7 +437,7 @@ def test_given_matching_cert_for_csr_when_csr_matches_certificate_then_it_return
         ca=ca,
         ca_key=generate_private_key_helper(),
     )
-    assert csr_matches_certificate(csr.decode(), certificate.decode()) is True
+    assert csr_matches_certificate(same_csr.decode(), certificate.decode()) is True
 
 
 def test_given_csr_subject_not_matching_certificate_subject_when_csr_matches_certificate_then_it_returns_false():
