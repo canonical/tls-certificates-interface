@@ -6,6 +6,7 @@ import uuid
 
 import pytest
 from charms.tls_certificates_interface.v2.tls_certificates import (
+    csr_matches_certificate,
     generate_ca,
     generate_certificate,
     generate_csr,
@@ -414,3 +415,71 @@ def test_given_cert_and_private_key_when_generate_pfx_package_then_pfx_file_is_g
         initial_certificate=admin_operator_pem,
         initial_private_key=admin_operator_key_pem,
     )
+
+
+def test_given_matching_cert_for_csr_when_csr_matches_certificate_then_it_returns_true():
+    private_key = generate_private_key_helper()
+    csr = generate_csr_helper(
+        private_key=private_key,
+        subject="same subject",
+    )
+    same_csr = generate_csr_helper(
+        private_key=private_key,
+        subject="same subject",
+    )
+    ca_key = generate_private_key_helper()
+    ca = generate_ca_helper(
+        private_key=ca_key,
+        subject="some subject",
+    )
+    certificate = generate_certificate_helper(
+        csr=csr,
+        ca=ca,
+        ca_key=generate_private_key_helper(),
+    )
+    assert csr_matches_certificate(same_csr.decode(), certificate.decode()) is True
+
+
+def test_given_csr_subject_not_matching_certificate_subject_when_csr_matches_certificate_then_it_returns_false():
+    private_key = generate_private_key_helper()
+    csr_subject_1 = generate_csr_helper(
+        private_key=private_key,
+        subject="not matching subject 1",
+    )
+    csr_subject_2 = generate_csr_helper(
+        private_key=private_key,
+        subject="not matching subject 2",
+    )
+    ca_key = generate_private_key_helper()
+    ca = generate_ca_helper(
+        private_key=ca_key,
+        subject="different subject",
+    )
+    certificate = generate_certificate_helper(
+        csr=csr_subject_1,
+        ca=ca,
+        ca_key=ca_key,
+    )
+    assert csr_matches_certificate(csr_subject_2.decode(), certificate.decode()) is False
+
+
+def test_given_csr_public_key_not_matching_certificate_public_key_when_csr_matches_certificate_then_it_returns_false():
+    csr_key_1 = generate_csr_helper(
+        private_key=generate_private_key_helper(),
+        subject="matching subject",
+    )
+    csr_key_2 = generate_csr_helper(
+        private_key=generate_private_key_helper(),
+        subject="matching subject",
+    )
+    ca_key = generate_private_key_helper()
+    ca = generate_ca_helper(
+        private_key=ca_key,
+        subject="matching subject",
+    )
+    certificate = generate_certificate_helper(
+        csr=csr_key_1,
+        ca=ca,
+        ca_key=ca_key,
+    )
+    assert csr_matches_certificate(csr_key_2.decode(), certificate.decode()) is False
