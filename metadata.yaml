@@ -6,6 +6,7 @@ description: |
   Placeholder charm
 summary: |
   Placeholder charm
+docs: https://discourse.charmhub.io/t/the-tls-certificate-interface-documentation/11635
 
 containers:
   placeholder:
