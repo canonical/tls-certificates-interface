@@ -1062,7 +1062,7 @@ class TLSCertificatesProvidesV2(Object):
 
     def get_issued_certificates(
         self, relation_id: Optional[int] = None
-    ) -> Dict[str, Dict[str, str]]:
+    ) -> Dict[str, str]:
         """Returns a dictionary of issued certificates.
 
         It returns certificates from all relations if relation_id is not specified.
