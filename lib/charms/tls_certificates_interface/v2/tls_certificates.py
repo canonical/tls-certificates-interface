@@ -1062,7 +1062,7 @@ class TLSCertificatesProvidesV2(Object):
 
     def get_issued_certificates(
         self, relation_id: Optional[int] = None
-    ) -> Dict[str, str]:
+    ) -> Dict[str, list[Dict[str, str]]]:
         """Returns a dictionary of issued certificates.
 
         It returns certificates from all relations if relation_id is not specified.
@@ -1071,7 +1071,7 @@ class TLSCertificatesProvidesV2(Object):
         Returns:
             dict: Certificates per application name.
         """
-        certificates: Dict[str, str] = defaultdict(str)
+        certificates: Dict[str, list[Dict[str, str]]] = defaultdict(list)
         relations = (
             [self.model.relations[self.relationship_name][relation_id]]
             if relation_id
@@ -1081,10 +1081,14 @@ class TLSCertificatesProvidesV2(Object):
             provider_relation_data = _load_relation_data(relation.data[self.charm.app])
             provider_certificates = provider_relation_data.get("certificates", [])
             for certificate in provider_certificates:
-                certificates[relation.app.name] = f"CSR: \n{certificate['certificate_signing_request']}\nCERT: \n{certificate['certificate']}"
+                certificates[relation.app.name].append(
+                    {
+                        "csr": certificate["certificate_signing_request"],
+                        "certificate": certificate["certificate"],
+                    }
+                )
 
         return certificates
-       
 
     def _on_relation_changed(self, event: RelationChangedEvent) -> None:
         """Handler triggered on relation changed event.
