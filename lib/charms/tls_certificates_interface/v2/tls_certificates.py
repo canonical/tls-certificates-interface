@@ -1061,7 +1061,7 @@ class TLSCertificatesProvidesV2(Object):
 
     def get_issued_certificates(
         self, relation_id: Optional[int] = None
-    ) -> Dict[str, list[Dict[str, str]]]:
+    ) -> Dict[str, List[Dict[str, str]]]:
         """Returns a dictionary of issued certificates.
 
         It returns certificates from all relations if relation_id is not specified.
@@ -1070,7 +1070,7 @@ class TLSCertificatesProvidesV2(Object):
         Returns:
             dict: Certificates per application name.
         """
-        certificates: Dict[str, list[Dict[str, str]]] = {}
+        certificates: Dict[str, List[Dict[str, str]]] = {}
         relations = (
             [self.model.relations[self.relationship_name][relation_id]]
             if relation_id
@@ -1080,10 +1080,10 @@ class TLSCertificatesProvidesV2(Object):
             provider_relation_data = _load_relation_data(relation.data[self.charm.app])
             provider_certificates = provider_relation_data.get("certificates", [])
 
-            certificates[relation.app.name] = []
+            certificates[relation.app.name] = []  # type: ignore[union-attr]
             for certificate in provider_certificates:
                 if not certificate.get("revoked", False):
-                    certificates[relation.app.name].append(
+                    certificates[relation.app.name].append(  # type: ignore[union-attr]
                         {
                             "csr": certificate["certificate_signing_request"],
                             "certificate": certificate["certificate"],
@@ -1239,8 +1239,8 @@ class TLSCertificatesProvidesV2(Object):
         """
         issued_certificates_per_csr = self.get_issued_certificates()[app_name]
         for request_pair in issued_certificates_per_csr:
-            if csr in request_pair:
-                return csr_matches_certificate(csr, request_pair["csr"])
+            if "csr" in request_pair:
+                return csr_matches_certificate(csr, request_pair["certificate"])
         return False
 
 
