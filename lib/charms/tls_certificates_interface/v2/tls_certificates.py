@@ -276,7 +276,6 @@ import copy
 import json
 import logging
 import uuid
-from collections import defaultdict
 from contextlib import suppress
 from datetime import datetime, timedelta
 from ipaddress import IPv4Address
@@ -1071,7 +1070,7 @@ class TLSCertificatesProvidesV2(Object):
         Returns:
             dict: Certificates per application name.
         """
-        certificates: Dict[str, list[Dict[str, str]]] = defaultdict(list)
+        certificates: Dict[str, list[Dict[str, str]]] = {}
         relations = (
             [self.model.relations[self.relationship_name][relation_id]]
             if relation_id
@@ -1080,15 +1079,18 @@ class TLSCertificatesProvidesV2(Object):
         for relation in relations:
             provider_relation_data = _load_relation_data(relation.data[self.charm.app])
             provider_certificates = provider_relation_data.get("certificates", [])
-            for certificate in provider_certificates:
-                certificates[relation.app.name].append(
-                    {
-                        "csr": certificate["certificate_signing_request"],
-                        "certificate": certificate["certificate"],
-                    }
-                )
 
-        return certificates
+            certificates[relation.app.name] = []
+            for certificate in provider_certificates:
+                if not certificate.get("revoked", False):
+                    certificates[relation.app.name].append(
+                        {
+                            "csr": certificate["certificate_signing_request"],
+                            "certificate": certificate["certificate"],
+                        }
+                    )
+
+        return dict(certificates)
 
     def _on_relation_changed(self, event: RelationChangedEvent) -> None:
         """Handler triggered on relation changed event.
@@ -1236,9 +1238,9 @@ class TLSCertificatesProvidesV2(Object):
             bool: True/False depending on whether a certificate has been issued for the given CSR.
         """
         issued_certificates_per_csr = self.get_issued_certificates()[app_name]
-        for request, cert in issued_certificates_per_csr.items():
-            if request == csr:
-                return csr_matches_certificate(csr, cert)
+        for request_pair in issued_certificates_per_csr:
+            if csr in request_pair:
+                return csr_matches_certificate(csr, request_pair["csr"])
         return False
 
 
