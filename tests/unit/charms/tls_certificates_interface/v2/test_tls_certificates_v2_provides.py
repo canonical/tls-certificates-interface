@@ -854,7 +854,6 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
         certificates = self.harness.charm.certificates.get_issued_certificates(relation_id)
-        print(certificates)
         self.assertEqual(certificates, {"tls-certificates-requirer": []})
 
     def test_given_certificate_in_relation_data_when_get_issued_certificates_by_relation_id_then_certificate_is_returned(
@@ -1215,7 +1214,6 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             certificate_signing_request=application_2_csr,
             relation_id=application_2_relation_id,
         )
-        self.maxDiff = None
         actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs_with_no_certs()
         self.assertEqual(actual_csrs_info, expected_csrs_info)
 
