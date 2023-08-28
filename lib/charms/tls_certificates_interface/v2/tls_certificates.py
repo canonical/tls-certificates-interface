@@ -1094,7 +1094,7 @@ class TLSCertificatesProvidesV2(Object):
                         }
                     )
 
-        return dict(certificates)
+        return certificates
 
     def _on_relation_changed(self, event: RelationChangedEvent) -> None:
         """Handler triggered on relation changed event.
