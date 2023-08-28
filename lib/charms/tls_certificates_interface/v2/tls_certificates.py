@@ -1072,8 +1072,12 @@ class TLSCertificatesProvidesV2(Object):
         """
         certificates: Dict[str, List[Dict[str, str]]] = {}
         relations = (
-            [self.model.relations[self.relationship_name][relation_id]]
-            if relation_id
+            [
+                relation
+                for relation in self.model.relations[self.relationship_name]
+                if relation.id == relation_id
+            ]
+            if relation_id is not None
             else self.model.relations.get(self.relationship_name, [])
         )
         for relation in relations:
