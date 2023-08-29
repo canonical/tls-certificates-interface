@@ -1243,7 +1243,7 @@ class TLSCertificatesProvidesV2(Object):
         """
         issued_certificates_per_csr = self.get_issued_certificates()[app_name]
         for request_pair in issued_certificates_per_csr:
-            if "csr" in request_pair:
+            if "csr" in request_pair and request_pair["csr"] == csr:
                 return csr_matches_certificate(csr, request_pair["certificate"])
         return False
 
