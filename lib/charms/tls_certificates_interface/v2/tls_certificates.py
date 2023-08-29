@@ -1242,9 +1242,9 @@ class TLSCertificatesProvidesV2(Object):
             bool: True/False depending on whether a certificate has been issued for the given CSR.
         """
         issued_certificates_per_csr = self.get_issued_certificates()[app_name]
-        for request_pair in issued_certificates_per_csr:
-            if "csr" in request_pair and request_pair["csr"] == csr:
-                return csr_matches_certificate(csr, request_pair["certificate"])
+        for issued_pair in issued_certificates_per_csr:
+            if "csr" in issued_pair and issued_pair["csr"] == csr:
+                return csr_matches_certificate(csr, issued_pair["certificate"])
         return False
 
 
