@@ -737,7 +737,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         provider_relation_data = _load_relation_data(provider_relation_data)
         self.assertEqual({"certificates": []}, provider_relation_data)
 
-    def test_given_no_certificates_in_relation_data_when_get_issued_certificates_then_returned_dict_is_empty(
+    def test_given_no_certificates_in_relation_data_when_get_issued_certificates_then_returned_dict_has_empty_certificates_link(
         self,
     ):
         self.create_certificates_relation_with_1_remote_unit()
@@ -848,7 +848,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         certificates = self.harness.charm.certificates.get_issued_certificates()
         self.assertEqual(certificates, expected_certificates)
 
-    def test_given_no_certificates_in_relation_data_when_get_issued_certificates_by_relation_id_then_returned_dict_is_empty(
+    def test_given_no_certificates_in_relation_data_when_get_issued_certificates_by_relation_id_then_returned_dict_has_empty_certificates_list(
         self,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
