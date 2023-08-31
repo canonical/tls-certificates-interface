@@ -308,7 +308,7 @@ LIBAPI = 2
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 11
+LIBPATCH = 12
 
 PYDEPS = ["cryptography", "jsonschema"]
 
@@ -1170,17 +1170,20 @@ class TLSCertificatesProvidesV2(Object):
                 self.remove_certificate(certificate=certificate["certificate"])
 
     def get_requirer_csrs_with_no_certs(
-        self,
+        self, relation_id: Optional[int] = None
     ) -> List[Dict[str, Union[int, str, List[Dict[str, str]]]]]:
         """Filters the requirer's units csrs.
 
         Keeps the ones for which no certificate was provided.
 
+        Args:
+            relation_id (int): Relation id
+
         Returns:
             list: List of dictionaries that contain the unit's csrs
             that don't have a certificate issued.
         """
-        all_unit_csr_mappings = copy.deepcopy(self.get_requirer_csrs())
+        all_unit_csr_mappings = copy.deepcopy(self.get_requirer_csrs(relation_id=relation_id))
         for unit_csr_mapping in all_unit_csr_mappings:
             for csr in unit_csr_mapping["unit_csrs"]:  # type: ignore[union-attr]
                 if self.certificate_issued_for_csr(

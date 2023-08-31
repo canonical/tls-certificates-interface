@@ -1158,7 +1158,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         )
         self.assertEqual(actual_csrs_info, expected_csrs_info)
 
-    def test_given_csrs_with_certs_issued_when_get_requirer_csrs_with_no_certs_then_the_info_of_those_certs_not_returned(
+    def test_given_csrs_with_certs_issued_when_get_requirer_csrs_with_no_certs_then_the_info_of_those_csrs_not_returned(
         self,
     ):
         application_1_relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -1223,6 +1223,64 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             relation_id=application_2_relation_id,
         )
         actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs_with_no_certs()
+        self.assertEqual(actual_csrs_info, expected_csrs_info)
+
+    def test_given_csrs_with_no_certs_and_relation_id_specified_when_get_requirer_csrs_with_no_certs_then_csrs_of_that_relation_are_returned(  # noqa: E501
+        self,
+    ):
+        application_1_relation_id = self.create_certificates_relation_with_1_remote_unit()
+        application_2_relation_id = self.harness.add_relation(
+            relation_name=self.relation_name, remote_app="tls-certificates-requirer_2"
+        )
+        application_2_unit_1 = "tls-certificates-requirer_2/0"
+        self.harness.add_relation_unit(
+            relation_id=application_2_relation_id, remote_unit_name=application_2_unit_1
+        )
+        application_1_csr = "whatever csr of unit 1 in application 1"
+        application_1_key_values = {
+            "certificate_signing_requests": json.dumps(
+                [
+                    {
+                        "certificate_signing_request": application_1_csr,
+                    }
+                ]
+            )
+        }
+        application_2_csr = "whatever csr of unit 1 in application 2"
+        application_2_key_values = {
+            "certificate_signing_requests": json.dumps(
+                [
+                    {
+                        "certificate_signing_request": application_2_csr,
+                    }
+                ]
+            )
+        }
+        self.harness.update_relation_data(
+            relation_id=application_1_relation_id,
+            app_or_unit=self.remote_unit_name,
+            key_values=application_1_key_values,
+        )
+        self.harness.update_relation_data(
+            relation_id=application_2_relation_id,
+            app_or_unit=application_2_unit_1,
+            key_values=application_2_key_values,
+        )
+        expected_csrs_info = [
+            {
+                "relation_id": application_1_relation_id,
+                "application_name": self.remote_app,
+                "unit_name": self.remote_unit_name,
+                "unit_csrs": [
+                    {
+                        "certificate_signing_request": application_1_csr,
+                    }
+                ],
+            },
+        ]
+        actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs_with_no_certs(
+            relation_id=application_1_relation_id
+        )
         self.assertEqual(actual_csrs_info, expected_csrs_info)
 
     def test_given_no_csrs_from_requirer_when_get_requirer_units_crs_with_certs_then_empty_list_returned(
