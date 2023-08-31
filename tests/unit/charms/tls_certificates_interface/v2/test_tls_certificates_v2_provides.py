@@ -737,7 +737,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         provider_relation_data = _load_relation_data(provider_relation_data)
         self.assertEqual({"certificates": []}, provider_relation_data)
 
-    def test_given_no_certificates_in_relation_data_when_get_issued_certificates_then_returned_dict_has_empty_certificates_link(
+    def test_given_no_certificates_in_relation_data_when_get_issued_certificates_then_returned_dict_has_empty_certificates_list(
         self,
     ):
         self.create_certificates_relation_with_1_remote_unit()
