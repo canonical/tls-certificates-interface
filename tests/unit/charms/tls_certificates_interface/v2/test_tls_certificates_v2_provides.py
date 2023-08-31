@@ -892,6 +892,14 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         self.assertEqual(certificates, expected_certificate)
 
+    def test_given_incorrect_relation_id_when_get_issued_certificates_by_relation_id_then_returned_dict_is_empty(
+        self,
+    ):
+        random_relation_id = 1234
+        self.harness.set_leader(is_leader=True)
+        certificates = self.harness.charm.certificates.get_issued_certificates(random_relation_id)
+        self.assertEqual(certificates, {})
+
     def test_given_requirer_has_one_unit_and_csr_when_get_requirer_csrs_then_csr_information_is_returned(
         self,
     ):
