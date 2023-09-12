@@ -1127,7 +1127,8 @@ class TLSCertificatesProvidesV2(Object):
         Returns:
             None
         """
-        assert event.unit is not None
+        if event.unit is None:
+            return
         requirer_relation_data = self._load_relation_data(event.relation.data[event.unit])
         provider_relation_data = self._load_relation_data(event.relation.data[self.charm.app])
         if not self._relation_data_is_valid(requirer_relation_data):
