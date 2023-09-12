@@ -81,6 +81,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         self.harness = testing.Harness(DummyTLSCertificatesProviderCharm)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
+        self.harness.set_leader(is_leader=True)
 
     def create_certificates_relation_with_1_remote_unit(self) -> int:
         relation_id = self.harness.add_relation(
