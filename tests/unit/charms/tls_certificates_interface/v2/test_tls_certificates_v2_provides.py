@@ -528,16 +528,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             relation_id=relation_id,
         )
 
-        expected_relation_data = {
-            "certificates": [
-                {
-                    "certificate": initial_certificate,
-                    "certificate_signing_request": initial_certificate_signing_request,
-                    "ca": initial_ca,
-                    "chain": initial_chain,
-                },
-            ]
-        }
+        expected_relation_data = {"certificates": json.loads(key_values["certificates"])}
         self.harness.set_leader(is_leader=True)
         provider_relation_data = self.harness.get_relation_data(
             relation_id=relation_id, app_or_unit=self.harness.charm.app.name
@@ -629,16 +620,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             relation_id=relation_id,
         )
 
-        expected_relation_data = {
-            "certificates": [
-                {
-                    "certificate_signing_request": initial_certificate_signing_request,
-                    "certificate": initial_certificate,
-                    "ca": initial_ca,
-                    "chain": initial_chain,
-                },
-            ]
-        }
+        expected_relation_data = {"certificates": json.loads(key_values["certificates"])}
         self.harness.set_leader(is_leader=True)
         provider_relation_data = self.harness.get_relation_data(
             relation_id=relation_id, app_or_unit=self.harness.charm.app.name
