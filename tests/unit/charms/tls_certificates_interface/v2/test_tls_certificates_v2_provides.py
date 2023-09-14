@@ -185,6 +185,92 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         patch_certificate_creation_request.assert_not_called()
 
+    @patch(
+        f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_creation_request",
+        new_callable=PropertyMock,
+    )
+    def test_given_certificate_for_csr_already_in_relation_data_when_on_relation_changed_and_unit_not_leader_then_certificate_creation_request_is_emitted(  # noqa: E501
+        self, patch_certificate_creation_request
+    ):
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
+        self.harness.set_leader(is_leader=True)
+        csr = "whatever csr"
+        provider_app_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "certificate_signing_request": csr,
+                        "certificate": "whatever cert",
+                        "ca": "whatever ca",
+                        "chain": ["whatever cert 1", "whatever cert 2"],
+                    }
+                ]
+            )
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.app.name,
+            key_values=provider_app_data,
+        )
+
+        requirer_unit_data = {
+            "certificate_signing_requests": json.dumps(
+                [
+                    {
+                        "certificate_signing_request": csr,
+                    }
+                ]
+            )
+        }
+        self.harness.set_leader(is_leader=False)
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_unit_name,
+            key_values=requirer_unit_data,
+        )
+
+        patch_certificate_creation_request.assert_called_once()
+
+    @patch(f"{LIB_DIR}.TLSCertificatesProvidesV2.remove_certificate")
+    @patch(
+        f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_revocation_request",
+    )
+    def test_given_csr_in_provider_relation_data_but_not_in_requirer_when_on_relation_changed_and_unit_not_leader_then_certificate_revocation_request_is_not_emitted(  # noqa: E501
+        self, patch_certificate_revocation_request, _
+    ):
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
+        self.harness.set_leader(is_leader=True)
+        certificate = "whatever cert"
+        csr = "whatever csr"
+        ca = "whatever ca"
+        chain = ["whatever cert 1", "whatever cert 2"]
+        app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "certificate_signing_request": csr,
+                        "certificate": certificate,
+                        "ca": ca,
+                        "chain": chain,
+                    }
+                ]
+            )
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.app.name,
+            key_values=app_relation_data,
+        )
+        remote_unit_relation_data = {"certificate_signing_requests": "[]"}
+        self.harness.set_leader(is_leader=False)
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_unit_name,
+            key_values=remote_unit_relation_data,
+        )
+
+        patch_certificate_revocation_request.emit.assert_not_called()
+
     @patch(f"{LIB_DIR}.TLSCertificatesProvidesV2.remove_certificate")
     @patch(
         f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_revocation_request",
@@ -266,6 +352,45 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         )
 
         patch_remove_certificate.assert_called_with(certificate=certificate)
+
+    @patch(f"{LIB_DIR}.TLSCertificatesProvidesV2.remove_certificate")
+    @patch(
+        f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_revocation_request",
+        new_callable=PropertyMock,
+    )
+    def test_given_csr_in_provider_relation_data_but_not_in_requirer_when_on_relation_changed_and_unit_not_leader_then_remove_certificate_is_not_called(  # noqa: E501
+        self,
+        _,
+        patch_remove_certificate,
+    ):
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
+        self.harness.set_leader(is_leader=True)
+        certificate = "whatever cert"
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.app.name,
+            key_values={
+                "certificates": json.dumps(
+                    [
+                        {
+                            "certificate_signing_request": "whatever csr",
+                            "certificate": certificate,
+                            "ca": "whatever ca",
+                            "chain": ["whatever cert 1", "whatever cert 2"],
+                        }
+                    ]
+                )
+            },
+        )
+        remote_unit_relation_data = {"certificate_signing_requests": "[]"}
+        self.harness.set_leader(is_leader=False)
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_unit_name,
+            key_values=remote_unit_relation_data,
+        )
+
+        patch_remove_certificate.assert_not_called()
 
     def test_given_no_data_in_relation_data_when_set_relation_certificate_then_certificate_is_added_to_relation_data(  # noqa: E501
         self,
@@ -364,6 +489,62 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         loaded_relation_data = _load_relation_data(dict(provider_relation_data))
         self.assertEqual(expected_relation_data, loaded_relation_data)
 
+    def test_given_some_certificates_in_relation_data_when_set_relation_certificate_and_unit_not_leader_then_certificate_is_not_added_to_relation_data(  # noqa: E501
+        self,
+    ):
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
+        self.harness.set_leader(is_leader=True)
+        initial_certificate = "whatever initial cert"
+        initial_certificate_signing_request = "whatever initial csr"
+        initial_ca = "whatever initial ca"
+        initial_chain = ["whatever initial cert 1", "whatever initial cert 2"]
+        new_ca = "whatever new ca"
+        new_certificate = "whatever new certificate"
+        new_certificate_signing_request = "whatever new certificate signing request"
+        new_chain = ["whatever new cert 1", "whatever new cert 2"]
+
+        key_values = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "certificate": initial_certificate,
+                        "certificate_signing_request": initial_certificate_signing_request,
+                        "ca": initial_ca,
+                        "chain": initial_chain,
+                    }
+                ]
+            )
+        }
+
+        self.harness.update_relation_data(
+            relation_id=relation_id, app_or_unit=self.harness.charm.app.name, key_values=key_values
+        )
+        self.harness.set_leader(is_leader=False)
+        self.harness.charm.certificates.set_relation_certificate(
+            certificate=new_certificate,
+            ca=new_ca,
+            chain=new_chain,
+            certificate_signing_request=new_certificate_signing_request,
+            relation_id=relation_id,
+        )
+
+        expected_relation_data = {
+            "certificates": [
+                {
+                    "certificate": initial_certificate,
+                    "certificate_signing_request": initial_certificate_signing_request,
+                    "ca": initial_ca,
+                    "chain": initial_chain,
+                },
+            ]
+        }
+        self.harness.set_leader(is_leader=True)
+        provider_relation_data = self.harness.get_relation_data(
+            relation_id=relation_id, app_or_unit=self.harness.charm.app.name
+        )
+        loaded_relation_data = _load_relation_data(dict(provider_relation_data))
+        self.assertEqual(expected_relation_data, loaded_relation_data)
+
     def test_given_identical_csr_in_relation_data_when_set_relation_certificate_then_certificate_is_replaced_in_relation_data(  # noqa: E501
         self,
     ):
@@ -408,6 +589,57 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 },
             ]
         }
+        provider_relation_data = self.harness.get_relation_data(
+            relation_id=relation_id, app_or_unit=self.harness.charm.app.name
+        )
+        loaded_relation_data = _load_relation_data(dict(provider_relation_data))
+        self.assertEqual(expected_relation_data, loaded_relation_data)
+
+    def test_given_identical_csr_in_relation_data_when_set_relation_certificate_and_unit_not_leader_then_certificate_is_not_replaced_in_relation_data(  # noqa: E501
+        self,
+    ):
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
+        self.harness.set_leader(is_leader=True)
+        initial_certificate = "whatever initial cert"
+        initial_certificate_signing_request = "whatever initial csr"
+        initial_ca = "whatever initial ca"
+        initial_chain = ["whatever initial cert 1", "whatever initial cert 2"]
+        new_certificate = "whatever new certificate"
+        key_values = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "certificate_signing_request": initial_certificate_signing_request,
+                        "certificate": initial_certificate,
+                        "ca": initial_ca,
+                        "chain": initial_chain,
+                    }
+                ]
+            )
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id, app_or_unit=self.harness.charm.app.name, key_values=key_values
+        )
+        self.harness.set_leader(is_leader=False)
+        self.harness.charm.certificates.set_relation_certificate(
+            certificate=new_certificate,
+            ca=initial_ca,
+            chain=initial_chain,
+            certificate_signing_request=initial_certificate_signing_request,
+            relation_id=relation_id,
+        )
+
+        expected_relation_data = {
+            "certificates": [
+                {
+                    "certificate_signing_request": initial_certificate_signing_request,
+                    "certificate": initial_certificate,
+                    "ca": initial_ca,
+                    "chain": initial_chain,
+                },
+            ]
+        }
+        self.harness.set_leader(is_leader=True)
         provider_relation_data = self.harness.get_relation_data(
             relation_id=relation_id, app_or_unit=self.harness.charm.app.name
         )
@@ -724,6 +956,38 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         provider_relation_data = _load_relation_data(provider_relation_data)
         self.assertEqual(expected, provider_relation_data)
 
+    def test_given_certificates_in_relation_data_when_revoke_all_certificates_and_unit_not_leader_then_certificates_are_present(  # noqa: e501
+        self,
+    ):
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
+        self.harness.set_leader(is_leader=True)
+        certificate = "whatever cert"
+        key_values = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "certificate_signing_request": "whatever csr",
+                        "certificate": certificate,
+                        "ca": "whatever ca",
+                        "chain": ["whatever cert 1", "whatever cert 2"],
+                    }
+                ]
+            )
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id, app_or_unit=self.harness.charm.app.name, key_values=key_values
+        )
+        self.harness.set_leader(is_leader=False)
+        self.harness.charm.certificates.revoke_all_certificates()
+
+        expected = {"certificates": []}
+        self.harness.set_leader(is_leader=True)
+        provider_relation_data = self.harness.get_relation_data(
+            relation_id=relation_id, app_or_unit=self.harness.charm.app.name
+        )
+        provider_relation_data = _load_relation_data(provider_relation_data)
+        self.assertEqual(expected, provider_relation_data)
+
     def test_given_no_certificates_in_relation_data_when_revoke_all_certificates_then_no_certificates_are_present(  # noqa: e501
         self,
     ):
@@ -775,6 +1039,33 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             ]
         }
 
+        certificates = self.harness.charm.certificates.get_issued_certificates()
+
+        self.assertEqual(certificates, expected_certificate)
+
+    def test_given_one_certificate_in_relation_data_when_get_issued_certificates_and_unit_not_leader_then_returned_dict_has_empty_certificates_list(
+        self,
+    ):
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
+        self.harness.set_leader(is_leader=True)
+        certificate = "whatever cert"
+        key_values = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "certificate_signing_request": "whatever csr",
+                        "certificate": certificate,
+                        "ca": "whatever ca",
+                        "chain": ["whatever cert 1", "whatever cert 2"],
+                    }
+                ]
+            )
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id, app_or_unit=self.harness.charm.app.name, key_values=key_values
+        )
+        self.harness.set_leader(is_leader=False)
+        expected_certificate = {self.remote_app: []}
         certificates = self.harness.charm.certificates.get_issued_certificates()
 
         self.assertEqual(certificates, expected_certificate)
@@ -848,6 +1139,65 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         certificates = self.harness.charm.certificates.get_issued_certificates()
         self.assertEqual(certificates, expected_certificates)
 
+    def test_given_multiple_certificate_in_relation_data_when_get_issued_certificates_and_unit_not_leader_then_returned_dicts_has_empty_certificates_list(
+        self,
+    ):
+        relation_id_requirer_1 = self.create_certificates_relation_with_1_remote_unit()
+        self.harness.set_leader(is_leader=True)
+        requirer_2_app = "tls-certificates-requirer_2"
+        requirer_2_unit = "tls-certificates-requirer_2/0"
+        relation_id_requirer_2 = self.harness.add_relation(
+            relation_name=self.relation_name, remote_app=requirer_2_app
+        )
+        self.harness.add_relation_unit(
+            relation_id=relation_id_requirer_2, remote_unit_name=requirer_2_unit
+        )
+
+        certificate_1 = "whatever cert 1"
+        certificate_2 = "whatever cert 2"
+
+        key_values_requirer_1 = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "certificate_signing_request": "whatever csr",
+                        "certificate": certificate_1,
+                        "ca": "whatever ca",
+                        "chain": ["whatever cert 1", "whatever cert 2"],
+                    }
+                ]
+            )
+        }
+        key_values_requirer_2 = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "certificate_signing_request": "different csr",
+                        "certificate": certificate_2,
+                        "ca": "whatever ca",
+                        "chain": ["whatever cert 1", "whatever cert 2"],
+                    }
+                ]
+            )
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id_requirer_1,
+            app_or_unit=self.harness.charm.app.name,
+            key_values=key_values_requirer_1,
+        )
+        self.harness.update_relation_data(
+            relation_id=relation_id_requirer_2,
+            app_or_unit=self.harness.charm.app.name,
+            key_values=key_values_requirer_2,
+        )
+        expected_certificates = {
+            self.remote_app: [],
+            requirer_2_app: [],
+        }
+        self.harness.set_leader(is_leader=False)
+        certificates = self.harness.charm.certificates.get_issued_certificates()
+        self.assertEqual(certificates, expected_certificates)
+
     def test_given_no_certificates_in_relation_data_when_get_issued_certificates_by_relation_id_then_returned_dict_has_empty_certificates_list(
         self,
     ):
@@ -886,6 +1236,35 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             ]
         }
 
+        certificates = self.harness.charm.certificates.get_issued_certificates(
+            relation_id=relation_id
+        )
+
+        self.assertEqual(certificates, expected_certificate)
+
+    def test_given_certificate_in_relation_data_when_get_issued_certificates_by_relation_id_and_unit_not_leader_then_returned_dict_has_empty_certificates_list(
+        self,
+    ):
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
+        self.harness.set_leader(is_leader=True)
+        certificate = "whatever cert"
+        key_values = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "certificate_signing_request": "whatever csr",
+                        "certificate": certificate,
+                        "ca": "whatever ca",
+                        "chain": ["whatever cert 1", "whatever cert 2"],
+                    }
+                ]
+            )
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id, app_or_unit=self.harness.charm.app.name, key_values=key_values
+        )
+        expected_certificate = {self.remote_app: []}
+        self.harness.set_leader(is_leader=False)
         certificates = self.harness.charm.certificates.get_issued_certificates(
             relation_id=relation_id
         )
