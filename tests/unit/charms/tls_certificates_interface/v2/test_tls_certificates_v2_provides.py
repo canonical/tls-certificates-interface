@@ -99,6 +99,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         self, patch_certificate_creation_request
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
+        self.harness.set_leader(is_leader=True)
         csr = "whatever csr"
         key_values = {
             "certificate_signing_requests": json.dumps(
@@ -116,6 +117,31 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         patch_certificate_creation_request.assert_has_calls(
             [call().emit(certificate_signing_request=csr, relation_id=relation_id)]
         )
+
+    @patch(
+        f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_creation_request",
+        new_callable=PropertyMock,
+    )
+    def test_given_csr_in_relation_data_when_relation_changed_and_unit_not_leader_then_certificate_creation_request_is_not_emitted(  # noqa: E501
+        self, patch_certificate_creation_request
+    ):
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
+        self.harness.set_leader(is_leader=False)
+        csr = "whatever csr"
+        key_values = {
+            "certificate_signing_requests": json.dumps(
+                [
+                    {
+                        "certificate_signing_request": csr,
+                    }
+                ]
+            )
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id, app_or_unit=self.remote_unit_name, key_values=key_values
+        )
+
+        patch_certificate_creation_request.assert_not_called()
 
     @patch(
         f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_creation_request",
@@ -189,7 +215,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_creation_request",
         new_callable=PropertyMock,
     )
-    def test_given_certificate_for_csr_already_in_relation_data_when_on_relation_changed_and_unit_not_leader_then_certificate_creation_request_is_emitted(  # noqa: E501
+    def test_given_certificate_for_csr_already_in_relation_data_when_on_relation_changed_and_unit_not_leader_then_certificate_creation_request_is_not_emitted(  # noqa: E501
         self, patch_certificate_creation_request
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -229,7 +255,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             key_values=requirer_unit_data,
         )
 
-        patch_certificate_creation_request.assert_called_once()
+        patch_certificate_creation_request.assert_not_called()
 
     @patch(f"{LIB_DIR}.TLSCertificatesProvidesV2.remove_certificate")
     @patch(
