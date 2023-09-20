@@ -198,6 +198,21 @@ def test_given_private_key_and_subject_when_generate_ca_then_ca_is_generated_cor
         ]
     )
     assert certificate_public_key == initial_public_key
+    assert (
+        x509.KeyUsage(
+            digital_signature=True,
+            key_encipherment=True,
+            key_cert_sign=True,
+            key_agreement=False,
+            content_commitment=False,
+            data_encipherment=False,
+            crl_sign=False,
+            encipher_only=False,
+            decipher_only=False,
+        )
+        == cert.extensions.get_extension_for_class(x509.KeyUsage).value
+    )
+    assert cert.extensions.get_extension_for_class(x509.KeyUsage).critical
 
 
 def test_given_csr_and_ca_when_generate_certificate_then_certificate_is_generated_with_correct_subject_and_issuer():  # noqa: E501
