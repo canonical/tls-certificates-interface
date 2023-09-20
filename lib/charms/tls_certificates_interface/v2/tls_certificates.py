@@ -668,7 +668,7 @@ def generate_ca(
             ),
             critical=False,
         )
-        .add_extension(key_usage, critical=False)
+        .add_extension(key_usage, critical=True)
         .add_extension(
             x509.BasicConstraints(ca=True, path_length=None),
             critical=True,

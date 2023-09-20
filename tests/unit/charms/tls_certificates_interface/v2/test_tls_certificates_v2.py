@@ -212,6 +212,7 @@ def test_given_private_key_and_subject_when_generate_ca_then_ca_is_generated_cor
         )
         == cert.extensions.get_extension_for_class(x509.KeyUsage).value
     )
+    assert cert.extensions.get_extension_for_class(x509.KeyUsage).critical
 
 
 def test_given_csr_and_ca_when_generate_certificate_then_certificate_is_generated_with_correct_subject_and_issuer():  # noqa: E501
