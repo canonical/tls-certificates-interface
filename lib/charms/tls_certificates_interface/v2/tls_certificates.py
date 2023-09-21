@@ -760,7 +760,7 @@ def generate_certificate(
             critical=extension.critical,
         )
 
-    # Filter out default extension that were overridden by the caller. Without this step we'd get
+    # Filter out default extensions that were overridden by the caller. Without this step we'd get
     # ValueError: This extension has already been set.
     additional_extensions = additional_extensions or []
     additional_extensions_oids = [extension.oid for extension in additional_extensions]
