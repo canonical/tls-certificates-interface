@@ -685,6 +685,7 @@ def generate_certificate(
     ca_key_password: Optional[bytes] = None,
     validity: int = 365,
     alt_names: Optional[List[str]] = None,
+    additional_extensions: Optional[List[x509.Extension]] = None,
 ) -> bytes:
     """Generates a TLS certificate based on a CSR.
 
@@ -695,13 +696,16 @@ def generate_certificate(
         ca_key_password: CA private key password
         validity (int): Certificate validity (in days)
         alt_names (list): List of alt names to put on cert - prefer putting SANs in CSR
+        additional_extensions (list): List of additional extension objects.
+            Object must be a x509 ExtensionType.
 
     Returns:
         bytes: Certificate
     """
     csr_object = x509.load_pem_x509_csr(csr)
     subject = csr_object.subject
-    issuer = x509.load_pem_x509_certificate(ca).issuer
+    ca_pem = x509.load_pem_x509_certificate(ca)
+    issuer = ca_pem.issuer
     private_key = serialization.load_pem_private_key(ca_key, password=ca_key_password)
 
     certificate_builder = (
@@ -712,6 +716,19 @@ def generate_certificate(
         .serial_number(x509.random_serial_number())
         .not_valid_before(datetime.utcnow())
         .not_valid_after(datetime.utcnow() + timedelta(days=validity))
+        .add_extension(
+            x509.AuthorityKeyIdentifier(
+                key_identifier=ca_pem.extensions.get_extension_for_class(
+                    x509.SubjectKeyIdentifier
+                ).value.key_identifier,
+                authority_cert_issuer=None,
+                authority_cert_serial_number=None,
+            ),
+            critical=False,
+        )
+        .add_extension(
+            x509.SubjectKeyIdentifier.from_public_key(csr_object.public_key()), critical=False
+        )
     )
 
     extensions_list = csr_object.extensions
@@ -742,6 +759,29 @@ def generate_certificate(
             extension.value,
             critical=extension.critical,
         )
+
+    # Filter out default extension that were overridden by the caller. Without this step we'd get
+    # ValueError: This extension has already been set.
+    additional_extensions = additional_extensions or []
+    additional_extensions_oids = [extension.oid for extension in additional_extensions]
+    default_extensions = [
+        extension
+        for extension in {
+            Extension(
+                oid=x509.ExtensionOID.BASIC_CONSTRAINTS,
+                value=x509.BasicConstraints(ca=False, path_length=None),
+                critical=False,
+            )
+        }
+        if extension.oid not in additional_extensions_oids
+    ]
+
+    for extension in additional_extensions + default_extensions:
+        certificate_builder = certificate_builder.add_extension(
+            extension.value,
+            critical=extension.critical,
+        )
+
     certificate_builder._version = x509.Version.v3
     cert = certificate_builder.sign(private_key, hashes.SHA256())  # type: ignore[arg-type]
     return cert.public_bytes(serialization.Encoding.PEM)
@@ -839,7 +879,7 @@ def generate_csr(
         sans_oid (list): List of registered ID SANs
         sans_dns (list): List of DNS subject alternative names (similar to the arg: sans)
         sans_ip (list): List of IP subject alternative names
-        additional_critical_extensions (list): List if critical additional extension objects.
+        additional_critical_extensions (list): List of critical additional extension objects.
             Object must be a x509 ExtensionType.
 
     Returns:
