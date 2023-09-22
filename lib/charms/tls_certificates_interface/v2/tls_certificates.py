@@ -308,7 +308,7 @@ LIBAPI = 2
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 14
+LIBPATCH = 15
 
 PYDEPS = ["cryptography", "jsonschema"]
 
@@ -1216,16 +1216,19 @@ class TLSCertificatesProvidesV2(Object):
             that don't have a certificate issued.
         """
         all_unit_csr_mappings = copy.deepcopy(self.get_requirer_csrs(relation_id=relation_id))
+        filtered_all_unit_csr_mappings: List[Dict[str, Union[int, str, List[Dict[str, str]]]]] = []
         for unit_csr_mapping in all_unit_csr_mappings:
+            csrs_without_certs = []
             for csr in unit_csr_mapping["unit_csrs"]:  # type: ignore[union-attr]
-                if self.certificate_issued_for_csr(
+                if not self.certificate_issued_for_csr(
                     app_name=unit_csr_mapping["application_name"],  # type: ignore[arg-type]
                     csr=csr["certificate_signing_request"],  # type: ignore[index]
                 ):
-                    unit_csr_mapping["unit_csrs"].remove(csr)  # type: ignore[union-attr, arg-type]
-            if len(unit_csr_mapping["unit_csrs"]) == 0:  # type: ignore[arg-type]
-                all_unit_csr_mappings.remove(unit_csr_mapping)
-        return all_unit_csr_mappings
+                    csrs_without_certs.append(csr)
+            if csrs_without_certs:
+                unit_csr_mapping["unit_csrs"] = csrs_without_certs  # type: ignore[assignment]
+                filtered_all_unit_csr_mappings.append(unit_csr_mapping)
+        return filtered_all_unit_csr_mappings
 
     def get_requirer_csrs(
         self, relation_id: Optional[int] = None
