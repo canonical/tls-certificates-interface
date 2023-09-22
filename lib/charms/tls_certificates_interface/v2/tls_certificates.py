@@ -685,7 +685,6 @@ def generate_certificate(
     ca_key_password: Optional[bytes] = None,
     validity: int = 365,
     alt_names: Optional[List[str]] = None,
-    additional_extensions: Optional[List[x509.Extension]] = None,
 ) -> bytes:
     """Generates a TLS certificate based on a CSR.
 
@@ -696,8 +695,6 @@ def generate_certificate(
         ca_key_password: CA private key password
         validity (int): Certificate validity (in days)
         alt_names (list): List of alt names to put on cert - prefer putting SANs in CSR
-        additional_extensions (list): List of additional extension objects.
-            Object must be a x509 ExtensionType.
 
     Returns:
         bytes: Certificate
@@ -729,6 +726,7 @@ def generate_certificate(
         .add_extension(
             x509.SubjectKeyIdentifier.from_public_key(csr_object.public_key()), critical=False
         )
+        .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=False)
     )
 
     extensions_list = csr_object.extensions
@@ -755,28 +753,6 @@ def generate_certificate(
         if extension.value.oid == ExtensionOID.SUBJECT_ALTERNATIVE_NAME and san_ext:
             extension = san_ext
 
-        certificate_builder = certificate_builder.add_extension(
-            extension.value,
-            critical=extension.critical,
-        )
-
-    # Filter out default extensions that were overridden by the caller. Without this step we'd get
-    # ValueError: This extension has already been set.
-    additional_extensions = additional_extensions or []
-    additional_extensions_oids = [extension.oid for extension in additional_extensions]
-    default_extensions = [
-        extension
-        for extension in {
-            Extension(
-                oid=x509.ExtensionOID.BASIC_CONSTRAINTS,
-                value=x509.BasicConstraints(ca=False, path_length=None),
-                critical=False,
-            )
-        }
-        if extension.oid not in additional_extensions_oids
-    ]
-
-    for extension in additional_extensions + default_extensions:
         certificate_builder = certificate_builder.add_extension(
             extension.value,
             critical=extension.critical,

@@ -41,37 +41,3 @@ class TestCertificates(unittest.TestCase):
                 x509.SubjectKeyIdentifier
             ).value.key_identifier,
         )
-
-    def test_additional_cert_extensions_override_default_extensions(self):
-        # WHEN creating a certificate without passing additional extensions
-        server_cert = x509.load_pem_x509_certificate(
-            generate_certificate(csr=self.server_csr, ca=self.ca, ca_key=self.ca_private_key)
-        )
-
-        # THEN the new certificate has a "CA: FALSE" basic extension
-        self.assertEqual(
-            server_cert.extensions.get_extension_for_class(x509.BasicConstraints).value,
-            x509.BasicConstraints(ca=False, path_length=None),
-        )
-
-        # BUT WHEN a default extension is overridden
-        server_cert = x509.load_pem_x509_certificate(
-            generate_certificate(
-                csr=self.server_csr,
-                ca=self.ca,
-                ca_key=self.ca_private_key,
-                additional_extensions=[
-                    x509.Extension(
-                        x509.ExtensionOID.BASIC_CONSTRAINTS,
-                        critical=False,
-                        value=x509.BasicConstraints(ca=True, path_length=2),
-                    )
-                ],
-            )
-        )
-
-        # THEN the new certificate has the overridden value
-        self.assertEqual(
-            server_cert.extensions.get_extension_for_class(x509.BasicConstraints).value,
-            x509.BasicConstraints(ca=True, path_length=2),
-        )
