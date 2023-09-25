@@ -498,3 +498,31 @@ def test_given_csr_public_key_not_matching_certificate_public_key_when_csr_match
         ca_key=ca_key,
     )
     assert csr_matches_certificate(csr_key_2.decode(), certificate.decode()) is False
+
+
+def test_given_ca_cert_with_subject_key_id_when_generate_certificate_then_certificate_authority_key_id_is_identical_to_ca_cert_subject_key_id():  # noqa: E501
+    ca_private_key = generate_private_key()
+    ca = generate_ca(
+        private_key=ca_private_key,
+        subject="my.demo.ca",
+    )
+    ca_pem = x509.load_pem_x509_certificate(ca)
+    server_private_key = generate_private_key()
+
+    server_csr = generate_csr(
+        private_key=server_private_key,
+        subject="10.10.10.10",
+        sans_dns=[],
+        sans_ip=["10.10.10.10"],
+    )
+    server_cert = generate_certificate(csr=server_csr, ca=ca, ca_key=ca_private_key)
+
+    loaded_server_cert = x509.load_pem_x509_certificate(server_cert)
+    assert (
+        loaded_server_cert.extensions.get_extension_for_class(
+            x509.AuthorityKeyIdentifier
+        ).value.key_identifier
+        == ca_pem.extensions.get_extension_for_class(
+            x509.SubjectKeyIdentifier
+        ).value.key_identifier
+    )
