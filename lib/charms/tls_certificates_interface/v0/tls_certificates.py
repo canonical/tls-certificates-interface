@@ -85,7 +85,7 @@ import json
 import logging
 from typing import List, Literal, Optional, TypedDict
 
-from jsonschema import exceptions, validate  # type: ignore[import]
+from jsonschema import exceptions, validate  # type: ignore[import-untyped]
 from ops.charm import CharmBase, CharmEvents
 from ops.framework import EventBase, EventSource, Object
 
@@ -97,7 +97,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 26
+LIBPATCH = 27
 
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
