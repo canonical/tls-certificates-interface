@@ -40,17 +40,19 @@ def generate_private_key(
 
 def generate_csr(
     private_key: bytes,
-    subject: str,
+    common_name: str,
     private_key_password: Optional[bytes] = None,
     sans: Optional[List[str]] = None,
+    country: str = "US",
 ) -> bytes:
     """Generates a CSR using private key and subject.
 
     Args:
         private_key (bytes): Private key
         private_key_password (bytes): Private key password
-        subject (str): CSR Subject.
+        common_name (str): CSR common name.
         sans (list): List of subject alternative names
+        country (str): CSR Issuing country
 
     Returns:
         bytes: CSR
@@ -59,7 +61,8 @@ def generate_csr(
     csr = x509.CertificateSigningRequestBuilder(
         subject_name=x509.Name(
             [
-                x509.NameAttribute(x509.NameOID.COMMON_NAME, subject),
+                x509.NameAttribute(x509.NameOID.COUNTRY_NAME, country),
+                x509.NameAttribute(x509.NameOID.COMMON_NAME, common_name),
             ]
         )
     )
@@ -91,9 +94,19 @@ def generate_certificate(
         bytes: Certificate
     """
     csr_object = x509.load_pem_x509_csr(csr)
-    subject = csr_object.subject
+    ca_object = x509.load_pem_x509_certificate(ca)
+    ca_subject = ca_object.subject
+    csr_subject = csr_object.subject
+    ca_country = ca_subject.get_attributes_for_oid(x509.NameOID.COUNTRY_NAME)[0].value
+    csr_common_name = csr_subject.get_attributes_for_oid(x509.NameOID.COMMON_NAME)[0].value
     issuer = x509.load_pem_x509_certificate(ca).issuer
     private_key = serialization.load_pem_private_key(ca_key, password=ca_key_password)
+    subject = x509.Name(
+        [
+            x509.NameAttribute(x509.NameOID.COUNTRY_NAME, ca_country),
+            x509.NameAttribute(x509.NameOID.COMMON_NAME, csr_common_name),
+        ]
+    )
 
     if validity > 0:
         not_valid_before = datetime.datetime.utcnow()
@@ -111,14 +124,14 @@ def generate_certificate(
         .not_valid_after(not_valid_after)
     )
 
-    certificate_builder._version = x509.Version.v1
+    certificate_builder._version = x509.Version.v3
     cert = certificate_builder.sign(private_key, hashes.SHA256())  # type: ignore[arg-type]
     return cert.public_bytes(serialization.Encoding.PEM)
 
 
 def generate_ca(
     private_key: bytes,
-    subject: str,
+    common_name: str,
     private_key_password: Optional[bytes] = None,
     validity: int = 365,
     country: str = "US",
@@ -128,7 +141,7 @@ def generate_ca(
     Args:
         private_key (bytes): Private key
         private_key_password (bytes): Private key password
-        subject (str): Certificate subject.
+        common_name (str): Certificate common name.
         validity (int): Certificate validity time (in days)
         country (str): Certificate Issuing country
 
@@ -141,7 +154,7 @@ def generate_ca(
     subject = issuer = x509.Name(
         [
             x509.NameAttribute(x509.NameOID.COUNTRY_NAME, country),
-            x509.NameAttribute(x509.NameOID.COMMON_NAME, subject),
+            x509.NameAttribute(x509.NameOID.COMMON_NAME, common_name),
         ]
     )
     subject_identifier_object = x509.SubjectKeyIdentifier.from_public_key(
