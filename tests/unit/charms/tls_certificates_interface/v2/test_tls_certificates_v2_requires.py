@@ -63,7 +63,7 @@ class TestJuju2(unittest.TestCase):
         csr = generate_csr_helper(
             private_key=private_key,
             private_key_password=private_key_password,
-            subject="whatver subject",
+            common_name="whatver subject",
         )
 
         self.harness.charm.certificates.request_certificate_creation(
@@ -86,7 +86,9 @@ class TestJuju2(unittest.TestCase):
         private_key_password = b"whatever"
         private_key = generate_private_key_helper(password=private_key_password)
         csr = generate_csr_helper(
-            private_key=private_key, private_key_password=private_key_password, subject=common_name
+            private_key=private_key,
+            private_key_password=private_key_password,
+            common_name=common_name,
         )
         key_values = {
             "certificate_signing_requests": json.dumps(
@@ -122,12 +124,12 @@ class TestJuju2(unittest.TestCase):
         initial_csr = generate_csr_helper(
             private_key=private_key,
             private_key_password=private_key_password,
-            subject=initial_common_name,
+            common_name=initial_common_name,
         )
         new_csr = generate_csr_helper(
             private_key=private_key,
             private_key_password=private_key_password,
-            subject=new_common_name,
+            common_name=new_common_name,
         )
         key_values = {
             "certificate_signing_requests": json.dumps(
@@ -360,11 +362,15 @@ class TestJuju2(unittest.TestCase):
         private_key = generate_private_key_helper(password=private_key_password)
         ca_key = generate_private_key_helper(password=ca_private_key_password)
         certificate_signing_request = generate_csr_helper(
-            private_key=private_key, private_key_password=private_key_password, subject="whatever"
+            private_key=private_key,
+            private_key_password=private_key_password,
+            common_name="whatever",
         )
 
         ca_certificate = generate_ca_helper(
-            private_key=ca_key, private_key_password=ca_private_key_password, subject="whatever"
+            private_key=ca_key,
+            private_key_password=ca_private_key_password,
+            common_name="whatever",
         )
 
         certificate = generate_certificate_helper(
@@ -411,11 +417,15 @@ class TestJuju2(unittest.TestCase):
         private_key = generate_private_key_helper(password=private_key_password)
         ca_key = generate_private_key_helper(password=ca_private_key_password)
         certificate_signing_request = generate_csr_helper(
-            private_key=private_key, private_key_password=private_key_password, subject="whatever"
+            private_key=private_key,
+            private_key_password=private_key_password,
+            common_name="whatever",
         )
 
         ca_certificate = generate_ca_helper(
-            private_key=ca_key, private_key_password=ca_private_key_password, subject="whatever"
+            private_key=ca_key,
+            private_key_password=ca_private_key_password,
+            common_name="whatever",
         )
 
         certificate = generate_certificate_helper(
@@ -459,11 +469,15 @@ class TestJuju2(unittest.TestCase):
         private_key = generate_private_key_helper(password=private_key_password)
         ca_key = generate_private_key_helper(password=ca_private_key_password)
         certificate_signing_request = generate_csr_helper(
-            private_key=private_key, private_key_password=private_key_password, subject="whatever"
+            private_key=private_key,
+            private_key_password=private_key_password,
+            common_name="whatever",
         )
 
         ca_certificate = generate_ca_helper(
-            private_key=ca_key, private_key_password=ca_private_key_password, subject="whatever"
+            private_key=ca_key,
+            private_key_password=ca_private_key_password,
+            common_name="whatever",
         )
 
         certificate = generate_certificate_helper(
@@ -516,11 +530,15 @@ class TestJuju2(unittest.TestCase):
         private_key = generate_private_key_helper(password=private_key_password)
         ca_key = generate_private_key_helper(password=ca_private_key_password)
         certificate_signing_request = generate_csr_helper(
-            private_key=private_key, private_key_password=private_key_password, subject="whatever"
+            private_key=private_key,
+            private_key_password=private_key_password,
+            common_name="whatever",
         )
 
         ca_certificate = generate_ca_helper(
-            private_key=ca_key, private_key_password=ca_private_key_password, subject="whatever"
+            private_key=ca_key,
+            private_key_password=ca_private_key_password,
+            common_name="whatever",
         )
 
         certificate = generate_certificate_helper(
@@ -815,11 +833,15 @@ class TestJuju3(unittest.TestCase):
         private_key = generate_private_key_helper(password=private_key_password)
         ca_key = generate_private_key_helper(password=ca_private_key_password)
         certificate_signing_request = generate_csr_helper(
-            private_key=private_key, private_key_password=private_key_password, subject="whatever"
+            private_key=private_key,
+            private_key_password=private_key_password,
+            common_name="whatever",
         )
 
         ca_certificate = generate_ca_helper(
-            private_key=ca_key, private_key_password=ca_private_key_password, subject="whatever"
+            private_key=ca_key,
+            private_key_password=ca_private_key_password,
+            common_name="whatever",
         )
 
         certificate = generate_certificate_helper(

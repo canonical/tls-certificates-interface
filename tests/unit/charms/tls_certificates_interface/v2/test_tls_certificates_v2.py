@@ -219,14 +219,11 @@ def test_given_csr_and_ca_when_generate_certificate_then_certificate_is_generate
     ca_subject = "whatever.ca.subject"
     csr_subject = "whatever.csr.subject"
     ca_key = generate_private_key_helper()
-    ca = generate_ca_helper(
-        private_key=ca_key,
-        subject=ca_subject,
-    )
+    ca = generate_ca_helper(private_key=ca_key, common_name=ca_subject, country="US")
     csr_private_key = generate_private_key_helper()
     csr = generate_csr_helper(
         private_key=csr_private_key,
-        subject=csr_subject,
+        common_name=csr_subject,
     )
 
     certificate = generate_certificate(
@@ -244,6 +241,7 @@ def test_given_csr_and_ca_when_generate_certificate_then_certificate_is_generate
     )
     assert certificate_object.subject == x509.Name(
         [
+            x509.NameAttribute(x509.NameOID.COUNTRY_NAME, "US"),
             x509.NameAttribute(x509.NameOID.COMMON_NAME, csr_subject),
         ]
     )
@@ -260,7 +258,7 @@ def test_given_csr_and_ca_when_generate_certificate_then_certificate_is_generate
     ca_key = generate_private_key_helper()
     ca = generate_ca_helper(
         private_key=ca_key,
-        subject=ca_subject,
+        common_name=ca_subject,
     )
     csr_private_key = generate_private_key_helper()
     csr = generate_csr(
@@ -299,7 +297,7 @@ def test_given_alt_names_when_generate_certificate_then_alt_names_are_correctly_
     ca_key = generate_private_key_helper()
     ca = generate_ca_helper(
         private_key=ca_key,
-        subject=ca_subject,
+        common_name=ca_subject,
     )
     csr_private_key = generate_private_key_helper()
     csr = generate_csr(
@@ -330,7 +328,7 @@ def test_given_sans_in_csr_and_alt_names_when_generate_certificate_then_alt_name
     ca_key = generate_private_key_helper()
     ca = generate_ca_helper(
         private_key=ca_key,
-        subject=ca_subject,
+        common_name=ca_subject,
     )
     csr_private_key = generate_private_key_helper()
     csr = generate_csr(
@@ -372,12 +370,12 @@ def test_given_certificate_created_when_generate_certificate_then_verify_public_
     ca_key = generate_private_key_helper()
     ca = generate_ca_helper(
         private_key=ca_key,
-        subject=ca_subject,
+        common_name=ca_subject,
     )
     csr_private_key = generate_private_key_helper()
     csr = generate_csr_helper(
         private_key=csr_private_key,
-        subject=csr_subject,
+        common_name=csr_subject,
     )
 
     certificate = generate_certificate(
@@ -405,12 +403,12 @@ def test_given_cert_and_private_key_when_generate_pfx_package_then_pfx_file_is_g
     certifier_key = generate_private_key_helper()
     certifier_pem = generate_ca_helper(
         private_key=certifier_key,
-        subject=ca_subject,
+        common_name=ca_subject,
     )
     admin_operator_key_pem = generate_private_key_helper()
     admin_operator_csr = generate_csr_helper(
         private_key=admin_operator_key_pem,
-        subject=csr_subject,
+        common_name=csr_subject,
     )
     admin_operator_pem = generate_certificate_helper(
         csr=admin_operator_csr,
@@ -436,61 +434,52 @@ def test_given_matching_cert_for_csr_when_csr_matches_certificate_then_it_return
     private_key = generate_private_key_helper()
     csr = generate_csr_helper(
         private_key=private_key,
-        subject="same subject",
-    )
-    same_csr = generate_csr_helper(
-        private_key=private_key,
-        subject="same subject",
+        common_name="same subject",
     )
     ca_key = generate_private_key_helper()
     ca = generate_ca_helper(
         private_key=ca_key,
-        subject="some subject",
+        common_name="some subject",
     )
     certificate = generate_certificate_helper(
         csr=csr,
         ca=ca,
         ca_key=generate_private_key_helper(),
     )
-    assert csr_matches_certificate(same_csr.decode(), certificate.decode()) is True
+    assert csr_matches_certificate(csr.decode(), certificate.decode()) is True
 
 
-def test_given_csr_subject_not_matching_certificate_subject_when_csr_matches_certificate_then_it_returns_false():
-    private_key = generate_private_key_helper()
-    csr_subject_1 = generate_csr_helper(
-        private_key=private_key,
-        subject="not matching subject 1",
+def test_given_certificate_country_doesnt_match_with_csr_when_csr_matches_certificate_then_returns_true():
+    ca_private_key = generate_private_key_helper()
+    ca = generate_ca_helper(private_key=ca_private_key, common_name="ca subject", country="GB")
+
+    server_private_key = generate_private_key_helper()
+    server_csr = generate_csr_helper(
+        private_key=server_private_key, common_name="server subject", country="US"
     )
-    csr_subject_2 = generate_csr_helper(
-        private_key=private_key,
-        subject="not matching subject 2",
-    )
-    ca_key = generate_private_key_helper()
-    ca = generate_ca_helper(
-        private_key=ca_key,
-        subject="different subject",
-    )
-    certificate = generate_certificate_helper(
-        csr=csr_subject_1,
+
+    server_cert = generate_certificate_helper(
+        csr=server_csr,
         ca=ca,
-        ca_key=ca_key,
+        ca_key=ca_private_key,
     )
-    assert csr_matches_certificate(csr_subject_2.decode(), certificate.decode()) is False
+
+    assert csr_matches_certificate(server_csr.decode(), server_cert.decode()) is True
 
 
 def test_given_csr_public_key_not_matching_certificate_public_key_when_csr_matches_certificate_then_it_returns_false():
     csr_key_1 = generate_csr_helper(
         private_key=generate_private_key_helper(),
-        subject="matching subject",
+        common_name="matching subject",
     )
     csr_key_2 = generate_csr_helper(
         private_key=generate_private_key_helper(),
-        subject="matching subject",
+        common_name="matching subject",
     )
     ca_key = generate_private_key_helper()
     ca = generate_ca_helper(
         private_key=ca_key,
-        subject="matching subject",
+        common_name="matching subject",
     )
     certificate = generate_certificate_helper(
         csr=csr_key_1,
