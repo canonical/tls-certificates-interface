@@ -115,7 +115,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         )
 
         patch_certificate_creation_request.assert_has_calls(
-            [call().emit(certificate_signing_request=csr, relation_id=relation_id)]
+            [call().emit(certificate_signing_request=csr, relation_id=relation_id, is_ca=False)]
         )
 
     @patch(
@@ -775,6 +775,42 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         self.assertEqual(call_args_list[0].args[0].relation_id, relation_1_id)
         self.assertEqual(call_args_list[1].args[0].certificate_signing_request, csr_2)
         self.assertEqual(call_args_list[1].args[0].relation_id, relation_2_id)
+
+    @patch(
+        f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_creation_request",
+        new_callable=PropertyMock,
+    )
+    def test_given_requirer_unit_requests_ca_when_relation_changed_then_certificate_creation_request_is_emitted(
+        self, patch_certificate_creation_request
+    ):
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
+        self.harness.set_leader(is_leader=True)
+        csr = "whatever csr"
+        remote_unit_relation_data = {
+            "certificate_signing_requests": json.dumps(
+                [
+                    {
+                        "certificate_signing_request": csr,
+                        "ca": True,
+                    }
+                ]
+            )
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_unit_name,
+            key_values=remote_unit_relation_data,
+        )
+
+        patch_certificate_creation_request.assert_has_calls(
+            [
+                call().emit(
+                    certificate_signing_request=csr,
+                    is_ca=True,
+                    relation_id=relation_id,
+                )
+            ]
+        )
 
     def test_given_certificates_in_relation_data_when_revoke_all_certificates_then_no_certificates_are_present(
         self,

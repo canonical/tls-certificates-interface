@@ -515,3 +515,40 @@ def test_given_ca_cert_with_subject_key_id_when_generate_certificate_then_certif
             x509.SubjectKeyIdentifier
         ).value.key_identifier
     )
+
+
+def test_given_request_is_for_ca_certificate_when_generate_certificate_then_certificate_is_generated():
+    ca_private_key = generate_private_key()
+    ca = generate_ca(
+        private_key=ca_private_key,
+        subject="my.demo.ca",
+    )
+    server_private_key = generate_private_key()
+
+    server_csr = generate_csr(
+        private_key=server_private_key,
+        subject="10.10.10.10",
+        sans_dns=[],
+        sans_ip=["10.10.10.10"],
+    )
+
+    server_cert = generate_certificate(
+        csr=server_csr,
+        ca=ca,
+        ca_key=ca_private_key,
+        is_ca=True,
+    )
+
+    loaded_server_cert = x509.load_pem_x509_certificate(server_cert)
+
+    assert (
+        loaded_server_cert.extensions.get_extension_for_class(x509.BasicConstraints).value.ca
+        is True
+    )
+    assert (
+        loaded_server_cert.extensions.get_extension_for_class(x509.KeyUsage).value.key_cert_sign
+        is True
+    )
+    assert (
+        loaded_server_cert.extensions.get_extension_for_class(x509.KeyUsage).value.crl_sign is True
+    )
