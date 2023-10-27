@@ -56,5 +56,9 @@ class TLSCertificatesRequiresV1(Object):
             relationship_name: Juju relation name
         """
         super().__init__(charm, relationship_name)
+        logger.warning(
+            "This version of the `tls-certificates` library is deprecated. "
+            "Please use the latest version."
+        )
         self.relationship_name = relationship_name
         self.charm = charm
