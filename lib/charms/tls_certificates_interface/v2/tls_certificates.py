@@ -1217,7 +1217,7 @@ class TLSCertificatesProvidesV2(Object):
         for certificate_request in requirer_unit_certificate_requests:
             if certificate_request["csr"] not in provider_csrs:
                 self.on.certificate_creation_request.emit(
-                    certificate_signing_request=certificate_request[0],
+                    certificate_signing_request=certificate_request["csr"],
                     relation_id=event.relation.id,
                     is_ca=certificate_request["is_ca"],
                 )
@@ -1378,7 +1378,16 @@ class TLSCertificatesRequiresV2(Object):
 
     @property
     def _requirer_csrs(self) -> List[Dict[str, Union[bool, str]]]:
-        """Returns list of requirer's CSRs from relation data."""
+        """Returns list of requirer's CSRs from relation data.
+
+        Example:
+            [
+                {
+                    "certificate_signing_request": "-----BEGIN CERTIFICATE REQUEST-----...",
+                    "ca": false
+                }
+            ]
+        """
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
             raise RuntimeError(f"Relation {self.relationship_name} does not exist")
@@ -1417,7 +1426,7 @@ class TLSCertificatesRequiresV2(Object):
                 f"Relation {self.relationship_name} does not exist - "
                 f"The certificate request can't be completed"
             )
-        new_csr_dict = {
+        new_csr_dict: Dict[str, Union[bool, str]] = {
             "certificate_signing_request": csr,
             "ca": is_ca,
         }
@@ -1444,11 +1453,12 @@ class TLSCertificatesRequiresV2(Object):
                 f"The certificate request can't be completed"
             )
         requirer_csrs = copy.deepcopy(self._requirer_csrs)
-        csr_dict = {"certificate_signing_request": csr}
-        if csr_dict not in requirer_csrs:
-            logger.info("CSR not in relation data - Doing nothing")
+        if not requirer_csrs:
+            logger.info("No CSRs in relation data - Doing nothing")
             return
-        requirer_csrs.remove(csr_dict)
+        for requirer_csr in requirer_csrs:
+            if requirer_csr["certificate_signing_request"] == csr:
+                requirer_csrs.remove(requirer_csr)
         relation.data[self.model.unit]["certificate_signing_requests"] = json.dumps(requirer_csrs)
 
     def request_certificate_creation(
