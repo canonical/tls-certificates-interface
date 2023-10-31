@@ -75,7 +75,7 @@ class TestJuju2(unittest.TestCase):
         )
 
         assert json.loads(unit_relation_data["certificate_signing_requests"]) == [
-            {"certificate_signing_request": csr.decode().strip()}
+            {"certificate_signing_request": csr.decode().strip(), "ca": False}
         ]
 
     def test_given_relation_data_already_contains_csr_when_request_certificate_creation_then_csr_is_not_sent_again(  # noqa: E501
@@ -92,7 +92,7 @@ class TestJuju2(unittest.TestCase):
         )
         key_values = {
             "certificate_signing_requests": json.dumps(
-                [{"certificate_signing_request": csr.decode().strip()}]
+                [{"certificate_signing_request": csr.decode().strip(), "ca": False}]
             )
         }
         self.harness.update_relation_data(
@@ -110,7 +110,7 @@ class TestJuju2(unittest.TestCase):
         )
 
         assert json.loads(unit_relation_data["certificate_signing_requests"]) == [
-            {"certificate_signing_request": csr.decode().strip()}
+            {"certificate_signing_request": csr.decode().strip(), "ca": False}
         ]
 
     def test_given_different_csr_in_relation_data_when_request_certificate_creation_then_new_csr_is_added(  # noqa: E501
@@ -133,7 +133,7 @@ class TestJuju2(unittest.TestCase):
         )
         key_values = {
             "certificate_signing_requests": json.dumps(
-                [{"certificate_signing_request": initial_csr.decode().strip()}]
+                [{"certificate_signing_request": initial_csr.decode().strip(), "ca": False}]
             )
         }
         self.harness.update_relation_data(
@@ -151,13 +151,38 @@ class TestJuju2(unittest.TestCase):
         )
 
         expected_client_cert_requests = [
-            {"certificate_signing_request": initial_csr.decode().strip()},
-            {"certificate_signing_request": new_csr.decode().strip()},
+            {"certificate_signing_request": initial_csr.decode().strip(), "ca": False},
+            {"certificate_signing_request": new_csr.decode().strip(), "ca": False},
         ]
         self.assertEqual(
             expected_client_cert_requests,
             json.loads(unit_relation_data["certificate_signing_requests"]),
         )
+
+    def test_given_wants_ca_when_request_certificate_creation_then_csr_and_ca_are_set_in_relation_data(
+        self,
+    ):
+        relation_id = self.create_certificates_relation()
+        private_key_password = b"whatever"
+        private_key = generate_private_key_helper(password=private_key_password)
+        csr = generate_csr_helper(
+            private_key=private_key,
+            private_key_password=private_key_password,
+            common_name="whatever.com",
+        )
+
+        self.harness.charm.certificates.request_certificate_creation(
+            certificate_signing_request=csr,
+            is_ca=True,
+        )
+
+        unit_relation_data = self.harness.get_relation_data(
+            relation_id=relation_id, app_or_unit=self.harness.charm.unit
+        )
+
+        assert json.loads(unit_relation_data["certificate_signing_requests"]) == [
+            {"certificate_signing_request": csr.decode().strip(), "ca": True}
+        ]
 
     def test_given_no_relation_when_request_certificate_revocation_then_runtime_error_is_raised(
         self,
