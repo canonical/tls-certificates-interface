@@ -1348,7 +1348,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         )
         self.assertEqual(actual_csrs_info, expected_csrs_info)
 
-    def test_given_csrs_with_certs_issued_when_get_requirer_csrs_with_no_certs_then_the_info_of_those_csrs_not_returned(
+    def test_given_csrs_with_certs_issued_when_get_outstanding_certificate_requests_then_the_info_of_those_csrs_not_returned(
         self,
     ):
         application_1_relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -1412,10 +1412,10 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             certificate_signing_request=application_2_csr,
             relation_id=application_2_relation_id,
         )
-        actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs_with_no_certs()
+        actual_csrs_info = self.harness.charm.certificates.get_outstanding_certificate_requests()
         self.assertEqual(actual_csrs_info, expected_csrs_info)
 
-    def test_given_csrs_with_no_certs_and_relation_id_specified_when_get_requirer_csrs_with_no_certs_then_csrs_of_that_relation_are_returned(  # noqa: E501
+    def test_given_csrs_with_no_certs_and_relation_id_specified_when_get_outstanding_certificate_requests_then_csrs_of_that_relation_are_returned(  # noqa: E501
         self,
     ):
         application_1_relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -1468,7 +1468,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 ],
             },
         ]
-        actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs_with_no_certs(
+        actual_csrs_info = self.harness.charm.certificates.get_outstanding_certificate_requests(
             relation_id=application_1_relation_id
         )
         self.assertEqual(actual_csrs_info, expected_csrs_info)
@@ -1488,12 +1488,12 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs()
         self.assertEqual(actual_csrs_info, excepted_csrs_info)
 
-    def test_given_no_csrs_from_requirer_when_get_requirer_csrs_then_empty_list_returned(
+    def test_given_no_csrs_from_requirer_when_get_outstanding_certificate_requests_then_empty_list_returned(
         self,
     ):
         self.create_certificates_relation_with_1_remote_unit()
 
-        actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs_with_no_certs()
+        actual_csrs_info = self.harness.charm.certificates.get_outstanding_certificate_requests()
         self.assertEqual(actual_csrs_info, [])
 
     def test_given_one_issued_one_unissued_certificate_for_same_application_when_checking_certificate_issued_for_csr_then_correct_boolean_output_returned(
@@ -1532,8 +1532,8 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         )
 
         self.assertFalse(
-            self.harness.charm.certificates.certificate_issued_for_csr(self.remote_app, csr1)
+            self.harness.charm.certificates.certificate_issued_for_csr(self.remote_app, csr1, application_1_relation_id)
         )
         self.assertTrue(
-            self.harness.charm.certificates.certificate_issued_for_csr(self.remote_app, csr2)
+            self.harness.charm.certificates.certificate_issued_for_csr(self.remote_app, csr2, application_1_relation_id)
         )
