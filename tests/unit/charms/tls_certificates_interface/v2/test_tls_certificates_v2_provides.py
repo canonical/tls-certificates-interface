@@ -1532,8 +1532,12 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         )
 
         self.assertFalse(
-            self.harness.charm.certificates.certificate_issued_for_csr(self.remote_app, csr1, application_1_relation_id)
+            self.harness.charm.certificates.certificate_issued_for_csr(
+                self.remote_app, csr1, application_1_relation_id
+            )
         )
         self.assertTrue(
-            self.harness.charm.certificates.certificate_issued_for_csr(self.remote_app, csr2, application_1_relation_id)
+            self.harness.charm.certificates.certificate_issued_for_csr(
+                self.remote_app, csr2, application_1_relation_id
+            )
         )
