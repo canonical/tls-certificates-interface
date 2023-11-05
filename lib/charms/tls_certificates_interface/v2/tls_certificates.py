@@ -1349,8 +1349,7 @@ class TLSCertificatesProvidesV2(Object):
         Args:
             app_name (str): Application name that the CSR belongs to.
             csr (str): Certificate Signing Request.
-            relation_id (int): Relation ID
-
+            relation_id (Optional[int]): Relation ID
         Returns:
             bool: True/False depending on whether a certificate has been issued for the given CSR.
         """
