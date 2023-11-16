@@ -1,6 +1,5 @@
 # tls-certificates-interface
-
-## Description
+[![CharmHub Badge](https://charmhub.io/tls-certificates-interface/badge.svg)](https://charmhub.io/tls-certificates-interface/libraries/tls_certificates)
 
 This project contains libraries for the tls-certificates relationship. It contains both the 
 provider and the requirer side of the relation.
