@@ -6,7 +6,6 @@ flake8-copyright
 flake8-builtins
 isort
 jsonschema
-juju
 mypy
 ops==2.8.0
 pep8-naming
