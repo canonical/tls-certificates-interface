@@ -1,0 +1,17 @@
+black
+coverage[toml]
+cryptography
+flake8-docstrings
+flake8-copyright
+flake8-builtins
+isort
+jsonschema
+mypy
+ops==2.9.0
+pep8-naming
+pyproject-flake8
+pytest
+pytest-operator
+types-PyYAML
+types-setuptools
+types-toml
