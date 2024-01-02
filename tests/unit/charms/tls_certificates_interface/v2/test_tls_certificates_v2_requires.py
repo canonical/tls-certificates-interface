@@ -956,7 +956,7 @@ class TestJuju3(unittest.TestCase):
             )
         }
         secret_id = self.harness.add_model_secret(
-            self.harness.charm.app, {"certificate": "old data"}
+            owner=self.harness.model.unit.name, content={"certificate": "old data"}
         )
         secret = self.harness.model.get_secret(id=secret_id)
         secret.set_info(label=f"{LIBID}-{csr}")
@@ -1130,7 +1130,7 @@ class TestJuju3(unittest.TestCase):
             )
         }
         secret_id = self.harness.add_model_secret(
-            self.harness.charm.app, {"certificate": "old data"}
+            owner=self.harness.model.unit.name, content={"certificate": "old data"}
         )
         secret = self.harness.model.get_secret(id=secret_id)
         secret.set_info(label=f"{LIBID}-{csr}")
@@ -1143,7 +1143,7 @@ class TestJuju3(unittest.TestCase):
         )
 
         secret = self.harness.model.get_secret(label=f"{LIBID}-{csr}")
-        assert secret.get_content()["certificate"] == certificate
+        assert secret.get_content(refresh=True)["certificate"] == certificate
         assert secret.get_info().expires == expiry_time - timedelta(hours=168)
 
     @patch(f"{LIB_DIR}._get_certificate_expiry_time")
@@ -1381,7 +1381,9 @@ class TestJuju3(unittest.TestCase):
     def test_given_secret_not_owner_by_lib_when_secret_expired_then_secret_revisions_are_not_removed(  # noqa: E501
         self,
     ):
-        secret_id = self.harness.add_model_secret(self.harness.charm.app, {"meal": "brisket"})
+        secret_id = self.harness.add_model_secret(
+            owner=self.harness.charm.unit.name, content={"meal": "brisket"}
+        )
         secret = self.harness.model.get_secret(id=secret_id)
         secret.set_info(label="not our stuff")
 
@@ -1393,7 +1395,7 @@ class TestJuju3(unittest.TestCase):
         self,
     ):
         secret_id = self.harness.add_model_secret(
-            self.harness.charm.app, {"certificate": "brisket"}
+            owner=self.harness.charm.unit.name, content={"certificate": "brisket"}
         )
         secret = self.harness.model.get_secret(id=secret_id)
         secret.set_info(label=f"{LIBID}-brisket")
@@ -1438,7 +1440,7 @@ class TestJuju3(unittest.TestCase):
             key_values=remote_app_relation_data,
         )
         secret_id = self.harness.add_model_secret(
-            self.harness.charm.app, {"certificate": certificate}
+            owner=self.harness.charm.unit.name, content={"certificate": certificate}
         )
         secret = self.harness.model.get_secret(id=secret_id)
         secret.set_info(label=f"{LIBID}-{csr}")
