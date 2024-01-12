@@ -348,6 +348,33 @@ def test_given_sans_in_csr_and_alt_names_when_generate_certificate_then_alt_name
     assert result_sans_dns == sorted(src_sans_dns + src_alt_names)
 
 
+def test_given_basic_constraints_already_in_csr_when_generate_certificate_then_extension_overwritten():
+    ca_subject = "ca.subject"
+    csr_subject = "csr.subject"
+    ca_key = generate_private_key_helper()
+    ca = generate_ca_helper(
+        private_key=ca_key,
+        common_name=ca_subject,
+    )
+    csr_private_key = generate_private_key_helper()
+
+    basic_constraints = x509.BasicConstraints(ca=True, path_length=None)
+
+    csr = generate_csr(
+        private_key=csr_private_key,
+        subject=csr_subject,
+        additional_critical_extensions=[basic_constraints],
+    )
+
+    certificate = generate_certificate(csr=csr, ca=ca, ca_key=ca_key)
+
+    certificate_object = x509.load_pem_x509_certificate(certificate)
+    basic_constraints = certificate_object.extensions.get_extension_for_class(
+        x509.extensions.BasicConstraints
+    )
+    assert basic_constraints.value.ca is False
+
+
 def test_given_basic_constraint_is_false_when_generate_ca_then_extensions_are_correctly_populated():  # noqa: E501
     subject = "whatever.ca.subject"
     private_key = generate_private_key_helper()
