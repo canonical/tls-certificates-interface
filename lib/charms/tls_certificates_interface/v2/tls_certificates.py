@@ -1678,6 +1678,7 @@ class TLSCertificatesRequiresV2(Object):
         """
         final_list = []
         for csr in self.get_certificate_signing_requests(fulfilled_only=True):
+            assert type(csr["certificate_signing_request"]) == str
             if cert := self._find_certificate_in_relation_data(csr["certificate_signing_request"]):
                 final_list.append(cert)
         return final_list
