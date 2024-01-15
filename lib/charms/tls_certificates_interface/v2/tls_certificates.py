@@ -623,6 +623,40 @@ def _load_relation_data(relation_data_content: RelationDataContent) -> dict:
     return certificate_data
 
 
+def _get_closest_future_time(
+    expiry_notification_time: datetime, expiry_time: datetime
+) -> datetime:
+    """Return expiry_notification_time if not in the past, otherwise return expiry_time.
+
+    Args:
+        expiry_notification_time (datetime): Notification time of impending expiration
+        expiry_time (datetime): Expiration time
+
+    Returns:
+        datetime: expiry_notification_time if not in the past, expiry_time otherwise
+    """
+    return (
+        expiry_notification_time if datetime.utcnow() < expiry_notification_time else expiry_time
+    )
+
+
+def _get_certificate_expiry_time(certificate: str) -> Optional[datetime]:
+    """Extract expiry time from a certificate string.
+
+    Args:
+        certificate (str): x509 certificate as a string
+
+    Returns:
+        Optional[datetime]: Expiry datetime or None
+    """
+    try:
+        certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
+        return certificate_object.not_valid_after
+    except ValueError:
+        logger.warning("Could not load certificate.")
+        return None
+
+
 def generate_ca(
     private_key: bytes,
     subject: str,
@@ -982,6 +1016,40 @@ def generate_csr(
 
     signed_certificate = csr.sign(signing_key, hashes.SHA256())  # type: ignore[arg-type]
     return signed_certificate.public_bytes(serialization.Encoding.PEM)
+
+
+def csr_matches_certificate(csr: str, cert: str) -> bool:
+    """Check if a CSR matches a certificate.
+
+    expects to get the original string representations.
+
+    Args:
+        csr (str): Certificate Signing Request
+        cert (str): Certificate
+    Returns:
+        bool: True/False depending on whether the CSR matches the certificate.
+    """
+    try:
+        csr_object = x509.load_pem_x509_csr(csr.encode("utf-8"))
+        cert_object = x509.load_pem_x509_certificate(cert.encode("utf-8"))
+
+        if csr_object.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        ) != cert_object.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        ):
+            return False
+        if (
+            csr_object.public_key().public_numbers().n  # type: ignore[union-attr]
+            != cert_object.public_key().public_numbers().n  # type: ignore[union-attr]
+        ):
+            return False
+    except ValueError:
+        logger.warning("Could not load certificate or CSR.")
+        return False
+    return True
 
 
 class CertificatesProviderCharmEvents(CharmEvents):
@@ -1802,71 +1870,3 @@ class TLSCertificatesRequiresV2(Object):
                     certificate=certificate_dict["certificate"],
                     expiry=expiry_time.isoformat(),
                 )
-
-
-def csr_matches_certificate(csr: str, cert: str) -> bool:
-    """Check if a CSR matches a certificate.
-
-    expects to get the original string representations.
-
-    Args:
-        csr (str): Certificate Signing Request
-        cert (str): Certificate
-    Returns:
-        bool: True/False depending on whether the CSR matches the certificate.
-    """
-    try:
-        csr_object = x509.load_pem_x509_csr(csr.encode("utf-8"))
-        cert_object = x509.load_pem_x509_certificate(cert.encode("utf-8"))
-
-        if csr_object.public_key().public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo,
-        ) != cert_object.public_key().public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo,
-        ):
-            return False
-        if (
-            csr_object.public_key().public_numbers().n  # type: ignore[union-attr]
-            != cert_object.public_key().public_numbers().n  # type: ignore[union-attr]
-        ):
-            return False
-    except ValueError:
-        logger.warning("Could not load certificate or CSR.")
-        return False
-    return True
-
-
-def _get_closest_future_time(
-    expiry_notification_time: datetime, expiry_time: datetime
-) -> datetime:
-    """Return expiry_notification_time if not in the past, otherwise return expiry_time.
-
-    Args:
-        expiry_notification_time (datetime): Notification time of impending expiration
-        expiry_time (datetime): Expiration time
-
-    Returns:
-        datetime: expiry_notification_time if not in the past, expiry_time otherwise
-    """
-    return (
-        expiry_notification_time if datetime.utcnow() < expiry_notification_time else expiry_time
-    )
-
-
-def _get_certificate_expiry_time(certificate: str) -> Optional[datetime]:
-    """Extract expiry time from a certificate string.
-
-    Args:
-        certificate (str): x509 certificate as a string
-
-    Returns:
-        Optional[datetime]: Expiry datetime or None
-    """
-    try:
-        certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
-        return certificate_object.not_valid_after
-    except ValueError:
-        logger.warning("Could not load certificate.")
-        return None
