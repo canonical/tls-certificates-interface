@@ -1660,6 +1660,56 @@ class TLSCertificatesRequiresV2(Object):
         )
         logger.info("Certificate renewal request completed.")
 
+    def get_assigned_certificates(self) -> List[Dict[str, str]]:
+        """Gets a list of certificates that were assigned to this unit.
+
+        Returns:
+            List of certificates. For example:
+            [
+                {
+                    "ca": "-----BEGIN CERTIFICATE-----...",
+                    "chain": [
+                        "-----BEGIN CERTIFICATE-----..."
+                    ],
+                    "certificate": "-----BEGIN CERTIFICATE-----...",
+                    "certificate_signing_request": "-----BEGIN CERTIFICATE REQUEST-----...",
+                }
+            ]
+        """
+        return self._provider_certificates
+
+    def get_certificate_signing_requests(
+        # RFC: Should I just split this up into 3 different functions?
+        # RFC: Should we have an option where the leader will aggregate all of the CSR's from all of the units of the application?
+        self,
+        fulfilled_only: bool = False,
+        unfulfilled_only: bool = False,
+    ) -> List[Dict[str, Union[bool, str]]]:
+        """Gets the list of CSR's that were sent to the provider.
+
+        You can choose to get only the CSR's that have a certificate assigned or only the CSR's
+        that don't.
+
+        Returns:
+            List of CSR dictionaries. For example:
+            [
+                {
+                    "certificate_signing_request": "-----BEGIN CERTIFICATE REQUEST-----...",
+                    "ca": false
+                }
+            ]
+        """
+
+        final_list = []
+        for csr in self._requirer_csrs:
+            assert type(csr["certificate_signing_request"]) == str
+            cert = self._find_certificate_in_relation_data(csr["certificate_signing_request"])
+            if (unfulfilled_only and cert) or (fulfilled_only and not cert):
+                continue
+            final_list.append(csr)
+
+        return final_list
+
     @staticmethod
     def _relation_data_is_valid(certificates_data: dict) -> bool:
         """Checks whether relation data is valid based on json schema.
