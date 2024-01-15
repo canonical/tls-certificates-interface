@@ -1146,7 +1146,7 @@ class TestJuju3(unittest.TestCase):
         assert secret.get_content(refresh=True)["certificate"] == certificate
         assert secret.get_info().expires == expiry_time - timedelta(hours=168)
 
-    def test_given_certificates_available_when_get_assigned_certificates_then_all_certificates_returned(
+    def test_given_certificates_available_when_get_assigned_certificates_then_unit_certificates_returned_only(
         self,
     ):  # noqa: E501
         relation_id = self.create_certificates_relation()
@@ -1163,7 +1163,13 @@ class TestJuju3(unittest.TestCase):
                         "chain": ["cert1"],
                         "certificate_signing_request": "csr1",
                         "certificate": "cert1",
-                    }
+                    },
+                    {
+                        "ca": "cacert2",
+                        "chain": ["cert2"],
+                        "certificate_signing_request": "csr2",
+                        "certificate": "cert2",
+                    },
                 ]
             )
         }
