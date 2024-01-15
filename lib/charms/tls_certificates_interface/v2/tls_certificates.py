@@ -1676,7 +1676,11 @@ class TLSCertificatesRequiresV2(Object):
                 }
             ]
         """
-        return self._provider_certificates
+        final_list = []
+        for csr in self.get_certificate_signing_requests(fulfilled_only=True):
+            if cert := self._find_certificate_in_relation_data(csr["certificate_signing_request"]):
+                final_list.append(cert)
+        return final_list
 
     def get_certificate_signing_requests(
         # RFC: Should I just split this up into 3 different functions?
