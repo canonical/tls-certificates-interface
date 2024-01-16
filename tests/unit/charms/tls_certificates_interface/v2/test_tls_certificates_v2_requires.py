@@ -1188,6 +1188,46 @@ class TestJuju3(unittest.TestCase):
 
         assert len(self.harness.charm.certificates.get_assigned_certificates()) == 1
 
+    def test_given_certificates_available_when_get_assigned_certificates_with_no_csrs_then_no_certificates_returned(
+        self,
+    ):  # noqa: E501
+        relation_id = self.create_certificates_relation()
+
+        unit_relation_data = {"certificate_signing_requests": json.dumps([])}
+
+        remote_app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": "cacert1",
+                        "chain": ["cert1"],
+                        "certificate_signing_request": "csr1",
+                        "certificate": "cert1",
+                    },
+                    {
+                        "ca": "cacert2",
+                        "chain": ["cert2"],
+                        "certificate_signing_request": "csr2",
+                        "certificate": "cert2",
+                    },
+                ]
+            )
+        }
+
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values=unit_relation_data,
+        )
+
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values=remote_app_relation_data,
+        )
+
+        assert len(self.harness.charm.certificates.get_assigned_certificates()) == 0
+
     def test_given_csrs_created_when_get_certificate_signing_requests_then_all_csrs_returned(self):
         relation_id = self.create_certificates_relation()
 
