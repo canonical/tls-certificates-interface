@@ -1515,7 +1515,7 @@ class TLSCertificatesRequiresV2(Object):
 
     @property
     def _requirer_csrs(self) -> List[Dict[str, Union[bool, str]]]:
-        """Returns list of requirer's CSRs from relation data.
+        """Returns list of requirer's CSRs from relation unit data.
 
         Example:
             [
@@ -1685,7 +1685,6 @@ class TLSCertificatesRequiresV2(Object):
 
     def get_certificate_signing_requests(
         # RFC: Should I just split this up into 3 different functions?
-        # RFC: Should we have an option where the leader will aggregate all of the CSR's from all of the units of the application?
         self,
         fulfilled_only: bool = False,
         unfulfilled_only: bool = False,
@@ -1694,6 +1693,10 @@ class TLSCertificatesRequiresV2(Object):
 
         You can choose to get only the CSR's that have a certificate assigned or only the CSR's
         that don't.
+
+        Args:
+            fulfilled_only (bool): This option will discard CSRs that don't have certificates yet.
+            unfulfilled_only (bool): This option will discard CSRs that have certificates signed.
 
         Returns:
             List of CSR dictionaries. For example:
