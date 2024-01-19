@@ -1021,11 +1021,9 @@ def generate_csr(
 def csr_matches_certificate(csr: str, cert: str) -> bool:
     """Check if a CSR matches a certificate.
 
-    expects to get the original string representations.
-
     Args:
-        csr (str): Certificate Signing Request
-        cert (str): Certificate
+        csr (str): Certificate Signing Request as a string
+        cert (str): Certificate as a string
     Returns:
         bool: True/False depending on whether the CSR matches the certificate.
     """
