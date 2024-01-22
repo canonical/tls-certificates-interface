@@ -1187,7 +1187,9 @@ class TestJuju3(unittest.TestCase):
         )
 
         assert len(self.harness.charm.certificates.get_assigned_certificates()) == 1
-        self.assertEqual(self.harness.charm.certificates.get_assigned_certificates()[0]["certificate"], "cert1")
+        self.assertEqual(
+            self.harness.charm.certificates.get_assigned_certificates()[0]["certificate"], "cert1"
+        )
 
     def test_given_certificates_available_when_get_assigned_certificates_with_no_csrs_then_no_certificates_returned(
         self,
