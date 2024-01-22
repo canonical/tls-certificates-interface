@@ -1659,7 +1659,7 @@ class TLSCertificatesRequiresV2(Object):
         logger.info("Certificate renewal request completed.")
 
     def get_assigned_certificates(self) -> List[Dict[str, str]]:
-        """Gets a list of certificates that were assigned to this unit.
+        """Get a list of certificates that were assigned to this unit.
 
         Returns:
             List of certificates. For example:
@@ -1681,8 +1681,37 @@ class TLSCertificatesRequiresV2(Object):
                 final_list.append(cert)
         return final_list
 
+    def get_expiring_certificates(self) -> List[Dict[str, str]]:
+        """Get a list of certificates that were assigned to this unit that are expiring or expired.
+
+        Returns:
+            List of certificates. For example:
+            [
+                {
+                    "ca": "-----BEGIN CERTIFICATE-----...",
+                    "chain": [
+                        "-----BEGIN CERTIFICATE-----..."
+                    ],
+                    "certificate": "-----BEGIN CERTIFICATE-----...",
+                    "certificate_signing_request": "-----BEGIN CERTIFICATE REQUEST-----...",
+                }
+            ]
+        """
+        final_list = []
+        for csr in self.get_certificate_signing_requests(fulfilled_only=True):
+            assert type(csr["certificate_signing_request"]) == str
+            if cert := self._find_certificate_in_relation_data(csr["certificate_signing_request"]):
+                expiry_time = _get_certificate_expiry_time(cert["certificate"])
+                if not expiry_time:
+                    continue
+                expiry_notification_time = expiry_time - timedelta(
+                    hours=self.expiry_notification_time
+                )
+                if datetime.utcnow() > expiry_notification_time:
+                    final_list.append(cert)
+        return final_list
+
     def get_certificate_signing_requests(
-        # RFC: Should I just split this up into 3 different functions?
         self,
         fulfilled_only: bool = False,
         unfulfilled_only: bool = False,
@@ -1695,7 +1724,6 @@ class TLSCertificatesRequiresV2(Object):
         Args:
             fulfilled_only (bool): This option will discard CSRs that don't have certificates yet.
             unfulfilled_only (bool): This option will discard CSRs that have certificates signed.
-
         Returns:
             List of CSR dictionaries. For example:
             [
