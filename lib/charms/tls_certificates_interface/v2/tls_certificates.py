@@ -314,7 +314,7 @@ PYDEPS = ["cryptography", "jsonschema"]
 
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "$id": "https://canonical.github.io/charm-relation-interfaces/tls_certificates/v2/schemas/requirer.json",  # noqa: E501
+    "$id": "https://canonical.github.io/charm-relation-interfaces/interfaces/tls_certificates/v1/schemas/requirer.json",
     "type": "object",
     "title": "`tls_certificates` requirer root schema",
     "description": "The `tls_certificates` root schema comprises the entire requirer databag for this interface.",  # noqa: E501
@@ -349,7 +349,7 @@ REQUIRER_JSON_SCHEMA = {
 
 PROVIDER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "$id": "https://canonical.github.io/charm-relation-interfaces/tls_certificates/v2/schemas/provider.json",  # noqa: E501
+    "$id": "https://canonical.github.io/charm-relation-interfaces/interfaces/tls_certificates/v1/schemas/provider.json",
     "type": "object",
     "title": "`tls_certificates` provider root schema",
     "description": "The `tls_certificates` root schema comprises the entire provider databag for this interface.",  # noqa: E501
