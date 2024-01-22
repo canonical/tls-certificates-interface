@@ -1146,6 +1146,352 @@ class TestJuju3(unittest.TestCase):
         assert secret.get_content(refresh=True)["certificate"] == certificate
         assert secret.get_info().expires == expiry_time - timedelta(hours=168)
 
+    def test_given_certificates_available_when_get_assigned_certificates_then_unit_certificates_returned_only(
+        self,
+    ):  # noqa: E501
+        relation_id = self.create_certificates_relation()
+
+        unit_relation_data = {
+            "certificate_signing_requests": json.dumps([{"certificate_signing_request": "csr1"}])
+        }
+
+        remote_app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": "cacert1",
+                        "chain": ["cert1"],
+                        "certificate_signing_request": "csr1",
+                        "certificate": "cert1",
+                    },
+                    {
+                        "ca": "cacert2",
+                        "chain": ["cert2"],
+                        "certificate_signing_request": "csr2",
+                        "certificate": "cert2",
+                    },
+                ]
+            )
+        }
+
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values=unit_relation_data,
+        )
+
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values=remote_app_relation_data,
+        )
+
+        assert len(self.harness.charm.certificates.get_assigned_certificates()) == 1
+        self.assertEqual(
+            self.harness.charm.certificates.get_assigned_certificates()[0]["certificate"], "cert1"
+        )
+
+    def test_given_certificates_available_when_get_assigned_certificates_with_no_csrs_then_no_certificates_returned(
+        self,
+    ):  # noqa: E501
+        relation_id = self.create_certificates_relation()
+
+        unit_relation_data = {"certificate_signing_requests": json.dumps([])}
+
+        remote_app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": "cacert1",
+                        "chain": ["cert1"],
+                        "certificate_signing_request": "csr1",
+                        "certificate": "cert1",
+                    },
+                    {
+                        "ca": "cacert2",
+                        "chain": ["cert2"],
+                        "certificate_signing_request": "csr2",
+                        "certificate": "cert2",
+                    },
+                ]
+            )
+        }
+
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values=unit_relation_data,
+        )
+
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values=remote_app_relation_data,
+        )
+
+        assert len(self.harness.charm.certificates.get_assigned_certificates()) == 0
+
+    def test_given_csrs_created_when_get_certificate_signing_requests_then_all_csrs_returned(self):
+        relation_id = self.create_certificates_relation()
+
+        unit_relation_data = {
+            "certificate_signing_requests": json.dumps(
+                [{"certificate_signing_request": "csr1"}, {"certificate_signing_request": "csr3"}]
+            )
+        }
+
+        remote_app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": "cacert1",
+                        "chain": ["cert1"],
+                        "certificate_signing_request": "csr1",
+                        "certificate": "cert1",
+                    },
+                    {
+                        "ca": "cacert1",
+                        "chain": ["cert2"],
+                        "certificate_signing_request": "csr2",
+                        "certificate": "cert2",
+                    },
+                ]
+            )
+        }
+
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values=unit_relation_data,
+        )
+
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values=remote_app_relation_data,
+        )
+        assert len(self.harness.charm.certificates.get_certificate_signing_requests()) == 2
+
+    def test_given_csrs_created_when_get_fulfilled_csrs_only_then_correct_csrs_returned(self):
+        relation_id = self.create_certificates_relation()
+
+        unit_relation_data = {
+            "certificate_signing_requests": json.dumps(
+                [{"certificate_signing_request": "csr1"}, {"certificate_signing_request": "csr3"}]
+            )
+        }
+
+        remote_app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": "cacert1",
+                        "chain": ["cert1"],
+                        "certificate_signing_request": "csr1",
+                        "certificate": "cert1",
+                    },
+                    {
+                        "ca": "cacert1",
+                        "chain": ["cert2"],
+                        "certificate_signing_request": "csr2",
+                        "certificate": "cert2",
+                    },
+                ]
+            )
+        }
+
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values=unit_relation_data,
+        )
+
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values=remote_app_relation_data,
+        )
+
+        output = self.harness.charm.certificates.get_certificate_signing_requests(
+            fulfilled_only=True
+        )
+        assert len(output) == 1
+        assert output[0]["certificate_signing_request"] == "csr1"
+
+    def test_given_csrs_created_when_get_unfulfilled_csrs_only_then_correct_csrs_returned(self):
+        relation_id = self.create_certificates_relation()
+
+        unit_relation_data = {
+            "certificate_signing_requests": json.dumps(
+                [{"certificate_signing_request": "csr1"}, {"certificate_signing_request": "csr3"}]
+            )
+        }
+
+        remote_app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": "cacert1",
+                        "chain": ["cert1"],
+                        "certificate_signing_request": "csr1",
+                        "certificate": "cert1",
+                    },
+                    {
+                        "ca": "cacert1",
+                        "chain": ["cert2"],
+                        "certificate_signing_request": "csr2",
+                        "certificate": "cert2",
+                    },
+                ]
+            )
+        }
+
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values=unit_relation_data,
+        )
+
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values=remote_app_relation_data,
+        )
+
+        output = self.harness.charm.certificates.get_certificate_signing_requests(
+            unfulfilled_only=True
+        )
+        assert len(output) == 1
+        assert output[0]["certificate_signing_request"] == "csr3"
+
+    def test_given_csrs_created_when_get_unfulfilled_and_fulfilled_csrs_only_then_no_csrs_returned(
+        self,
+    ):
+        relation_id = self.create_certificates_relation()
+
+        unit_relation_data = {
+            "certificate_signing_requests": json.dumps(
+                [{"certificate_signing_request": "csr1"}, {"certificate_signing_request": "csr3"}]
+            )
+        }
+
+        remote_app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": "cacert1",
+                        "chain": ["cert1"],
+                        "certificate_signing_request": "csr1",
+                        "certificate": "cert1",
+                    },
+                    {
+                        "ca": "cacert1",
+                        "chain": ["cert2"],
+                        "certificate_signing_request": "csr2",
+                        "certificate": "cert2",
+                    },
+                ]
+            )
+        }
+
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values=unit_relation_data,
+        )
+
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values=remote_app_relation_data,
+        )
+
+        output = self.harness.charm.certificates.get_certificate_signing_requests(
+            fulfilled_only=True, unfulfilled_only=True
+        )
+        assert len(output) == 0
+
+    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
+    def test_given_no_expired_certificates_in_relation_data_when_get_expiring_certificates_then_no_certificates_returned(  # noqa: E501
+        self, patch_get_expiry_time
+    ):
+        relation_id = self.create_certificates_relation()
+        ca_certificate = "whatever certificate"
+        chain = ["certificate 1", "certiicate 2", "certificate 3"]
+        csr = "whatever csr"
+        certificate = "whatever certificate"
+        unit_relation_data = {
+            "certificate_signing_requests": json.dumps([{"certificate_signing_request": csr}])
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values=unit_relation_data,
+        )
+        remote_app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate,
+                        "chain": chain,
+                        "certificate_signing_request": csr,
+                        "certificate": certificate,
+                    },
+                ]
+            )
+        }
+        expiry_time = datetime.utcnow() + timedelta(weeks=520)
+        patch_get_expiry_time.return_value = expiry_time
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values=remote_app_relation_data,
+        )
+
+        all_certs = self.harness.charm.certificates.get_expiring_certificates()
+        assert len(all_certs) == 0
+
+    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
+    def test_given_expired_certificate_in_relation_data_when_get_expiring_certificates_then_correct_certificates_returned(  # noqa: E501
+        self, patch_get_expiry_time
+    ):
+        relation_id = self.create_certificates_relation()
+        ca_certificate = "whatever certificate"
+        chain = ["certificate 1", "certiicate 2", "certificate 3"]
+        csr = "whatever csr"
+        certificate = "whatever certificate"
+        unit_relation_data = {
+            "certificate_signing_requests": json.dumps([{"certificate_signing_request": csr}])
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values=unit_relation_data,
+        )
+        remote_app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate,
+                        "chain": chain,
+                        "certificate_signing_request": csr,
+                        "certificate": certificate,
+                    },
+                ]
+            )
+        }
+        expiry_time = datetime.utcnow() + timedelta(hours=1)
+        patch_get_expiry_time.return_value = expiry_time
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values=remote_app_relation_data,
+        )
+
+        all_certs = self.harness.charm.certificates.get_expiring_certificates()
+        assert len(all_certs) > 0
+        assert all_certs[0]["certificate"] == certificate
+
     @patch(f"{LIB_DIR}._get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_expired_certificate_in_relation_data_when_secret_expired_then_certificate_invalidated_event_with_reason_expired_emitted(  # noqa: E501
