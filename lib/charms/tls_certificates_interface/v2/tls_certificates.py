@@ -423,6 +423,42 @@ PROVIDER_JSON_SCHEMA = {
 logger = logging.getLogger(__name__)
 
 
+class RequirerCSR:
+    def __init__(
+        self, relation_id: int, application_name: str, unit_name: str, csr: str, is_ca: bool
+    ):
+        self.relation_id = relation_id
+        self.application_name = application_name
+        self.unit_name = unit_name
+        self.csr = csr
+        self.is_ca = is_ca
+
+    def __eq__(self, other):
+        return (
+            self.relation_id == other.relation_id
+            and self.application_name == other.application_name
+            and self.unit_name == other.unit_name
+            and self.csr == other.csr
+            and self.is_ca == other.is_ca
+        )
+
+
+class ProviderCertificate:
+    def __init__(self, relation_id: int, application_name: str, csr: str, certificate: str):
+        self.relation_id = relation_id
+        self.application_name = application_name
+        self.csr = csr
+        self.certificate = certificate
+
+    def __eq__(self, other):
+        return (
+            self.relation_id == other.relation_id
+            and self.application_name == other.application_name
+            and self.csr == other.csr
+            and self.certificate == other.certificate
+        )
+
+
 class CertificateAvailableEvent(EventBase):
     """Charm Event triggered when a TLS certificate is available."""
 
@@ -1259,16 +1295,16 @@ class TLSCertificatesProvidesV2(Object):
 
     def get_issued_certificates(
         self, relation_id: Optional[int] = None
-    ) -> Dict[str, List[Dict[str, str]]]:
-        """Returns a dictionary of issued certificates.
+    ) -> List[ProviderCertificate]:
+        """Returns a List of issued certificates.
 
         It returns certificates from all relations if relation_id is not specified.
         Certificates are returned per application name and CSR.
 
         Returns:
-            dict: Certificates per application name.
+            List: List of ProviderCertificate objects
         """
-        certificates: Dict[str, List[Dict[str, str]]] = {}
+        certificates: List[ProviderCertificate] = []
         relations = (
             [
                 relation
@@ -1281,17 +1317,18 @@ class TLSCertificatesProvidesV2(Object):
         for relation in relations:
             provider_relation_data = self._load_app_relation_data(relation)
             provider_certificates = provider_relation_data.get("certificates", [])
-
-            certificates[relation.app.name] = []  # type: ignore[union-attr]
             for certificate in provider_certificates:
                 if not certificate.get("revoked", False):
-                    certificates[relation.app.name].append(  # type: ignore[union-attr]
-                        {
-                            "csr": certificate["certificate_signing_request"],
-                            "certificate": certificate["certificate"],
-                        }
+                    if not relation.app:
+                        logger.warning("Relation %s does not have an application", relation.id)
+                        continue
+                    provider_certificate = ProviderCertificate(
+                        relation_id=relation.id,
+                        application_name=relation.app.name,
+                        csr=certificate["certificate_signing_request"],
+                        certificate=certificate["certificate"],
                     )
-
+                    certificates.append(provider_certificate)
         return certificates
 
     def _on_relation_changed(self, event: RelationChangedEvent) -> None:
@@ -1377,50 +1414,28 @@ class TLSCertificatesProvidesV2(Object):
 
     def get_outstanding_certificate_requests(
         self, relation_id: Optional[int] = None
-    ) -> List[Dict[str, Union[int, str, List[Dict[str, str]]]]]:
+    ) -> List[RequirerCSR]:
         """Returns CSR's for which no certificate has been issued.
-
-        Example return: [
-            {
-                "relation_id": 0,
-                "application_name": "tls-certificates-requirer",
-                "unit_name": "tls-certificates-requirer/0",
-                "unit_csrs": [
-                    {
-                        "certificate_signing_request": "-----BEGIN CERTIFICATE REQUEST-----...",
-                        "is_ca": false
-                    }
-                ]
-            }
-        ]
 
         Args:
             relation_id (int): Relation id
 
         Returns:
-            list: List of dictionaries that contain the unit's csrs
-            that don't have a certificate issued.
+            list: List of RequirerCSR objects.
         """
-        all_unit_csr_mappings = copy.deepcopy(self.get_requirer_csrs(relation_id=relation_id))
-        filtered_all_unit_csr_mappings: List[Dict[str, Union[int, str, List[Dict[str, str]]]]] = []
-        for unit_csr_mapping in all_unit_csr_mappings:
-            csrs_without_certs = []
-            for csr in unit_csr_mapping["unit_csrs"]:  # type: ignore[union-attr]
-                if not self.certificate_issued_for_csr(
-                    app_name=unit_csr_mapping["application_name"],  # type: ignore[arg-type]
-                    csr=csr["certificate_signing_request"],  # type: ignore[index]
-                    relation_id=relation_id,
-                ):
-                    csrs_without_certs.append(csr)
-            if csrs_without_certs:
-                unit_csr_mapping["unit_csrs"] = csrs_without_certs  # type: ignore[assignment]
-                filtered_all_unit_csr_mappings.append(unit_csr_mapping)
-        return filtered_all_unit_csr_mappings
+        requirer_csrs = self.get_requirer_csrs(relation_id=relation_id)
+        outstanding_csrs: List[RequirerCSR] = []
+        for relation_csr in requirer_csrs:
+            if not self.certificate_issued_for_csr(
+                app_name=relation_csr.application_name,
+                csr=relation_csr.csr,
+                relation_id=relation_id,
+            ):
+                outstanding_csrs.append(relation_csr)
+        return outstanding_csrs
 
-    def get_requirer_csrs(
-        self, relation_id: Optional[int] = None
-    ) -> List[Dict[str, Union[int, str, List[Dict[str, str]]]]]:
-        """Returns a list of requirers' CSRs grouped by unit.
+    def get_requirer_csrs(self, relation_id: Optional[int] = None) -> List[RequirerCSR]:
+        """Returns a list of requirers' CSRs.
 
         It returns CSRs from all relations if relation_id is not specified.
         CSRs are returned per relation id, application name and unit name.
@@ -1430,8 +1445,7 @@ class TLSCertificatesProvidesV2(Object):
             with the following information
             relation_id, application_name and unit_name.
         """
-        unit_csr_mappings: List[Dict[str, Union[int, str, List[Dict[str, str]]]]] = []
-
+        relation_csrs: List[RequirerCSR] = []
         relations = (
             [
                 relation
@@ -1446,15 +1460,24 @@ class TLSCertificatesProvidesV2(Object):
             for unit in relation.units:
                 requirer_relation_data = _load_relation_data(relation.data[unit])
                 unit_csrs_list = requirer_relation_data.get("certificate_signing_requests", [])
-                unit_csr_mappings.append(
-                    {
-                        "relation_id": relation.id,
-                        "application_name": relation.app.name,  # type: ignore[union-attr]
-                        "unit_name": unit.name,
-                        "unit_csrs": unit_csrs_list,
-                    }
-                )
-        return unit_csr_mappings
+                for unit_csr in unit_csrs_list:
+                    csr = unit_csr.get("certificate_signing_request")
+                    if not csr:
+                        logger.warning("No CSR found in relation data - Skipping")
+                        continue
+                    ca = unit_csr.get("ca", False)
+                    if not relation.app:
+                        logger.warning("No remote app in relation - Skipping")
+                        continue
+                    relation_csr = RequirerCSR(
+                        relation_id=relation.id,
+                        application_name=relation.app.name,
+                        unit_name=unit.name,
+                        csr=csr,
+                        is_ca=ca,
+                    )
+                    relation_csrs.append(relation_csr)
+        return relation_csrs
 
     def certificate_issued_for_csr(
         self, app_name: str, csr: str, relation_id: Optional[int]
@@ -1468,12 +1491,10 @@ class TLSCertificatesProvidesV2(Object):
         Returns:
             bool: True/False depending on whether a certificate has been issued for the given CSR.
         """
-        issued_certificates_per_csr = self.get_issued_certificates(relation_id=relation_id)[
-            app_name
-        ]
-        for issued_pair in issued_certificates_per_csr:
-            if "csr" in issued_pair and issued_pair["csr"] == csr:
-                return csr_matches_certificate(csr, issued_pair["certificate"])
+        issued_certificates_per_csr = self.get_issued_certificates(relation_id=relation_id)
+        for issued_certificate in issued_certificates_per_csr:
+            if issued_certificate.csr == csr and issued_certificate.application_name == app_name:
+                return csr_matches_certificate(csr, issued_certificate.certificate)
         return False
 
 
