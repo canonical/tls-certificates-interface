@@ -424,6 +424,7 @@ logger = logging.getLogger(__name__)
 
 
 class RequirerCSR:
+    """This class represents a certificate signing request from an interface Requirer."""
     def __init__(
         self, relation_id: int, application_name: str, unit_name: str, csr: str, is_ca: bool
     ):
@@ -444,6 +445,7 @@ class RequirerCSR:
 
 
 class ProviderCertificate:
+    """This class represents a certificate from an interface Provider."""
     def __init__(self, relation_id: int, application_name: str, csr: str, certificate: str):
         self.relation_id = relation_id
         self.application_name = application_name
