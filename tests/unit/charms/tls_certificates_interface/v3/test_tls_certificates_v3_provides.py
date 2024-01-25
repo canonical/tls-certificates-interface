@@ -775,10 +775,14 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         )
 
         call_args_list = patch_certificate_creation_request.call_args_list
+
+        # We expect 3 calls because the second relation changed event will yield 2 calls
         self.assertEqual(call_args_list[0].args[0].certificate_signing_request, csr_1)
         self.assertEqual(call_args_list[0].args[0].relation_id, relation_1_id)
-        self.assertEqual(call_args_list[1].args[0].certificate_signing_request, csr_2)
-        self.assertEqual(call_args_list[1].args[0].relation_id, relation_2_id)
+        self.assertEqual(call_args_list[1].args[0].certificate_signing_request, csr_1)
+        self.assertEqual(call_args_list[1].args[0].relation_id, relation_1_id)
+        self.assertEqual(call_args_list[2].args[0].certificate_signing_request, csr_2)
+        self.assertEqual(call_args_list[2].args[0].relation_id, relation_2_id)
 
     @patch(
         f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_creation_request",

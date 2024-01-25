@@ -1284,10 +1284,23 @@ class TLSCertificatesProvidesV3(Object):
     def get_issued_certificates(
         self, relation_id: Optional[int] = None
     ) -> List[ProviderCertificate]:
-        """Returns a List of issued certificates.
+        """Returns a List of issued (non revoked) certificates.
 
         It returns certificates from all relations if relation_id is not specified.
-        Certificates are returned per application name and CSR.
+
+        Returns:
+            List: List of ProviderCertificate objects
+        """
+        provider_certificates = self.get_provider_certificates(relation_id=relation_id)
+        non_revoked_certificates = [
+            certificate for certificate in provider_certificates if not certificate.revoked
+        ]
+        return non_revoked_certificates
+
+    def get_provider_certificates(
+        self, relation_id: Optional[int] = None
+    ) -> List[ProviderCertificate]:
+        """Returns a List of issued certificates.
 
         Returns:
             List: List of ProviderCertificate objects
@@ -1303,23 +1316,22 @@ class TLSCertificatesProvidesV3(Object):
             else self.model.relations.get(self.relationship_name, [])
         )
         for relation in relations:
+            if not relation.app:
+                logger.warning("Relation %s does not have an application", relation.id)
+                continue
             provider_relation_data = self._load_app_relation_data(relation)
             provider_certificates = provider_relation_data.get("certificates", [])
             for certificate in provider_certificates:
-                if not certificate.get("revoked", False):
-                    if not relation.app:
-                        logger.warning("Relation %s does not have an application", relation.id)
-                        continue
-                    provider_certificate = ProviderCertificate(
-                        relation_id=relation.id,
-                        application_name=relation.app.name,
-                        csr=certificate["certificate_signing_request"],
-                        certificate=certificate["certificate"],
-                        ca=certificate["ca"],
-                        chain=certificate["chain"],
-                        revoked=certificate.get("revoked", False),
-                    )
-                    certificates.append(provider_certificate)
+                provider_certificate = ProviderCertificate(
+                    relation_id=relation.id,
+                    application_name=relation.app.name,
+                    csr=certificate["certificate_signing_request"],
+                    certificate=certificate["certificate"],
+                    ca=certificate["ca"],
+                    chain=certificate["chain"],
+                    revoked=certificate.get("revoked", False),
+                )
+                certificates.append(provider_certificate)
         return certificates
 
     def _on_relation_changed(self, event: RelationChangedEvent) -> None:
@@ -1343,65 +1355,44 @@ class TLSCertificatesProvidesV3(Object):
         if not self.model.unit.is_leader():
             return
         requirer_relation_data = _load_relation_data(event.relation.data[event.unit])
-        provider_relation_data = self._load_app_relation_data(event.relation)
         if not self._relation_data_is_valid(requirer_relation_data):
             logger.debug("Relation data did not pass JSON Schema validation")
             return
-        provider_certificates = provider_relation_data.get("certificates", [])
-        requirer_csrs = requirer_relation_data.get("certificate_signing_requests", [])
+        provider_certificates = self.get_provider_certificates()
+        requirer_csrs = self.get_requirer_csrs()
         provider_csrs = [
-            certificate_creation_request["certificate_signing_request"]
+            certificate_creation_request.csr
             for certificate_creation_request in provider_certificates
         ]
-        requirer_unit_certificate_requests = [
-            {
-                "csr": certificate_creation_request["certificate_signing_request"],
-                "is_ca": certificate_creation_request.get("ca", False),
-            }
-            for certificate_creation_request in requirer_csrs
-        ]
-        for certificate_request in requirer_unit_certificate_requests:
-            if certificate_request["csr"] not in provider_csrs:
+        for certificate_request in requirer_csrs:
+            if certificate_request.csr not in provider_csrs:
                 self.on.certificate_creation_request.emit(
-                    certificate_signing_request=certificate_request["csr"],
-                    relation_id=event.relation.id,
-                    is_ca=certificate_request["is_ca"],
+                    certificate_signing_request=certificate_request.csr,
+                    relation_id=certificate_request.relation_id,
+                    is_ca=certificate_request.is_ca,
                 )
-        self._revoke_certificates_for_which_no_csr_exists(relation_id=event.relation.id)
+        self._revoke_certificates_for_which_no_csr_exists()
 
-    def _revoke_certificates_for_which_no_csr_exists(self, relation_id: int) -> None:
+    def _revoke_certificates_for_which_no_csr_exists(self) -> None:
         """Revokes certificates for which no unit has a CSR.
 
-        Goes through all generated certificates and compare against the list of CSRs for all units
-        of a given relationship.
-
-        Args:
-            relation_id (int): Relation id
+        Goes through all generated certificates and compare against the list of CSRs for all units.
 
         Returns:
             None
         """
-        certificates_relation = self.model.get_relation(
-            relation_name=self.relationship_name, relation_id=relation_id
-        )
-        if not certificates_relation:
-            raise RuntimeError(f"Relation {self.relationship_name} does not exist")
-        provider_relation_data = self._load_app_relation_data(certificates_relation)
-        list_of_csrs: List[str] = []
-        for unit in certificates_relation.units:
-            requirer_relation_data = _load_relation_data(certificates_relation.data[unit])
-            requirer_csrs = requirer_relation_data.get("certificate_signing_requests", [])
-            list_of_csrs.extend(csr["certificate_signing_request"] for csr in requirer_csrs)
-        provider_certificates = provider_relation_data.get("certificates", [])
+        provider_certificates = self.get_provider_certificates()
+        requirer_csrs = self.get_requirer_csrs()
+        list_of_csrs = [csr.csr for csr in requirer_csrs]
         for certificate in provider_certificates:
-            if certificate["certificate_signing_request"] not in list_of_csrs:
+            if certificate.csr not in list_of_csrs:
                 self.on.certificate_revocation_request.emit(
-                    certificate=certificate["certificate"],
-                    certificate_signing_request=certificate["certificate_signing_request"],
-                    ca=certificate["ca"],
-                    chain=certificate["chain"],
+                    certificate=certificate.certificate,
+                    certificate_signing_request=certificate.csr,
+                    ca=certificate.ca,
+                    chain=certificate.chain,
                 )
-                self.remove_certificate(certificate=certificate["certificate"])
+                self.remove_certificate(certificate=certificate.certificate)
 
     def get_outstanding_certificate_requests(
         self, relation_id: Optional[int] = None
@@ -1521,9 +1512,12 @@ class TLSCertificatesRequiresV3(Object):
         else:
             self.framework.observe(charm.on.update_status, self._on_update_status)
 
-    @property
-    def _requirer_csrs(self) -> List[RequirerCSR]:
-        """Returns list of requirer's CSRs from relation unit data."""
+    def get_requirer_csrs(self) -> List[RequirerCSR]:
+        """Returns list of requirer's CSRs from relation unit data.
+
+        Returns:
+            list: List of RequirerCSR objects.
+        """
         requirer_csrs = []
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
@@ -1546,8 +1540,7 @@ class TLSCertificatesRequiresV3(Object):
             requirer_csrs.append(relation_csr)
         return requirer_csrs
 
-    @property
-    def _provider_certificates(self) -> List[ProviderCertificate]:
+    def get_provider_certificates(self) -> List[ProviderCertificate]:
         """Returns list of certificates from the provider's relation data."""
         provider_certificates: List[ProviderCertificate] = []
         relation = self.model.get_relation(self.relationship_name)
@@ -1602,7 +1595,7 @@ class TLSCertificatesRequiresV3(Object):
                 f"Relation {self.relationship_name} does not exist - "
                 f"The certificate request can't be completed"
             )
-        for requirer_csr in self._requirer_csrs:
+        for requirer_csr in self.get_requirer_csrs():
             if requirer_csr.csr == csr and requirer_csr.is_ca == is_ca:
                 logger.info("CSR already in relation data - Doing nothing")
                 return
@@ -1633,7 +1626,7 @@ class TLSCertificatesRequiresV3(Object):
                 f"Relation {self.relationship_name} does not exist - "
                 f"The certificate request can't be completed"
             )
-        if not self._requirer_csrs:
+        if not self.get_requirer_csrs():
             logger.info("No CSRs in relation data - Doing nothing")
             return
         requirer_relation_data = _load_relation_data(relation.data[self.model.unit])
@@ -1759,7 +1752,7 @@ class TLSCertificatesRequiresV3(Object):
             List of RequirerCSR objects.
         """
         csrs = []
-        for requirer_csr in self._requirer_csrs:
+        for requirer_csr in self.get_requirer_csrs():
             cert = self._find_certificate_in_relation_data(requirer_csr.csr)
             if (unfulfilled_only and cert) or (fulfilled_only and not cert):
                 continue
@@ -1803,9 +1796,9 @@ class TLSCertificatesRequiresV3(Object):
         """
         requirer_csrs = [
             certificate_creation_request.csr
-            for certificate_creation_request in self._requirer_csrs
+            for certificate_creation_request in self.get_requirer_csrs()
         ]
-        for certificate in self._provider_certificates:
+        for certificate in self.get_provider_certificates():
             if certificate.csr in requirer_csrs:
                 if certificate.revoked:
                     if JujuVersion.from_environ().has_secrets:
@@ -1928,7 +1921,7 @@ class TLSCertificatesRequiresV3(Object):
 
     def _find_certificate_in_relation_data(self, csr: str) -> Optional[ProviderCertificate]:
         """Returns the certificate that match the given CSR."""
-        for provider_certificate in self._provider_certificates:
+        for provider_certificate in self.get_provider_certificates():
             if provider_certificate.csr != csr:
                 continue
             return provider_certificate
@@ -1947,7 +1940,7 @@ class TLSCertificatesRequiresV3(Object):
         Returns:
             None
         """
-        for provider_certificate in self._provider_certificates:
+        for provider_certificate in self.get_provider_certificates():
             expiry_time = _get_certificate_expiry_time(provider_certificate.certificate)
             if not expiry_time:
                 continue
