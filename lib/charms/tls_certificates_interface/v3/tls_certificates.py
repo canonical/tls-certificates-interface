@@ -280,7 +280,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from ipaddress import IPv4Address
-from typing import Dict, List, Literal, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from cryptography import x509
 from cryptography.hazmat._oid import ExtensionOID
@@ -293,7 +293,6 @@ from ops.charm import (
     RelationBrokenEvent,
     RelationChangedEvent,
     SecretExpiredEvent,
-    UpdateStatusEvent,
 )
 from ops.framework import EventBase, EventSource, Handle, Object
 from ops.model import (
@@ -1263,8 +1262,6 @@ class TLSCertificatesProvidesV3(Object):
     ) -> List[ProviderCertificate]:
         """Returns a List of issued (non revoked) certificates.
 
-        It returns certificates from all relations if relation_id is not specified.
-
         Returns:
             List: List of ProviderCertificate objects
         """
@@ -1444,6 +1441,7 @@ class TLSCertificatesProvidesV3(Object):
             app_name (str): Application name that the CSR belongs to.
             csr (str): Certificate Signing Request.
             relation_id (Optional[int]): Relation ID
+
         Returns:
             bool: True/False depending on whether a certificate has been issued for the given CSR.
         """
@@ -1569,7 +1567,7 @@ class TLSCertificatesRequiresV3(Object):
             if requirer_csr.csr == csr and requirer_csr.is_ca == is_ca:
                 logger.info("CSR already in relation data - Doing nothing")
                 return
-        new_csr_dict: Dict[str, Union[bool, str]] = {
+        new_csr_dict = {
             "certificate_signing_request": csr,
             "ca": is_ca,
         }
