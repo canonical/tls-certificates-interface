@@ -59,7 +59,7 @@ jobs:
           provider: microk8s
           channel: ${{ matrix.microk8s }}
       - name: Run tests using tox
-        run: tox -e integration
+        run: tox -e integration-v2
         env:
           LIBJUJU_VERSION: ${{ matrix.libjuju }}
       - name: Archive charmcraft logs
@@ -89,7 +89,7 @@ jobs:
           provider: microk8s
           channel: 1.28-strict/stable
       - name: Run tests using tox
-        run: tox -e integration
+        run: tox -e integration-v2
         env:
           LIBJUJU_VERSION: 3.3.0.0
       - name: Archive charmcraft logs
