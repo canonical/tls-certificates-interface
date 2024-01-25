@@ -11,7 +11,7 @@ interface.
 From a charm directory, fetch the library using `charmcraft`:
 
 ```shell
-charmcraft fetch-lib charms.tls_certificates_interface.v2.tls_certificates
+charmcraft fetch-lib charms.tls_certificates_interface.v3.tls_certificates
 ```
 
 Add the following libraries to the charm's `requirements.txt` file:
@@ -36,7 +36,7 @@ this example, the provider charm is storing its private key using a peer relatio
 
 Example:
 ```python
-from charms.tls_certificates_interface.v2.tls_certificates import (
+from charms.tls_certificates_interface.v3.tls_certificates import (
     CertificateCreationRequestEvent,
     CertificateRevocationRequestEvent,
     TLSCertificatesProvidesV3,
@@ -126,7 +126,7 @@ this example, the requirer charm is storing its certificates using a peer relati
 
 Example:
 ```python
-from charms.tls_certificates_interface.v2.tls_certificates import (
+from charms.tls_certificates_interface.v3.tls_certificates import (
     CertificateAvailableEvent,
     CertificateExpiringEvent,
     CertificateRevokedEvent,
