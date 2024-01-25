@@ -25,3 +25,9 @@ jobs:
           CHARMCRAFT_AUTH: "${{ secrets.CHARMCRAFT_AUTH }}"
         run: |
           charmcraft publish-lib charms.tls_certificates_interface.v2.tls_certificates
+      
+      - name: Publish libs
+        env:
+          CHARMCRAFT_AUTH: "${{ secrets.CHARMCRAFT_AUTH }}"
+        run: |
+          charmcraft publish-lib charms.tls_certificates_interface.v3.tls_certificates

@@ -1,0 +1,14 @@
+# Copyright 2022 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+
+name: tls-certificates-interface-requirer
+
+description: |
+  Dummy tls-certificates-interface requirer.
+summary: |
+    Dummy tls-certificates-interface requirer.
+
+requires:
+  certificates:
+    interface: tls-certificates
