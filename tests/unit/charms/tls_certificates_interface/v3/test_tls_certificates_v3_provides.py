@@ -6,12 +6,12 @@ import json
 import unittest
 from unittest.mock import PropertyMock, call, patch
 
-from charms.tls_certificates_interface.v3.tls_certificates import (
+from ops import testing
+
+from lib.charms.tls_certificates_interface.v3.tls_certificates import (
     ProviderCertificate,
     RequirerCSR,
 )
-from ops import testing
-
 from tests.unit.charms.tls_certificates_interface.v3.dummy_provider_charm.src.charm import (
     DummyTLSCertificatesProviderCharm,
 )

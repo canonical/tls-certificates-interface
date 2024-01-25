@@ -277,6 +277,7 @@ import json
 import logging
 import uuid
 from contextlib import suppress
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from ipaddress import IPv4Address
 from typing import Any, Dict, List, Literal, Optional, Union
@@ -423,59 +424,28 @@ PROVIDER_JSON_SCHEMA = {
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class RequirerCSR:
     """This class represents a certificate signing request from an interface Requirer."""
 
-    def __init__(
-        self, relation_id: int, application_name: str, unit_name: str, csr: str, is_ca: bool
-    ):
-        self.relation_id = relation_id
-        self.application_name = application_name
-        self.unit_name = unit_name
-        self.csr = csr
-        self.is_ca = is_ca
-
-    def __eq__(self, other):
-        return (
-            self.relation_id == other.relation_id
-            and self.application_name == other.application_name
-            and self.unit_name == other.unit_name
-            and self.csr == other.csr
-            and self.is_ca == other.is_ca
-        )
+    relation_id: int
+    application_name: str
+    unit_name: str
+    csr: str
+    is_ca: bool
 
 
+@dataclass
 class ProviderCertificate:
     """This class represents a certificate from an interface Provider."""
 
-    def __init__(
-        self,
-        relation_id: int,
-        application_name: str,
-        csr: str,
-        certificate: str,
-        ca: str,
-        chain: List[str],
-        revoked: bool,
-    ):
-        self.relation_id = relation_id
-        self.application_name = application_name
-        self.csr = csr
-        self.certificate = certificate
-        self.ca = ca
-        self.chain = chain
-        self.revoked = revoked
-
-    def __eq__(self, other):
-        return (
-            self.relation_id == other.relation_id
-            and self.application_name == other.application_name
-            and self.csr == other.csr
-            and self.certificate == other.certificate
-            and self.ca == other.ca
-            and self.chain == other.chain
-            and self.revoked == other.revoked
-        )
+    relation_id: int
+    application_name: str
+    csr: str
+    certificate: str
+    ca: str
+    chain: List[str]
+    revoked: bool
 
 
 class CertificateAvailableEvent(EventBase):
