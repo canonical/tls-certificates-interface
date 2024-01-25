@@ -1328,8 +1328,8 @@ class TLSCertificatesProvidesV3(Object):
         if not _relation_data_is_valid(event.relation, event.unit, REQUIRER_JSON_SCHEMA):
             logger.debug("Relation data did not pass JSON Schema validation")
             return
-        provider_certificates = self.get_provider_certificates()
-        requirer_csrs = self.get_requirer_csrs()
+        provider_certificates = self.get_provider_certificates(relation_id=event.relation.id)
+        requirer_csrs = self.get_requirer_csrs(relation_id=event.relation.id)
         provider_csrs = [
             certificate_creation_request.csr
             for certificate_creation_request in provider_certificates
@@ -1341,9 +1341,9 @@ class TLSCertificatesProvidesV3(Object):
                     relation_id=certificate_request.relation_id,
                     is_ca=certificate_request.is_ca,
                 )
-        self._revoke_certificates_for_which_no_csr_exists()
+        self._revoke_certificates_for_which_no_csr_exists(relation_id=event.relation.id)
 
-    def _revoke_certificates_for_which_no_csr_exists(self) -> None:
+    def _revoke_certificates_for_which_no_csr_exists(self, relation_id: int) -> None:
         """Revokes certificates for which no unit has a CSR.
 
         Goes through all generated certificates and compare against the list of CSRs for all units.
@@ -1351,8 +1351,8 @@ class TLSCertificatesProvidesV3(Object):
         Returns:
             None
         """
-        provider_certificates = self.get_provider_certificates()
-        requirer_csrs = self.get_requirer_csrs()
+        provider_certificates = self.get_provider_certificates(relation_id)
+        requirer_csrs = self.get_requirer_csrs(relation_id)
         list_of_csrs = [csr.csr for csr in requirer_csrs]
         for certificate in provider_certificates:
             if certificate.csr not in list_of_csrs:
