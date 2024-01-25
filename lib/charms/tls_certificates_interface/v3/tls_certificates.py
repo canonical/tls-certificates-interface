@@ -1266,10 +1266,7 @@ class TLSCertificatesProvidesV3(Object):
             List: List of ProviderCertificate objects
         """
         provider_certificates = self.get_provider_certificates(relation_id=relation_id)
-        non_revoked_certificates = [
-            certificate for certificate in provider_certificates if not certificate.revoked
-        ]
-        return non_revoked_certificates
+        return [certificate for certificate in provider_certificates if not certificate.revoked]
 
     def get_provider_certificates(
         self, relation_id: Optional[int] = None
