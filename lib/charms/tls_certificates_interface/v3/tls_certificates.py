@@ -286,7 +286,6 @@ from cryptography import x509
 from cryptography.hazmat._oid import ExtensionOID
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.serialization import pkcs12
 from jsonschema import exceptions, validate  # type: ignore[import-untyped]
 from ops.charm import (
     CharmBase,
@@ -297,7 +296,6 @@ from ops.charm import (
     UpdateStatusEvent,
 )
 from ops.framework import EventBase, EventSource, Handle, Object
-from ops.jujuversion import JujuVersion
 from ops.model import (
     Application,
     ModelError,
@@ -1485,10 +1483,7 @@ class TLSCertificatesRequiresV3(Object):
         self.framework.observe(
             charm.on[relationship_name].relation_broken, self._on_relation_broken
         )
-        if JujuVersion.from_environ().has_secrets:
-            self.framework.observe(charm.on.secret_expired, self._on_secret_expired)
-        else:
-            self.framework.observe(charm.on.update_status, self._on_update_status)
+        self.framework.observe(charm.on.secret_expired, self._on_secret_expired)
 
     def get_requirer_csrs(self) -> List[RequirerCSR]:
         """Returns list of requirer's CSRs from relation unit data.
@@ -1767,10 +1762,9 @@ class TLSCertificatesRequiresV3(Object):
         for certificate in provider_certificates:
             if certificate.csr in requirer_csrs:
                 if certificate.revoked:
-                    if JujuVersion.from_environ().has_secrets:
-                        with suppress(SecretNotFoundError):
-                            secret = self.model.get_secret(label=f"{LIBID}-{certificate.csr}")
-                            secret.remove_all_revisions()
+                    with suppress(SecretNotFoundError):
+                        secret = self.model.get_secret(label=f"{LIBID}-{certificate.csr}")
+                        secret.remove_all_revisions()
                     self.on.certificate_invalidated.emit(
                         reason="revoked",
                         certificate=certificate.certificate,
@@ -1779,19 +1773,18 @@ class TLSCertificatesRequiresV3(Object):
                         chain=certificate.chain,
                     )
                 else:
-                    if JujuVersion.from_environ().has_secrets:
-                        try:
-                            secret = self.model.get_secret(label=f"{LIBID}-{certificate.csr}")
-                            secret.set_content({"certificate": certificate.certificate})
-                            secret.set_info(
-                                expire=self._get_next_secret_expiry_time(certificate.certificate),
-                            )
-                        except SecretNotFoundError:
-                            secret = self.charm.unit.add_secret(
-                                {"certificate": certificate.certificate},
-                                label=f"{LIBID}-{certificate.csr}",
-                                expire=self._get_next_secret_expiry_time(certificate.certificate),
-                            )
+                    try:
+                        secret = self.model.get_secret(label=f"{LIBID}-{certificate.csr}")
+                        secret.set_content({"certificate": certificate.certificate})
+                        secret.set_info(
+                            expire=self._get_next_secret_expiry_time(certificate.certificate),
+                        )
+                    except SecretNotFoundError:
+                        secret = self.charm.unit.add_secret(
+                            {"certificate": certificate.certificate},
+                            label=f"{LIBID}-{certificate.csr}",
+                            expire=self._get_next_secret_expiry_time(certificate.certificate),
+                        )
                     self.on.certificate_available.emit(
                         certificate_signing_request=certificate.csr,
                         certificate=certificate.certificate,
@@ -1892,39 +1885,3 @@ class TLSCertificatesRequiresV3(Object):
                 continue
             return provider_certificate
         return None
-
-    def _on_update_status(self, event: UpdateStatusEvent) -> None:
-        """Triggered on update status event.
-
-        Goes through each certificate in the "certificates" relation and checks their expiry date.
-        If they are close to expire (<7 days), emits a CertificateExpiringEvent event and if
-        they are expired, emits a CertificateExpiredEvent.
-
-        Args:
-            event (UpdateStatusEvent): Juju event
-
-        Returns:
-            None
-        """
-        for provider_certificate in self.get_provider_certificates():
-            expiry_time = _get_certificate_expiry_time(provider_certificate.certificate)
-            if not expiry_time:
-                continue
-            time_difference = expiry_time - datetime.utcnow()
-            if time_difference.total_seconds() < 0:
-                logger.warning("Certificate is expired")
-                self.on.certificate_invalidated.emit(
-                    reason="expired",
-                    certificate=provider_certificate.certificate,
-                    certificate_signing_request=provider_certificate.csr,
-                    ca=provider_certificate.ca,
-                    chain=provider_certificate.chain,
-                )
-                self.request_certificate_revocation(provider_certificate.certificate.encode())
-                continue
-            if time_difference.total_seconds() < (self.expiry_notification_time * 60 * 60):
-                logger.warning("Certificate almost expired")
-                self.on.certificate_expiring.emit(
-                    certificate=provider_certificate.certificate,
-                    expiry=expiry_time.isoformat(),
-                )

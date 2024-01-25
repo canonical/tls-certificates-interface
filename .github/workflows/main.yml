@@ -34,8 +34,8 @@ jobs:
       - name: Run tests using tox
         run: tox -e unit
 
-  integration-tests:
-    name: Integration tests
+  integration-tests-v2:
+    name: Integration tests for tls interface v2
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
@@ -49,7 +49,7 @@ jobs:
             juju: "3.1/stable"
             microk8s: "1.27-strict/stable"
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - uses: actions/checkout@v4
       - name: Install tox
         run: pip install tox
       - name: Setup operator environment
@@ -62,6 +62,36 @@ jobs:
         run: tox -e integration
         env:
           LIBJUJU_VERSION: ${{ matrix.libjuju }}
+      - name: Archive charmcraft logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: charmcraft-logs
+          path: /home/runner/.local/state/charmcraft/log/*.log
+      - name: Archive juju crashdump
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: juju-crashdump
+          path: juju-crashdump-*.tar.xz
+
+  integration-tests-v3:
+    name: Integration tests for tls interface v3
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tox
+        run: pip install tox
+      - name: Setup operator environment
+        uses: charmed-kubernetes/actions-operator@main
+        with:
+          juju-channel: 3/stable
+          provider: microk8s
+          channel: 1.28/stable
+      - name: Run tests using tox
+        run: tox -e integration
+        env:
+          LIBJUJU_VERSION: 3.3.0.0
       - name: Archive charmcraft logs
         if: failure()
         uses: actions/upload-artifact@v4

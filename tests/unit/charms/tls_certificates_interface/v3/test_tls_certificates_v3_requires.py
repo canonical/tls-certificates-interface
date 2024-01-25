@@ -34,7 +34,7 @@ LIB_DIR = "lib.charms.tls_certificates_interface.v3.tls_certificates"
 SECONDS_IN_ONE_HOUR = 60 * 60
 
 
-class TestJuju2(unittest.TestCase):
+class TestTLSCertificatesRequiresV2(unittest.TestCase):
     def setUp(self):
         self.relation_name = "certificates"
         self.remote_app = "tls-certificates-provider"
@@ -377,61 +377,6 @@ class TestJuju2(unittest.TestCase):
         patch_on_certificate_available.assert_not_called()
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
-    def test_given_expired_certificate_in_relation_data_when_update_status_then_certificate_invalidated_event_with_reason_expired_emitted(  # noqa: E501
-        self, patch_certificate_invalidated
-    ):
-        relation_id = self.create_certificates_relation()
-        hours_before_expiry = -1
-        private_key_password = b"whatever1"
-        ca_private_key_password = b"whatever2"
-        private_key = generate_private_key_helper(password=private_key_password)
-        ca_key = generate_private_key_helper(password=ca_private_key_password)
-        certificate_signing_request = generate_csr_helper(
-            private_key=private_key,
-            private_key_password=private_key_password,
-            common_name="whatever",
-        )
-
-        ca_certificate = generate_ca_helper(
-            private_key=ca_key,
-            private_key_password=ca_private_key_password,
-            common_name="whatever",
-        )
-
-        certificate = generate_certificate_helper(
-            ca=ca_certificate,
-            ca_key=ca_key,
-            csr=certificate_signing_request,
-            ca_key_password=ca_private_key_password,
-            validity=hours_before_expiry,
-        )
-
-        remote_app_relation_data = {
-            "certificates": json.dumps(
-                [
-                    {
-                        "ca": ca_certificate.decode(),
-                        "chain": ["a", "b"],
-                        "certificate_signing_request": certificate_signing_request.decode(),
-                        "certificate": certificate.decode(),
-                    }
-                ]
-            )
-        }
-        self.harness.update_relation_data(
-            relation_id=relation_id,
-            app_or_unit=self.remote_app,
-            key_values=remote_app_relation_data,
-        )
-
-        self.harness.charm.on.update_status.emit()
-
-        patch_certificate_invalidated.assert_called()
-        args, _ = patch_certificate_invalidated.call_args
-        event_data = args[0]
-        assert event_data.certificate == certificate.decode()
-
-    @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_certificate_in_relation_data_is_not_expired_when_update_status_then_certificate_invalidated_event_with_reason_expired_not_emitted(  # noqa: E501
         self, patch_certificate_invalidated
     ):
@@ -482,67 +427,6 @@ class TestJuju2(unittest.TestCase):
         self.harness.charm.on.update_status.emit()
 
         patch_certificate_invalidated.assert_not_called()
-
-    @patch(f"{BASE_CHARM_DIR}._on_certificate_expiring")
-    def test_given_certificate_expires_in_shorter_amount_of_time_than_expiry_notification_time_when_update_status_then_certificate_expiring_is_emitted(  # noqa: E501
-        self, patch_certificate_expiring
-    ):
-        relation_id = self.create_certificates_relation()
-        hours_before_expiry = 8
-        private_key_password = b"whatever1"
-        ca_private_key_password = b"whatever2"
-        private_key = generate_private_key_helper(password=private_key_password)
-        ca_key = generate_private_key_helper(password=ca_private_key_password)
-        certificate_signing_request = generate_csr_helper(
-            private_key=private_key,
-            private_key_password=private_key_password,
-            common_name="whatever",
-        )
-
-        ca_certificate = generate_ca_helper(
-            private_key=ca_key,
-            private_key_password=ca_private_key_password,
-            common_name="whatever",
-        )
-
-        certificate = generate_certificate_helper(
-            ca=ca_certificate,
-            ca_key=ca_key,
-            csr=certificate_signing_request,
-            ca_key_password=ca_private_key_password,
-            validity=hours_before_expiry,
-        )
-
-        remote_app_relation_data = {
-            "certificates": json.dumps(
-                [
-                    {
-                        "ca": ca_certificate.decode(),
-                        "chain": ["a", "b"],
-                        "certificate_signing_request": certificate_signing_request.decode(),
-                        "certificate": certificate.decode(),
-                    }
-                ]
-            )
-        }
-        self.harness.update_relation_data(
-            relation_id=relation_id,
-            app_or_unit=self.remote_app,
-            key_values=remote_app_relation_data,
-        )
-
-        self.harness.charm.on.update_status.emit()
-
-        patch_certificate_expiring.assert_called()
-        args, _ = patch_certificate_expiring.call_args
-        event_data = args[0]
-        assert event_data.certificate == certificate.decode()
-        time_difference = datetime.fromisoformat(event_data.expiry) - datetime.utcnow()
-        assert (
-            (hours_before_expiry * SECONDS_IN_ONE_HOUR) - 60
-            <= time_difference.seconds
-            <= hours_before_expiry * SECONDS_IN_ONE_HOUR
-        )
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_expiring")
     def test_given_certificate_expires_in_longer_amount_of_time_than_expiry_notification_time_when_update_status_then_certificate_expiring_is_not_emitted(  # noqa: E501
@@ -816,36 +700,6 @@ class TestJuju2(unittest.TestCase):
         self.harness.remove_relation(relation_id)
 
         patch_on_all_certificates_invalidated.assert_called()
-
-
-class FakeJujuVersion:
-    @classmethod
-    def from_environ(cls):
-        return cls()
-
-    @property
-    def has_secrets(self):
-        return True
-
-
-@patch(f"{LIB_DIR}.JujuVersion", new=FakeJujuVersion)
-class TestJuju3(unittest.TestCase):
-    # The following patch is required because the one on the class will
-    # only apply to test cases.
-    # See: https://docs.python.org/3/library/unittest.mock.html#patch
-    @patch(f"{LIB_DIR}.JujuVersion", new=FakeJujuVersion)
-    def setUp(self):
-        self.relation_name = "certificates"
-        self.remote_app = "tls-certificates-provider"
-        self.harness = testing.Harness(DummyTLSCertificatesRequirerCharm)
-        self.addCleanup(self.harness.cleanup)
-        self.harness.begin()
-
-    def create_certificates_relation(self) -> int:
-        relation_id = self.harness.add_relation(
-            relation_name=self.relation_name, remote_app=self.remote_app
-        )
-        return relation_id
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_expiring")
     def test_given_certificate_expires_in_shorter_amount_of_time_than_expiry_notification_time_and_juju_secrets_are_available_when_update_status_then_certificate_expiring_is_not_emitted(  # noqa: E501
