@@ -87,7 +87,7 @@ jobs:
         with:
           juju-channel: 3/stable
           provider: microk8s
-          channel: 1.28/stable
+          channel: 1.28-strict/stable
       - name: Run tests using tox
         run: tox -e integration
         env:

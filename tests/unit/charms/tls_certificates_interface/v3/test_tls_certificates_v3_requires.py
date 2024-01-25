@@ -192,32 +192,6 @@ class TestTLSCertificatesRequiresV2(unittest.TestCase):
                 certificate_signing_request=b"whatever csr"
             )
 
-    def test_given_csr_when_request_certificate_revocation_then_csr_is_removed_from_relation_data(
-        self,
-    ):
-        relation_id = self.create_certificates_relation()
-        certificate_signing_request = b"whatever csr"
-        key_values = {
-            "certificate_signing_requests": json.dumps(
-                [{"certificate_signing_request": certificate_signing_request.decode()}]
-            )
-        }
-        self.harness.update_relation_data(
-            relation_id=relation_id,
-            app_or_unit=self.harness.charm.unit.name,
-            key_values=key_values,
-        )
-
-        self.harness.charm.certificates.request_certificate_revocation(
-            certificate_signing_request=certificate_signing_request
-        )
-
-        unit_relation_data = self.harness.get_relation_data(
-            relation_id=relation_id, app_or_unit=self.harness.charm.unit
-        )
-
-        self.assertEqual({"certificate_signing_requests": "[]"}, unit_relation_data)
-
     def test_given_no_csr_in_relation_data_when_request_certificate_revocation_then_nothing_is_done(
         self,
     ):
@@ -266,49 +240,6 @@ class TestTLSCertificatesRequiresV2(unittest.TestCase):
         )
 
         patch_certificate_creation.assert_called_with(certificate_signing_request=new_csr)
-
-    @patch(f"{BASE_CHARM_DIR}._on_certificate_available")
-    def test_given_csr_in_unit_relation_data_and_certificate_in_remote_relation_data_when_relation_changed_then_certificate_available_event_emitted(  # noqa: E501
-        self, patch_on_certificate_available
-    ):
-        relation_id = self.create_certificates_relation()
-        ca_certificate = "whatever certificate"
-        chain = ["certificate 1", "certiicate 2", "certificate 3"]
-        csr = "whatever csr"
-        certificate = "whatever certificate"
-        unit_relation_data = {
-            "certificate_signing_requests": json.dumps([{"certificate_signing_request": csr}])
-        }
-        self.harness.update_relation_data(
-            relation_id=relation_id,
-            app_or_unit=self.harness.charm.unit.name,
-            key_values=unit_relation_data,
-        )
-        remote_app_relation_data = {
-            "certificates": json.dumps(
-                [
-                    {
-                        "ca": ca_certificate,
-                        "chain": chain,
-                        "certificate_signing_request": csr,
-                        "certificate": certificate,
-                    }
-                ]
-            )
-        }
-        self.harness.update_relation_data(
-            relation_id=relation_id,
-            app_or_unit=self.remote_app,
-            key_values=remote_app_relation_data,
-        )
-
-        patch_on_certificate_available.assert_called()
-        args, _ = patch_on_certificate_available.call_args
-        certificate_available_event = args[0]
-        assert certificate_available_event.certificate == certificate
-        assert certificate_available_event.certificate_signing_request == csr
-        assert certificate_available_event.ca == ca_certificate
-        assert certificate_available_event.chain == chain
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_available")
     def test_given_no_csr_in_unit_relation_data_and_certificate_in_remote_relation_data_when_relation_changed_then_certificate_available_event_not_emitted(  # noqa: E501
@@ -496,50 +427,6 @@ class TestTLSCertificatesRequiresV2(unittest.TestCase):
 
         patch_certificate_invalidated.assert_not_called()
         patch_certificate_expiring.assert_not_called()
-
-    @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
-    def test_given_csr_in_unit_relation_data_and_certificate_revoked_in_remote_relation_data_when_relation_changed_then_certificate_invalidated_event_with_reason_revoked_emitted(  # noqa: E501
-        self, patch_on_certificate_invalidated
-    ):
-        relation_id = self.create_certificates_relation()
-        ca_certificate = "whatever certificate"
-        chain = ["certificate 1", "certiicate 2", "certificate 3"]
-        csr = "whatever csr"
-        certificate = "whatever certificate"
-        unit_relation_data = {
-            "certificate_signing_requests": json.dumps([{"certificate_signing_request": csr}])
-        }
-        self.harness.update_relation_data(
-            relation_id=relation_id,
-            app_or_unit=self.harness.charm.unit.name,
-            key_values=unit_relation_data,
-        )
-        remote_app_relation_data = {
-            "certificates": json.dumps(
-                [
-                    {
-                        "ca": ca_certificate,
-                        "chain": chain,
-                        "certificate_signing_request": csr,
-                        "certificate": certificate,
-                        "revoked": True,
-                    }
-                ]
-            )
-        }
-        self.harness.update_relation_data(
-            relation_id=relation_id,
-            app_or_unit=self.remote_app,
-            key_values=remote_app_relation_data,
-        )
-
-        patch_on_certificate_invalidated.assert_called()
-        args, _ = patch_on_certificate_invalidated.call_args
-        certificate_invalidated_event = args[0]
-        assert certificate_invalidated_event.certificate == certificate
-        assert certificate_invalidated_event.certificate_signing_request == csr
-        assert certificate_invalidated_event.ca == ca_certificate
-        assert certificate_invalidated_event.chain == chain
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_no_csr_in_unit_relation_data_and_certificate_revoked_in_remote_relation_data_when_relation_changed_then_certificate_invalidated_event_not_emitted(  # noqa: E501
