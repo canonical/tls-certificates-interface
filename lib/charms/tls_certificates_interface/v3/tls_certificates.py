@@ -280,14 +280,13 @@ from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from ipaddress import IPv4Address
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
 from cryptography import x509
 from cryptography.hazmat._oid import ExtensionOID
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import pkcs12
-from cryptography.x509.extensions import Extension, ExtensionNotFound
 from jsonschema import exceptions, validate  # type: ignore[import-untyped]
 from ops.charm import (
     CharmBase,
