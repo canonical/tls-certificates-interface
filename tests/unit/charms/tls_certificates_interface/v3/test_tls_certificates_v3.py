@@ -10,7 +10,6 @@ from charms.tls_certificates_interface.v3.tls_certificates import (
     generate_ca,
     generate_certificate,
     generate_csr,
-    generate_pfx_package,
     generate_private_key,
 )
 from cryptography import x509
@@ -420,40 +419,6 @@ def test_given_certificate_created_when_generate_certificate_then_verify_public_
         certificate_object.tbs_certificate_bytes,
         padding.PKCS1v15(),  # type: ignore[arg-type]
         certificate_object.signature_hash_algorithm,  # type: ignore[arg-type]
-    )
-
-
-def test_given_cert_and_private_key_when_generate_pfx_package_then_pfx_file_is_generated():
-    password = "whatever"
-    ca_subject = "whatever.ca.subject"
-    csr_subject = "whatever.csr.subject"
-    certifier_key = generate_private_key_helper()
-    certifier_pem = generate_ca_helper(
-        private_key=certifier_key,
-        common_name=ca_subject,
-    )
-    admin_operator_key_pem = generate_private_key_helper()
-    admin_operator_csr = generate_csr_helper(
-        private_key=admin_operator_key_pem,
-        common_name=csr_subject,
-    )
-    admin_operator_pem = generate_certificate_helper(
-        csr=admin_operator_csr,
-        ca=certifier_pem,
-        ca_key=certifier_key,
-    )
-
-    admin_operator_pfx = generate_pfx_package(
-        private_key=admin_operator_key_pem,
-        certificate=admin_operator_pem,
-        package_password=password,
-    )
-
-    validate_induced_data_from_pfx_is_equal_to_initial_data(
-        pfx_file=admin_operator_pfx,
-        password=password,
-        initial_certificate=admin_operator_pem,
-        initial_private_key=admin_operator_key_pem,
     )
 
 

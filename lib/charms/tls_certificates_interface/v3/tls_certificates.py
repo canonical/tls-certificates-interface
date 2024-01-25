@@ -298,7 +298,14 @@ from ops.charm import (
 )
 from ops.framework import EventBase, EventSource, Handle, Object
 from ops.jujuversion import JujuVersion
-from ops.model import ModelError, Relation, RelationDataContent, SecretNotFoundError
+from ops.model import (
+    Application,
+    ModelError,
+    Relation,
+    RelationDataContent,
+    SecretNotFoundError,
+    Unit,
+)
 
 # The unique Charmhub library identifier, never change it
 LIBID = "afd8c2bccf834997afce12c2706d2ede"
@@ -909,38 +916,6 @@ def generate_certificate(
     return cert.public_bytes(serialization.Encoding.PEM)
 
 
-def generate_pfx_package(
-    certificate: bytes,
-    private_key: bytes,
-    package_password: str,
-    private_key_password: Optional[bytes] = None,
-) -> bytes:
-    """Generates a PFX package to contain the TLS certificate and private key.
-
-    Args:
-        certificate (bytes): TLS certificate
-        private_key (bytes): Private key
-        package_password (str): Password to open the PFX package
-        private_key_password (bytes): Private key password
-
-    Returns:
-        bytes:
-    """
-    private_key_object = serialization.load_pem_private_key(
-        private_key, password=private_key_password
-    )
-    certificate_object = x509.load_pem_x509_certificate(certificate)
-    name = certificate_object.subject.rfc4514_string()
-    pfx_bytes = pkcs12.serialize_key_and_certificates(
-        name=name.encode(),
-        cert=certificate_object,
-        key=private_key_object,  # type: ignore[arg-type]
-        cas=None,
-        encryption_algorithm=serialization.BestAvailableEncryption(package_password.encode()),
-    )
-    return pfx_bytes
-
-
 def generate_private_key(
     password: Optional[bytes] = None,
     key_size: int = 2048,
@@ -1074,6 +1049,26 @@ def csr_matches_certificate(csr: str, cert: str) -> bool:
     return True
 
 
+def _relation_data_is_valid(
+    relation: Relation, app_or_unit: Union[Application, Unit], json_schema: dict
+) -> bool:
+    """Checks whether relation data is valid based on json schema.
+
+    Args:
+        relation (Relation): Relation object
+        app_or_unit (Union[Application, Unit]): Application or unit object
+
+    Returns:
+        bool: Whether relation data is valid.
+    """
+    relation_data = _load_relation_data(relation.data[app_or_unit])
+    try:
+        validate(instance=relation_data, schema=json_schema)
+        return True
+    except exceptions.ValidationError:
+        return False
+
+
 class CertificatesProviderCharmEvents(CharmEvents):
     """List of events that the TLS Certificates provider charm can leverage."""
 
@@ -1198,22 +1193,6 @@ class TLSCertificatesProvidesV3(Object):
             ):
                 certificates.remove(certificate_dict)
         relation.data[self.model.app]["certificates"] = json.dumps(certificates)
-
-    @staticmethod
-    def _relation_data_is_valid(certificates_data: dict) -> bool:
-        """Uses JSON schema validator to validate relation data content.
-
-        Args:
-            certificates_data (dict): Certificate data dictionary as retrieved from relation data.
-
-        Returns:
-            bool: True/False depending on whether the relation data follows the json schema.
-        """
-        try:
-            validate(instance=certificates_data, schema=REQUIRER_JSON_SCHEMA)
-            return True
-        except exceptions.ValidationError:
-            return False
 
     def revoke_all_certificates(self) -> None:
         """Revokes all certificates of this provider.
@@ -1354,8 +1333,7 @@ class TLSCertificatesProvidesV3(Object):
             return
         if not self.model.unit.is_leader():
             return
-        requirer_relation_data = _load_relation_data(event.relation.data[event.unit])
-        if not self._relation_data_is_valid(requirer_relation_data):
+        if not _relation_data_is_valid(event.relation, event.unit, REQUIRER_JSON_SCHEMA):
             logger.debug("Relation data did not pass JSON Schema validation")
             return
         provider_certificates = self.get_provider_certificates()
@@ -1551,9 +1529,6 @@ class TLSCertificatesRequiresV3(Object):
             logger.debug("No remote app in relation: %s", self.relationship_name)
             return []
         provider_relation_data = _load_relation_data(relation.data[relation.app])
-        if not self._relation_data_is_valid(provider_relation_data):
-            logger.warning("Provider relation data did not pass JSON Schema validation")
-            return []
         provider_certificate_dicts = provider_relation_data.get("certificates", [])
         for provider_certificate_dict in provider_certificate_dicts:
             certificate = provider_certificate_dict.get("certificate")
@@ -1760,22 +1735,6 @@ class TLSCertificatesRequiresV3(Object):
 
         return csrs
 
-    @staticmethod
-    def _relation_data_is_valid(certificates_data: dict) -> bool:
-        """Checks whether relation data is valid based on json schema.
-
-        Args:
-            certificates_data: Certificate data in dict format.
-
-        Returns:
-            bool: Whether relation data is valid.
-        """
-        try:
-            validate(instance=certificates_data, schema=PROVIDER_JSON_SCHEMA)
-            return True
-        except exceptions.ValidationError:
-            return False
-
     def _on_relation_changed(self, event: RelationChangedEvent) -> None:
         """Handler triggered on relation changed events.
 
@@ -1794,11 +1753,18 @@ class TLSCertificatesRequiresV3(Object):
         Returns:
             None
         """
+        if not event.app:
+            logger.warning("No remote app in relation - Skipping")
+            return
+        if not _relation_data_is_valid(event.relation, event.app, PROVIDER_JSON_SCHEMA):
+            logger.debug("Relation data did not pass JSON Schema validation")
+            return
+        provider_certificates = self.get_provider_certificates()
         requirer_csrs = [
             certificate_creation_request.csr
             for certificate_creation_request in self.get_requirer_csrs()
         ]
-        for certificate in self.get_provider_certificates():
+        for certificate in provider_certificates:
             if certificate.csr in requirer_csrs:
                 if certificate.revoked:
                     if JujuVersion.from_environ().has_secrets:
