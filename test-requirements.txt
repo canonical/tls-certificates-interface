@@ -1,4 +1,4 @@
-black
+black==23.12.1
 coverage[toml]
 cryptography
 flake8-docstrings

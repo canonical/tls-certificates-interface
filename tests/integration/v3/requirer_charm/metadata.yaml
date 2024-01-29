@@ -1,0 +1,14 @@
+# Copyright 2024 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+name: tls-certificates-requirer
+description: tls-certificates-requirer.
+summary: tls-certificates-requirer.
+
+requires:
+  certificates:
+    interface: tls-certificates
+
+peers:
+  replicas:
+    interface: tls-certificates-replica
