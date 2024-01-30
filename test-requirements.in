@@ -7,8 +7,8 @@ isort
 mypy
 pep8-naming
 pyproject-flake8
-pytest
-pytest-operator
 types-PyYAML
 types-setuptools
 types-toml
+pytest
+pytest-operator
