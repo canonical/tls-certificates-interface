@@ -15,4 +15,4 @@ types-toml
 juju==3.0.4
 pytest
 pytest-operator
-ops==2.9
+ops==2.10.0
