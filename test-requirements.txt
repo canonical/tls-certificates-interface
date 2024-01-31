@@ -7,7 +7,7 @@ flake8-builtins
 isort
 jsonschema
 mypy
-ops==2.9.0
+ops==2.10.0
 pep8-naming
 pyproject-flake8
 pytest
