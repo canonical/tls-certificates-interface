@@ -101,7 +101,7 @@ oauthlib==3.2.2
     # via
     #   kubernetes
     #   requests-oauthlib
-ops==2.9.0
+ops==2.10.0
     # via -r test-requirements-juju-2.in
 packaging==23.2
     # via
