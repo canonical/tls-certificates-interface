@@ -35,7 +35,7 @@ jobs:
         run: tox -e unit
 
   integration-tests-v2-juju-2:
-    name: Integration tests for tls interface v2
+    name: Integration tests for tls interface v2 (Juju 2.9)
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -61,7 +61,7 @@ jobs:
           path: juju-crashdump-*.tar.xz
 
   integration-tests-v2-juju-3:
-    name: Integration tests for tls interface v2
+    name: Integration tests for tls interface v2 (Juju 3.1)
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
