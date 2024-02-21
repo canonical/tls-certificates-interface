@@ -29,10 +29,8 @@ charset-normalizer==3.3.2
 click==8.1.7
     # via black
 coverage[toml]==7.4.2
-    # via
-    #   -r test-requirements-juju-2.in
-    #   coverage
-cryptography==42.0.3
+    # via -r test-requirements-juju-2.in
+cryptography==42.0.4
     # via
     #   -r test-requirements-juju-2.in
     #   paramiko
