@@ -33,6 +33,16 @@ jobs:
         run: pip install tox
       - name: Run tests using tox
         run: tox -e unit
+  
+  build:
+    name: Build charm
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - name: Install charmcraft
+        run: snap install charmcraft --classic
+      - name: Build charm
+        run: charmcraft pack --verbose
 
   integration-tests-v2-juju-2:
     name: Integration tests for tls interface v2 (Juju 2.9)
