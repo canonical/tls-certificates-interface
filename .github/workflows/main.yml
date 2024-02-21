@@ -40,7 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
       - name: Install charmcraft
-        run: snap install charmcraft --classic
+        run: sudo snap install charmcraft --classic
       - name: Build charm
         run: charmcraft pack --verbose
 
