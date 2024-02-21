@@ -37,8 +37,17 @@ jobs:
   build:
     name: Build charm
     runs-on: ubuntu-22.04
+    needs:
+      - unit-tests-with-coverage
+      - lint-report
+      - static-analysis
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup LXD
+        uses: canonical/setup-lxd@main
+        with:
+          channel: 5.0/stable
       - name: Install charmcraft
         run: sudo snap install charmcraft --classic
       - name: Build charm
@@ -47,6 +56,8 @@ jobs:
   integration-tests-v2-juju-2:
     name: Integration tests for tls interface v2 (Juju 2.9)
     runs-on: ubuntu-22.04
+    needs:
+      - build
     steps:
       - uses: actions/checkout@v4
       - name: Setup operator environment
@@ -73,6 +84,8 @@ jobs:
   integration-tests-v2-juju-3:
     name: Integration tests for tls interface v2 (Juju 3.1)
     runs-on: ubuntu-22.04
+    needs:
+      - build
     steps:
       - uses: actions/checkout@v4
       - name: Setup operator environment
@@ -99,6 +112,8 @@ jobs:
   integration-tests-v3:
     name: Integration tests for tls interface v3
     runs-on: ubuntu-22.04
+    needs:
+      - build
     steps:
       - uses: actions/checkout@v4
       - name: Setup operator environment
