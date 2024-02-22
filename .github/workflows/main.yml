@@ -33,10 +33,31 @@ jobs:
         run: pip install tox
       - name: Run tests using tox
         run: tox -e unit
+  
+  build:
+    name: Build charm
+    runs-on: ubuntu-22.04
+    needs:
+      - unit-tests-with-coverage
+      - lint-report
+      - static-analysis
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup LXD
+        uses: canonical/setup-lxd@main
+        with:
+          channel: 5.0/stable
+      - name: Install charmcraft
+        run: sudo snap install charmcraft --classic
+      - name: Build charm
+        run: charmcraft pack --verbose
 
   integration-tests-v2-juju-2:
     name: Integration tests for tls interface v2 (Juju 2.9)
     runs-on: ubuntu-22.04
+    needs:
+      - build
     steps:
       - uses: actions/checkout@v4
       - name: Setup operator environment
@@ -63,6 +84,8 @@ jobs:
   integration-tests-v2-juju-3:
     name: Integration tests for tls interface v2 (Juju 3.x)
     runs-on: ubuntu-22.04
+    needs:
+      - build
     steps:
       - uses: actions/checkout@v4
       - name: Setup operator environment
@@ -89,6 +112,8 @@ jobs:
   integration-tests-v3:
     name: Integration tests for tls interface v3
     runs-on: ubuntu-22.04
+    needs:
+      - build
     steps:
       - uses: actions/checkout@v4
       - name: Setup operator environment
