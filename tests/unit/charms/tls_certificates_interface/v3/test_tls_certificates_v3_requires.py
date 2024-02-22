@@ -972,10 +972,20 @@ class TestTLSCertificatesRequiresV2(unittest.TestCase):
 
         assert len(self.harness.charm.certificates.get_assigned_certificates()) == 0
 
-    def test_given_tls_relation_not_created_when_get_assigned_certificates_then_empty_list_returned(
+    def test_given_no_tls_relation_when_get_assigned_certificates_then_empty_list_returned(
         self,
     ):
         assert self.harness.charm.certificates.get_assigned_certificates() == []
+
+    def test_given_no_tls_relation_when_get_expiring_certificates_then_empty_list_returned(
+        self,
+    ):
+        assert self.harness.charm.certificates.get_expiring_certificates() == []
+
+    def test_given_no_tls_relation_when_get_certificate_signing_requests_then_empty_list_returned(
+        self,
+    ):
+        assert self.harness.charm.certificates.get_certificate_signing_requests() == []
 
     def test_given_csrs_created_when_get_certificate_signing_requests_then_all_csrs_returned(self):
         relation_id = self.create_certificates_relation()
