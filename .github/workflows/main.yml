@@ -65,7 +65,7 @@ jobs:
         with:
           juju-channel: 2.9/stable
           provider: microk8s
-          channel: 1.27/stable
+          channel: 1.29/stable
       - name: Run tests using tox
         run: tox -e integration-v2-juju-2
       - name: Archive charmcraft logs
@@ -93,7 +93,7 @@ jobs:
         with:
           juju-channel: 3.4/stable
           provider: microk8s
-          channel: 1.27-strict/stable
+          channel: 1.29-strict/stable
       - name: Run tests using tox
         run: tox -e integration-v2-juju-3
       - name: Archive charmcraft logs
