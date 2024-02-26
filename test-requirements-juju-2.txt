@@ -29,9 +29,7 @@ charset-normalizer==3.3.2
 click==8.1.7
     # via black
 coverage[toml]==7.4.3
-    # via
-    #   -r test-requirements-juju-2.in
-    #   coverage
+    # via -r test-requirements-juju-2.in
 cryptography==42.0.5
     # via
     #   -r test-requirements-juju-2.in
@@ -161,7 +159,7 @@ pyrfc3339==1.1
     # via
     #   juju
     #   macaroonbakery
-pytest==8.0.1
+pytest==8.0.2
     # via
     #   -r test-requirements-juju-2.in
     #   pytest-asyncio
