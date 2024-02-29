@@ -91,7 +91,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         replicas_relation.data[self.unit].update({key: value})
 
     def _relation_created(self, relation_name: str) -> bool:
-        """Returns whether given relation was created.
+        """Return whether given relation was created.
 
         Args:
             relation_name (str): Relation name
@@ -113,7 +113,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         return replicas_relation.data[self.unit].get(key, None)
 
     def _request_certificate(self) -> None:
-        """Requests TLS certificates.
+        """Request TLS certificates.
 
         Returns:
             None
@@ -129,7 +129,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         self.unit.status = MaintenanceStatus("Requesting new certificate")
 
     def _generate_private_key(self) -> None:
-        """Generates root certificate to be used to sign certificates.
+        """Generate root certificate to be used to sign certificates.
 
         Returns:
             None

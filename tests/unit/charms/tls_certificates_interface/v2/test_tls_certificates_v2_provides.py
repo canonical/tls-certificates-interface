@@ -54,7 +54,7 @@ qbNLuwLW2Nhf9xIOLFRoPMUnP7njo0t15qgMfA==
 
 
 def _load_relation_data(raw_relation_data: dict) -> dict:
-    """Loads relation data from the relation data bag.
+    """Load relation data from the relation data bag.
 
     Json loads all data.
 
@@ -64,7 +64,7 @@ def _load_relation_data(raw_relation_data: dict) -> dict:
     Returns:
         dict: Relation data in dict format.
     """
-    certificate_data = dict()
+    certificate_data = {}
     for key in raw_relation_data:
         try:
             certificate_data[key] = json.loads(raw_relation_data[key])

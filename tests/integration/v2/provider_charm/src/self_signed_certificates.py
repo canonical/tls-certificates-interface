@@ -18,7 +18,7 @@ def generate_private_key(
     key_size: int = 2048,
     public_exponent: int = 65537,
 ) -> bytes:
-    """Generates a private key.
+    """Generate a private key.
 
     Args:
         password (bytes): Password for decrypting the private key
@@ -52,7 +52,7 @@ def generate_certificate(
     validity: int = 365,
     alt_names: list = None,
 ) -> bytes:
-    """Generates a certificate based on CSR.
+    """Generate a certificate based on CSR.
 
     Args:
         csr: CSR Bytes
@@ -98,7 +98,7 @@ def generate_ca(
     validity: int = 365,
     country: str = "US",
 ) -> bytes:
-    """Generates a CA certificate.
+    """Generate a CA certificate.
 
     Args:
         private_key (bytes): Private key to use
@@ -150,10 +150,10 @@ def generate_ca(
 
 
 def certificate_is_valid(certificate: bytes) -> bool:
-    """Returns whether a certificate is valid.
+    """Return whether a certificate is valid.
 
     Args:
-        certificate:
+        certificate: Certificate
 
     Returns:
         bool: True/False
@@ -166,7 +166,7 @@ def certificate_is_valid(certificate: bytes) -> bool:
 
 
 def parse_ca_chain(ca_chain_pem: str) -> List[str]:
-    """Returns list of certificates based on a PEM CA Chain file.
+    """Return list of certificates based on a PEM CA Chain file.
 
     Args:
         ca_chain_pem (str): String containing list of certificates. This string should look like:

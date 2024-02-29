@@ -14,7 +14,7 @@ def generate_private_key(
     key_size: int = 2048,
     public_exponent: int = 65537,
 ) -> bytes:
-    """Generates a private key.
+    """Generate a private key.
 
     Args:
         password (bytes): Password for decrypting the private key
@@ -47,7 +47,7 @@ def generate_csr(
     sans: Optional[List[str]] = None,
     country: str = "US",
 ) -> bytes:
-    """Generates a CSR using private key and subject.
+    """Generate a CSR using private key and subject.
 
     Args:
         private_key (bytes): Private key
@@ -83,7 +83,7 @@ def generate_certificate(
     ca_key_password: Optional[bytes] = None,
     validity: int = 24 * 365,
 ) -> bytes:
-    """Generates a TLS certificate based on a CSR.
+    """Generate a TLS certificate based on a CSR.
 
     Args:
         csr (bytes): CSR
@@ -138,7 +138,7 @@ def generate_ca(
     validity: int = 365,
     country: str = "US",
 ) -> bytes:
-    """Generates a CA Certificate.
+    """Generate a CA Certificate.
 
     Args:
         private_key (bytes): Private key
