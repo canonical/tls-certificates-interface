@@ -210,7 +210,7 @@ class TestTLSCertificatesRequiresV2(unittest.TestCase):
             relation_id=relation_id, app_or_unit=self.harness.charm.unit
         )
 
-        self.assertEqual(dict(), unit_relation_data)
+        self.assertEqual({}, unit_relation_data)
 
     @patch(f"{LIB_DIR}.TLSCertificatesRequiresV3.request_certificate_creation")
     @patch(f"{LIB_DIR}.TLSCertificatesRequiresV3.request_certificate_revocation")

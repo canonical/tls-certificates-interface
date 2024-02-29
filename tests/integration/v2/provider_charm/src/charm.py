@@ -44,7 +44,7 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
 
     @property
     def _self_signed_root_certificates_are_stored(self) -> bool:
-        """Returns whether self-signed certificates are stored in relation data.
+        """Return whether self-signed certificates are stored in relation data.
 
         Returns:
             bool: Whether all certificates are set.
@@ -72,7 +72,7 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
         self._store_item_in_peer_relation_data(key="self_signed_ca_private_key", value=private_key)
 
     def _store_item_in_peer_relation_data(self, key: str, value: str) -> None:
-        """Stores key/value in peer relation data.
+        """Store key/value in peer relation data.
 
         Args:
             key (str): Relation data key
@@ -87,7 +87,7 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
         peer_relation.data[self.app].update({key: value.strip()})
 
     def _relation_created(self, relation_name: str) -> bool:
-        """Returns whether given relation was created.
+        """Return whether given relation was created.
 
         Args:
             relation_name (str): Relation name
@@ -101,7 +101,7 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
             return False
 
     def _get_value_from_relation_data(self, key: str) -> Optional[str]:
-        """Returns value from relation data.
+        """Return value from relation data.
 
         Args:
             key (str): Relation data key
@@ -118,7 +118,7 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
         return None
 
     def _generate_self_signed_certificates(self, certificate_signing_request: str) -> str:
-        """Generates self-signed certificates.
+        """Generate self-signed certificates.
 
         Args:
             certificate_signing_request (str): Certificate signing request
@@ -140,7 +140,7 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
         return certificate.decode()
 
     def _generate_root_certificates(self) -> None:
-        """Generates root certificate to be used to sign certificates.
+        """Generate root certificate to be used to sign certificates.
 
         Returns:
             None
@@ -152,7 +152,7 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
         logger.info("Root certificates generated and stored.")
 
     def _on_install(self, event: InstallEvent) -> None:
-        """Triggered on InstallEvent.
+        """Handle Install event.
 
         Args:
             event (InstallEvent): Juju event.
