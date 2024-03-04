@@ -670,7 +670,7 @@ def _get_closest_future_time(
     )
 
 
-def get_certificate_expiry_time(certificate: str) -> Optional[datetime]:
+def _get_certificate_expiry_time(certificate: str) -> Optional[datetime]:
     """Extract expiry time from a certificate string.
 
     Args:
@@ -1694,7 +1694,7 @@ class TLSCertificatesRequiresV3(Object):
         expiring_certificates: List[ProviderCertificate] = []
         for requirer_csr in self.get_certificate_signing_requests(fulfilled_only=True):
             if cert := self._find_certificate_in_relation_data(requirer_csr.csr):
-                expiry_time = get_certificate_expiry_time(cert.certificate)
+                expiry_time = _get_certificate_expiry_time(cert.certificate)
                 if not expiry_time:
                     continue
                 expiry_notification_time = expiry_time - timedelta(
@@ -1806,7 +1806,7 @@ class TLSCertificatesRequiresV3(Object):
             Optional[datetime]: None if the certificate expiry time cannot be read,
                                 next expiry time otherwise.
         """
-        expiry_time = get_certificate_expiry_time(certificate)
+        expiry_time = _get_certificate_expiry_time(certificate)
         if not expiry_time:
             return None
         expiry_notification_time = (
@@ -1853,7 +1853,7 @@ class TLSCertificatesRequiresV3(Object):
             event.secret.remove_all_revisions()
             return
 
-        expiry_time = get_certificate_expiry_time(provider_certificate.certificate)
+        expiry_time = _get_certificate_expiry_time(provider_certificate.certificate)
         if not expiry_time:
             # A secret expired but matching certificate is invalid. Cleaning up
             event.secret.remove_all_revisions()
@@ -1866,7 +1866,7 @@ class TLSCertificatesRequiresV3(Object):
                 expiry=expiry_time.isoformat(),
             )
             event.secret.set_info(
-                expire=get_certificate_expiry_time(provider_certificate.certificate),
+                expire=_get_certificate_expiry_time(provider_certificate.certificate),
             )
         else:
             logger.warning("Certificate is expired")
