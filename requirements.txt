@@ -22,11 +22,11 @@ pycparser==2.21
     # via cffi
 pyyaml==6.0.1
     # via ops
-referencing==0.32.1
+referencing==0.33.0
     # via
     #   jsonschema
     #   jsonschema-specifications
-rpds-py==0.17.1
+rpds-py==0.18.0
     # via
     #   jsonschema
     #   referencing
