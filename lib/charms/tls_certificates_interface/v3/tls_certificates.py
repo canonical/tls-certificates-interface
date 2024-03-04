@@ -278,7 +278,7 @@ import logging
 import uuid
 from contextlib import suppress
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from ipaddress import IPv4Address
 from typing import List, Literal, Optional, Union
 
@@ -664,11 +664,13 @@ def _get_closest_future_time(
         datetime: expiry_notification_time if not in the past, expiry_time otherwise
     """
     return (
-        expiry_notification_time if datetime.utcnow() < expiry_notification_time else expiry_time
+        expiry_notification_time
+        if datetime.now(timezone.utc) < expiry_notification_time
+        else expiry_time
     )
 
 
-def _get_certificate_expiry_time(certificate: str) -> Optional[datetime]:
+def get_certificate_expiry_time(certificate: str) -> Optional[datetime]:
     """Extract expiry time from a certificate string.
 
     Args:
@@ -734,8 +736,8 @@ def generate_ca(
         .issuer_name(subject_name)
         .public_key(private_key_object.public_key())  # type: ignore[arg-type]
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.utcnow())
-        .not_valid_after(datetime.utcnow() + timedelta(days=validity))
+        .not_valid_before(datetime.now(timezone.utc))
+        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=validity))
         .add_extension(x509.SubjectKeyIdentifier(digest=subject_identifier), critical=False)
         .add_extension(
             x509.AuthorityKeyIdentifier(
@@ -889,8 +891,8 @@ def generate_certificate(
         .issuer_name(issuer)
         .public_key(csr_object.public_key())
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.utcnow())
-        .not_valid_after(datetime.utcnow() + timedelta(days=validity))
+        .not_valid_before(datetime.now(timezone.utc))
+        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=validity))
     )
     extensions = get_certificate_extensions(
         authority_key_identifier=ca_pem.extensions.get_extension_for_class(
@@ -1692,13 +1694,13 @@ class TLSCertificatesRequiresV3(Object):
         expiring_certificates: List[ProviderCertificate] = []
         for requirer_csr in self.get_certificate_signing_requests(fulfilled_only=True):
             if cert := self._find_certificate_in_relation_data(requirer_csr.csr):
-                expiry_time = _get_certificate_expiry_time(cert.certificate)
+                expiry_time = get_certificate_expiry_time(cert.certificate)
                 if not expiry_time:
                     continue
                 expiry_notification_time = expiry_time - timedelta(
                     hours=self.expiry_notification_time
                 )
-                if datetime.utcnow() > expiry_notification_time:
+                if datetime.now(timezone.utc) > expiry_notification_time:
                     expiring_certificates.append(cert)
         return expiring_certificates
 
@@ -1804,10 +1806,12 @@ class TLSCertificatesRequiresV3(Object):
             Optional[datetime]: None if the certificate expiry time cannot be read,
                                 next expiry time otherwise.
         """
-        expiry_time = _get_certificate_expiry_time(certificate)
+        expiry_time = get_certificate_expiry_time(certificate)
         if not expiry_time:
             return None
-        expiry_notification_time = expiry_time - timedelta(hours=self.expiry_notification_time)
+        expiry_notification_time = (
+            expiry_time - timedelta(hours=self.expiry_notification_time)
+        ).replace(tzinfo=timezone.utc)
         return _get_closest_future_time(expiry_notification_time, expiry_time)
 
     def _on_relation_broken(self, event: RelationBrokenEvent) -> None:
@@ -1849,20 +1853,20 @@ class TLSCertificatesRequiresV3(Object):
             event.secret.remove_all_revisions()
             return
 
-        expiry_time = _get_certificate_expiry_time(provider_certificate.certificate)
+        expiry_time = get_certificate_expiry_time(provider_certificate.certificate)
         if not expiry_time:
             # A secret expired but matching certificate is invalid. Cleaning up
             event.secret.remove_all_revisions()
             return
 
-        if datetime.utcnow() < expiry_time:
+        if datetime.now(timezone.utc) < expiry_time:
             logger.warning("Certificate almost expired")
             self.on.certificate_expiring.emit(
                 certificate=provider_certificate.certificate,
                 expiry=expiry_time.isoformat(),
             )
             event.secret.set_info(
-                expire=_get_certificate_expiry_time(provider_certificate.certificate),
+                expire=get_certificate_expiry_time(provider_certificate.certificate),
             )
         else:
             logger.warning("Certificate is expired")
