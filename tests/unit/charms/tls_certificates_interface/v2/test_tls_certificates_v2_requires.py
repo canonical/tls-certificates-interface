@@ -4,7 +4,7 @@
 
 import json
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
@@ -537,7 +537,7 @@ class TestJuju2(unittest.TestCase):
         args, _ = patch_certificate_expiring.call_args
         event_data = args[0]
         assert event_data.certificate == certificate.decode()
-        time_difference = datetime.fromisoformat(event_data.expiry) - datetime.utcnow()
+        time_difference = datetime.fromisoformat(event_data.expiry) - datetime.now(timezone.utc)
         assert (
             (hours_before_expiry * SECONDS_IN_ONE_HOUR) - 60
             <= time_difference.seconds

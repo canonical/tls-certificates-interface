@@ -277,7 +277,7 @@ import json
 import logging
 import uuid
 from contextlib import suppress
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from ipaddress import IPv4Address
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -307,7 +307,7 @@ LIBAPI = 2
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 27
+LIBPATCH = 28
 
 PYDEPS = ["cryptography", "jsonschema"]
 
@@ -650,7 +650,7 @@ def _get_certificate_expiry_time(certificate: str) -> Optional[datetime]:
     """
     try:
         certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
-        return certificate_object.not_valid_after
+        return certificate_object.not_valid_after_utc
     except ValueError:
         logger.warning("Could not load certificate.")
         return None
@@ -1937,7 +1937,7 @@ class TLSCertificatesRequiresV2(Object):
             expiry_time = _get_certificate_expiry_time(certificate_dict["certificate"])
             if not expiry_time:
                 continue
-            time_difference = expiry_time - datetime.utcnow()
+            time_difference = expiry_time - datetime.now(timezone.utc)
             if time_difference.total_seconds() < 0:
                 logger.warning("Certificate is expired")
                 self.on.certificate_invalidated.emit(

@@ -286,7 +286,7 @@ from cryptography import x509
 from cryptography.hazmat._oid import ExtensionOID
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from jsonschema import exceptions, validate  # type: ignore[import-untyped]
+from jsonschema import exceptions, validate
 from ops.charm import (
     CharmBase,
     CharmEvents,
@@ -312,7 +312,7 @@ LIBAPI = 3
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 4
+LIBPATCH = 5
 
 PYDEPS = ["cryptography", "jsonschema"]
 
@@ -679,7 +679,7 @@ def _get_certificate_expiry_time(certificate: str) -> Optional[datetime]:
     """
     try:
         certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
-        return certificate_object.not_valid_after
+        return certificate_object.not_valid_after_utc
     except ValueError:
         logger.warning("Could not load certificate.")
         return None
