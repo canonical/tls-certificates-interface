@@ -45,7 +45,7 @@ class TestIntegration:
         )
 
     async def test_given_charms_deployed_when_relate_then_status_is_active(self, ops_test):
-        await ops_test.model.integrate(
+        await ops_test.model.add_relation(
             relation1=TLS_CERTIFICATES_REQUIRER_APP_NAME,
             relation2=TLS_CERTIFICATES_PROVIDER_APP_NAME,
         )
