@@ -286,7 +286,7 @@ from cryptography.hazmat._oid import ExtensionOID
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import pkcs12
-from jsonschema import exceptions, validate  # type: ignore[import-untyped]
+from jsonschema import exceptions, validate
 from ops.charm import (
     CharmBase,
     CharmEvents,
@@ -1072,7 +1072,7 @@ class CertificatesRequirerCharmEvents(CharmEvents):
 class TLSCertificatesProvidesV2(Object):
     """TLS certificates provider class to be instantiated by TLS certificates providers."""
 
-    on = CertificatesProviderCharmEvents()
+    on = CertificatesProviderCharmEvents()  # type: ignore[reportAssignmentType]
 
     def __init__(self, charm: CharmBase, relationship_name: str):
         super().__init__(charm, relationship_name)
@@ -1483,7 +1483,7 @@ class TLSCertificatesProvidesV2(Object):
 class TLSCertificatesRequiresV2(Object):
     """TLS certificates requirer class to be instantiated by TLS certificates requirers."""
 
-    on = CertificatesRequirerCharmEvents()
+    on = CertificatesRequirerCharmEvents()  # type: ignore[reportAssignmentType]
 
     def __init__(
         self,
