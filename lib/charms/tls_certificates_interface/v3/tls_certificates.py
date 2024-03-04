@@ -1809,9 +1809,7 @@ class TLSCertificatesRequiresV3(Object):
         expiry_time = _get_certificate_expiry_time(certificate)
         if not expiry_time:
             return None
-        expiry_notification_time = (
-            expiry_time - timedelta(hours=self.expiry_notification_time)
-        ).replace(tzinfo=timezone.utc)
+        expiry_notification_time = expiry_time - timedelta(hours=self.expiry_notification_time)
         return _get_closest_future_time(expiry_notification_time, expiry_time)
 
     def _on_relation_broken(self, event: RelationBrokenEvent) -> None:
