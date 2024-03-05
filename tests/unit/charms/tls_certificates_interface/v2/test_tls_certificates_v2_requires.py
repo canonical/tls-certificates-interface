@@ -4,7 +4,7 @@
 
 import json
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
@@ -537,7 +537,7 @@ class TestJuju2(unittest.TestCase):
         args, _ = patch_certificate_expiring.call_args
         event_data = args[0]
         assert event_data.certificate == certificate.decode()
-        time_difference = datetime.fromisoformat(event_data.expiry) - datetime.utcnow()
+        time_difference = datetime.fromisoformat(event_data.expiry) - datetime.now(timezone.utc)
         assert (
             (hours_before_expiry * SECONDS_IN_ONE_HOUR) - 60
             <= time_difference.seconds
@@ -1087,7 +1087,7 @@ class TestJuju3(unittest.TestCase):
                 ]
             )
         }
-        expiry_time = datetime.utcnow() + timedelta(days=30)
+        expiry_time = datetime.now(timezone.utc) + timedelta(days=30)
         patch_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -1134,7 +1134,7 @@ class TestJuju3(unittest.TestCase):
         )
         secret = self.harness.model.get_secret(id=secret_id)
         secret.set_info(label=f"{LIBID}-{csr}")
-        expiry_time = datetime.utcnow() + timedelta(days=30)
+        expiry_time = datetime.now(timezone.utc) + timedelta(days=30)
         patch_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -1440,7 +1440,7 @@ class TestJuju3(unittest.TestCase):
                 ]
             )
         }
-        expiry_time = datetime.utcnow() + timedelta(weeks=520)
+        expiry_time = datetime.now(timezone.utc) + timedelta(weeks=520)
         patch_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -1480,7 +1480,7 @@ class TestJuju3(unittest.TestCase):
                 ]
             )
         }
-        expiry_time = datetime.utcnow() + timedelta(hours=1)
+        expiry_time = datetime.now(timezone.utc) + timedelta(hours=1)
         patch_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -1522,7 +1522,7 @@ class TestJuju3(unittest.TestCase):
                 ]
             )
         }
-        expiry_time = datetime.utcnow() - timedelta(seconds=10)
+        expiry_time = datetime.now(timezone.utc) - timedelta(seconds=10)
         patch_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -1574,7 +1574,7 @@ class TestJuju3(unittest.TestCase):
                 ]
             )
         }
-        expiry_time = datetime.utcnow() - timedelta(seconds=10)
+        expiry_time = datetime.now(timezone.utc) - timedelta(seconds=10)
         patch_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -1620,7 +1620,7 @@ class TestJuju3(unittest.TestCase):
                 ]
             )
         }
-        expiry_time = datetime.utcnow() - timedelta(seconds=10)
+        expiry_time = datetime.now(timezone.utc) - timedelta(seconds=10)
         patch_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -1665,7 +1665,7 @@ class TestJuju3(unittest.TestCase):
                 ]
             )
         }
-        expiry_time = datetime.utcnow() + timedelta(days=8)
+        expiry_time = datetime.now(timezone.utc) + timedelta(days=8)
         patch_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -1711,7 +1711,7 @@ class TestJuju3(unittest.TestCase):
                 ]
             )
         }
-        expiry_time = datetime.utcnow() + timedelta(days=8)
+        expiry_time = datetime.now(timezone.utc) + timedelta(days=8)
         patch_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
