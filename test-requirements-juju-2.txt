@@ -122,7 +122,7 @@ pyrfc3339==1.1
     # via
     #   juju
     #   macaroonbakery
-pyright==1.1.352
+pyright==1.1.353
     # via -r test-requirements-juju-2.in
 pytest==8.0.2
     # via
