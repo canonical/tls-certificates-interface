@@ -124,7 +124,7 @@ pyrfc3339==1.1
     #   macaroonbakery
 pyright==1.1.353
     # via -r test-requirements-juju-2.in
-pytest==8.0.2
+pytest==8.1.1
     # via
     #   -r test-requirements-juju-2.in
     #   pytest-asyncio
