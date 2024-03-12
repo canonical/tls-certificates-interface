@@ -134,7 +134,7 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
             ca=self._self_signed_ca_certificate.encode(),
             ca_key=self._self_signed_ca_private_key.encode(),
             csr=certificate_signing_request.encode(),
-            validity=CERTIFICATE_VALIDITY,
+            validity=CERTIFICATE_VALIDITY,  # type: ignore
         )
         logger.info("Generated self-signed certificates")
         return certificate.decode()
@@ -186,7 +186,7 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
         self.certificates.set_relation_certificate(
             certificate_signing_request=event.certificate_signing_request,
             certificate=certificate,
-            ca=self._self_signed_ca_certificate,
+            ca=self._self_signed_ca_certificate,  # type: ignore
             chain=ca_chain,
             relation_id=event.relation_id,
         )

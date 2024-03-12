@@ -28,7 +28,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
         self.certificates = TLSCertificatesRequiresV2(
-            self, "certificates", expiry_notification_time=0.1
+            self, "certificates", expiry_notification_time=0.1  #  type: ignore
         )
         self.framework.observe(self.on.install, self._on_install)
         self.framework.observe(
@@ -63,7 +63,10 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
 
     @property
     def _stored_ca_chain(self) -> Optional[str]:
-        return json.loads(self._get_item_from_peer_relation_data(key="chain"))
+        chain = self._get_item_from_peer_relation_data(key="chain")
+        if not chain:
+            return None
+        return json.loads(chain)
 
     @property
     def _replicas_relation_created(self) -> bool:
