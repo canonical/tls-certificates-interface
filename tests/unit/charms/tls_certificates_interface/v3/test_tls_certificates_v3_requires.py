@@ -26,8 +26,6 @@ from tests.unit.charms.tls_certificates_interface.v3.dummy_requirer_charm.src.ch
     DummyTLSCertificatesRequirerCharm,
 )
 
-testing.SIMULATE_CAN_CONNECT = True
-
 BASE_CHARM_DIR = "tests.unit.charms.tls_certificates_interface.v3.dummy_requirer_charm.src.charm.DummyTLSCertificatesRequirerCharm"  # noqa: E501
 LIBID = "afd8c2bccf834997afce12c2706d2ede"
 LIB_DIR = "lib.charms.tls_certificates_interface.v3.tls_certificates"
@@ -159,7 +157,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
             json.loads(unit_relation_data["certificate_signing_requests"]),
         )
 
-    def test_given_wants_ca_when_request_certificate_creation_then_csr_and_ca_are_set_in_relation_data(
+    def test_given_wants_ca_when_request_certificate_creation_then_csr_and_ca_are_set_in_relation_data(  # noqa: E501
         self,
     ):
         relation_id = self.create_certificates_relation()
@@ -192,7 +190,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
                 certificate_signing_request=b"whatever csr"
             )
 
-    def test_given_no_csr_in_relation_data_when_request_certificate_revocation_then_nothing_is_done(
+    def test_given_no_csr_in_relation_data_when_request_certificate_revocation_then_nothing_is_done(  # noqa: E501
         self,
     ):
         relation_id = self.create_certificates_relation()
@@ -887,7 +885,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
         assert secret.get_content(refresh=True)["certificate"] == certificate
         assert secret.get_info().expires == expiry_time - timedelta(hours=168)
 
-    def test_given_certificates_available_when_get_assigned_certificates_then_unit_certificates_returned_only(
+    def test_given_certificates_available_when_get_assigned_certificates_then_unit_certificates_returned_only(  # noqa: E501
         self,
     ):  # noqa: E501
         relation_id = self.create_certificates_relation()
@@ -932,7 +930,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
             self.harness.charm.certificates.get_assigned_certificates()[0].certificate, "cert1"
         )
 
-    def test_given_certificates_available_when_get_assigned_certificates_with_no_csrs_then_no_certificates_returned(
+    def test_given_certificates_available_when_get_assigned_certificates_with_no_csrs_then_no_certificates_returned(  # noqa: E501
         self,
     ):  # noqa: E501
         relation_id = self.create_certificates_relation()

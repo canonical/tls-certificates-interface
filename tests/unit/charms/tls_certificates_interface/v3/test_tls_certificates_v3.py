@@ -310,7 +310,7 @@ def test_given_alt_names_when_generate_certificate_then_alt_names_are_correctly_
 
     certificate_object = x509.load_pem_x509_certificate(certificate)
     alt_names = certificate_object.extensions.get_extension_for_class(
-        x509.extensions.SubjectAlternativeName
+        x509.SubjectAlternativeName
     )
     alt_name_strings = [alt_name.value for alt_name in alt_names.value]
     assert len(alt_name_strings) == 2
@@ -318,7 +318,7 @@ def test_given_alt_names_when_generate_certificate_then_alt_names_are_correctly_
     assert alt_name_2 in alt_name_strings
 
 
-def test_given_sans_in_csr_and_alt_names_when_generate_certificate_then_alt_names_are_correctly_appended_to_sans():
+def test_given_sans_in_csr_and_alt_names_when_generate_certificate_then_alt_names_are_correctly_appended_to_sans():  # noqa: E501
     ca_subject = "ca.subject"
     csr_subject = "csr.subject"
     src_sans_dns = ["www.localhost.com", "www.canonical.com"]
@@ -340,14 +340,14 @@ def test_given_sans_in_csr_and_alt_names_when_generate_certificate_then_alt_name
 
     cert = x509.load_pem_x509_certificate(certificate)
     result_all_sans = cert.extensions.get_extension_for_class(
-        x509.extensions.SubjectAlternativeName
+        x509.SubjectAlternativeName
     )
     result_sans_dns = sorted(result_all_sans.value.get_values_for_type(x509.DNSName))
 
     assert result_sans_dns == sorted(src_sans_dns + src_alt_names)
 
 
-def test_given_basic_constraints_already_in_csr_when_generate_certificate_then_extension_overwritten():
+def test_given_basic_constraints_already_in_csr_when_generate_certificate_then_extension_overwritten():  # noqa: E501
     ca_subject = "ca.subject"
     csr_subject = "csr.subject"
     ca_key = generate_private_key_helper()
@@ -369,7 +369,7 @@ def test_given_basic_constraints_already_in_csr_when_generate_certificate_then_e
 
     certificate_object = x509.load_pem_x509_certificate(certificate)
     basic_constraints = certificate_object.extensions.get_extension_for_class(
-        x509.extensions.BasicConstraints
+        x509.BasicConstraints
     )
     assert basic_constraints.value.ca is False
 
@@ -385,7 +385,7 @@ def test_given_basic_constraint_is_false_when_generate_ca_then_extensions_are_co
 
     certificate_object = x509.load_pem_x509_certificate(ca)
     basic_constraints = certificate_object.extensions.get_extension_for_class(
-        x509.extensions.BasicConstraints
+        x509.BasicConstraints
     )
     assert basic_constraints.value.ca is True
 
@@ -441,7 +441,7 @@ def test_given_matching_cert_for_csr_when_csr_matches_certificate_then_it_return
     assert csr_matches_certificate(csr.decode(), certificate.decode()) is True
 
 
-def test_given_certificate_country_doesnt_match_with_csr_when_csr_matches_certificate_then_returns_true():
+def test_given_certificate_country_doesnt_match_with_csr_when_csr_matches_certificate_then_returns_true():  # noqa: E501
     ca_private_key = generate_private_key_helper()
     ca = generate_ca_helper(private_key=ca_private_key, common_name="ca subject", country="GB")
 
@@ -459,7 +459,7 @@ def test_given_certificate_country_doesnt_match_with_csr_when_csr_matches_certif
     assert csr_matches_certificate(server_csr.decode(), server_cert.decode()) is True
 
 
-def test_given_csr_public_key_not_matching_certificate_public_key_when_csr_matches_certificate_then_it_returns_false():
+def test_given_csr_public_key_not_matching_certificate_public_key_when_csr_matches_certificate_then_it_returns_false():  # noqa: E501
     csr_key_1 = generate_csr_helper(
         private_key=generate_private_key_helper(),
         common_name="matching subject",
@@ -509,7 +509,7 @@ def test_given_ca_cert_with_subject_key_id_when_generate_certificate_then_certif
     )
 
 
-def test_given_request_is_for_ca_certificate_when_generate_certificate_then_certificate_is_generated():
+def test_given_request_is_for_ca_certificate_when_generate_certificate_then_certificate_is_generated():  # noqa: E501
     ca_private_key = generate_private_key()
     ca = generate_ca(
         private_key=ca_private_key,

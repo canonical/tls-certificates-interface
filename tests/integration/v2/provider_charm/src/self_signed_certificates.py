@@ -50,7 +50,7 @@ def generate_certificate(
     ca_key: bytes,
     ca_key_password: Optional[bytes] = None,
     validity: int = 365,
-    alt_names: list = None,
+    alt_names: Optional[list] = None,
 ) -> bytes:
     """Generate a certificate based on CSR.
 
@@ -113,7 +113,7 @@ def generate_ca(
     private_key_object = serialization.load_pem_private_key(
         private_key, password=private_key_password
     )
-    subject = issuer = x509.Name(
+    subject_name = issuer = x509.Name(
         [
             x509.NameAttribute(x509.NameOID.COUNTRY_NAME, country),
             x509.NameAttribute(x509.NameOID.COMMON_NAME, subject),
@@ -125,7 +125,7 @@ def generate_ca(
     subject_identifier = key_identifier = subject_identifier_object.public_bytes()
     cert = (
         x509.CertificateBuilder()
-        .subject_name(subject)
+        .subject_name(subject_name)
         .issuer_name(issuer)
         .public_key(private_key_object.public_key())  # type: ignore[arg-type]
         .serial_number(x509.random_serial_number())

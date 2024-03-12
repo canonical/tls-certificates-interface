@@ -4,6 +4,7 @@
 
 import json
 import unittest
+from typing import Mapping
 from unittest.mock import PropertyMock, call, patch
 
 from ops import testing
@@ -15,8 +16,6 @@ from lib.charms.tls_certificates_interface.v3.tls_certificates import (
 from tests.unit.charms.tls_certificates_interface.v3.dummy_provider_charm.src.charm import (
     DummyTLSCertificatesProviderCharm,
 )
-
-testing.SIMULATE_CAN_CONNECT = True
 
 BASE_CHARM_DIR = "tests.unit.charms.tls_certificates_interface.v3.dummy_provider_charm.src.charm.DummyTLSCertificatesProviderCharm"  # noqa: E501
 LIB_DIR = "lib.charms.tls_certificates_interface.v3.tls_certificates"
@@ -57,7 +56,7 @@ qbNLuwLW2Nhf9xIOLFRoPMUnP7njo0t15qgMfA==
 -----END CERTIFICATE-----"""
 
 
-def _load_relation_data(raw_relation_data: dict) -> dict:
+def _load_relation_data(raw_relation_data: Mapping[str, str]) -> dict:
     """Load relation data from the relation data bag.
 
     Json loads all data.
@@ -99,7 +98,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_creation_request",
         new_callable=PropertyMock,
     )
-    def test_given_csr_in_relation_data_when_relation_changed_then_certificate_creation_request_is_emitted(
+    def test_given_csr_in_relation_data_when_relation_changed_then_certificate_creation_request_is_emitted(  # noqa: E501
         self, patch_certificate_creation_request
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -194,7 +193,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_creation_request",
         new_callable=PropertyMock,
     )
-    def test_given_unit_not_leader_when_relation_changed_then_certificate_creation_request_is_not_emitted(
+    def test_given_unit_not_leader_when_relation_changed_then_certificate_creation_request_is_not_emitted(  # noqa: E501
         self, patch_certificate_creation_request
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -221,7 +220,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
     @patch(
         f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_revocation_request",
     )
-    def test_given_unit_not_leader_when_relation_changed_then_certificate_revocation_request_is_not_emitted(
+    def test_given_unit_not_leader_when_relation_changed_then_certificate_revocation_request_is_not_emitted(  # noqa: E501
         self, patch_certificate_revocation_request, _
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -339,7 +338,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         patch_remove_certificate.assert_not_called()
 
-    def test_given_no_data_in_relation_data_when_set_relation_certificate_then_certificate_is_added_to_relation_data(
+    def test_given_no_data_in_relation_data_when_set_relation_certificate_then_certificate_is_added_to_relation_data(  # noqa: E501
         self,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -486,7 +485,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         loaded_relation_data = _load_relation_data(dict(provider_relation_data))
         self.assertEqual(expected_relation_data, loaded_relation_data)
 
-    def test_given_unit_not_leader_when_set_relation_certificate_then_certificate_is_not_added_to_relation_data(
+    def test_given_unit_not_leader_when_set_relation_certificate_then_certificate_is_not_added_to_relation_data(  # noqa: E501
         self,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -568,7 +567,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             },
         )
 
-    def test_given_unit_is_not_leader_when_set_relation_certificate_then_relation_data_is_not_modified(
+    def test_given_unit_is_not_leader_when_set_relation_certificate_then_relation_data_is_not_modified(  # noqa: E501
         self,
     ):
         self.harness.set_leader(is_leader=False)
@@ -598,7 +597,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         self.assertEqual(initial_relation_data, final_relation_data)
 
-    def test_given_certificate_in_relation_data_when_remove_certificate_then_certificate_is_removed_from_relation(
+    def test_given_certificate_in_relation_data_when_remove_certificate_then_certificate_is_removed_from_relation(  # noqa: E501
         self,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -628,7 +627,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         provider_relation_data = _load_relation_data(dict(provider_relation_data))
         self.assertEqual({"certificates": []}, provider_relation_data)
 
-    def test_given_certificate_not_in_relation_data_when_remove_certificate_then_certificate_is_removed_from_relation(
+    def test_given_certificate_not_in_relation_data_when_remove_certificate_then_certificate_is_removed_from_relation(  # noqa: E501
         self,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -785,7 +784,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_creation_request",
         new_callable=PropertyMock,
     )
-    def test_given_requirer_unit_requests_ca_when_relation_changed_then_certificate_creation_request_is_emitted(
+    def test_given_requirer_unit_requests_ca_when_relation_changed_then_certificate_creation_request_is_emitted(  # noqa: E501
         self, patch_certificate_creation_request
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -817,7 +816,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             ]
         )
 
-    def test_given_certificates_in_relation_data_when_revoke_all_certificates_then_no_certificates_are_present(
+    def test_given_certificates_in_relation_data_when_revoke_all_certificates_then_no_certificates_are_present(  # noqa: E501
         self,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -858,7 +857,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         provider_relation_data = _load_relation_data(provider_relation_data)
         self.assertEqual(expected, provider_relation_data)
 
-    def test_given_unit_not_leader_and_certificates_in_relation_data_when_revoke_all_certificates_then_certificates_are_present(
+    def test_given_unit_not_leader_and_certificates_in_relation_data_when_revoke_all_certificates_then_certificates_are_present(  # noqa: E501
         self,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -890,7 +889,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         provider_relation_data = _load_relation_data(provider_relation_data)
         self.assertEqual(expected, provider_relation_data)
 
-    def test_given_no_certificates_in_relation_data_when_revoke_all_certificates_then_no_certificates_are_present(
+    def test_given_no_certificates_in_relation_data_when_revoke_all_certificates_then_no_certificates_are_present(  # noqa: E501
         self,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -903,7 +902,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         provider_relation_data = _load_relation_data(provider_relation_data)
         self.assertEqual({"certificates": []}, provider_relation_data)
 
-    def test_given_no_certificates_in_relation_data_when_get_issued_certificates_then_returned_dict_has_empty_certificates_list(
+    def test_given_no_certificates_in_relation_data_when_get_issued_certificates_then_returned_dict_has_empty_certificates_list(  # noqa: E501
         self,
     ):
         self.create_certificates_relation_with_1_remote_unit()
@@ -913,7 +912,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         self.assertEqual(certificates, [])
 
-    def test_given_one_certificate_in_relation_data_when_get_issued_certificates_then_certificate_is_returned(
+    def test_given_one_certificate_in_relation_data_when_get_issued_certificates_then_certificate_is_returned(  # noqa: E501
         self,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -950,7 +949,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         self.assertEqual(certificates, expected_certificate)
 
-    def test_given_multiple_certificate_in_relation_data_when_get_issued_certificates_then_certificate_are_returned(
+    def test_given_multiple_certificate_in_relation_data_when_get_issued_certificates_then_certificate_are_returned(  # noqa: E501
         self,
     ):
         relation_id_requirer_1 = self.create_certificates_relation_with_1_remote_unit()
@@ -1025,7 +1024,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         certificates = self.harness.charm.certificates.get_issued_certificates()
         self.assertEqual(certificates, expected_certificates)
 
-    def test_given_no_certificates_in_relation_data_when_get_issued_certificates_by_relation_id_then_returned_dict_has_empty_certificates_list(
+    def test_given_no_certificates_in_relation_data_when_get_issued_certificates_by_relation_id_then_returned_dict_has_empty_certificates_list(  # noqa: E501
         self,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -1035,7 +1034,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         self.assertEqual(certificates, [])
 
-    def test_given_certificate_in_relation_data_when_get_issued_certificates_by_relation_id_then_certificate_is_returned(
+    def test_given_certificate_in_relation_data_when_get_issued_certificates_by_relation_id_then_certificate_is_returned(  # noqa: E501
         self,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -1074,7 +1073,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         self.assertEqual(certificates, expected_certificates)
 
-    def test_given_unit_not_leader_when_get_issued_certificates_by_relation_id_then_returned_empty_certificates_list(
+    def test_given_unit_not_leader_when_get_issued_certificates_by_relation_id_then_returned_empty_certificates_list(  # noqa: E501
         self,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -1102,7 +1101,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         self.assertEqual(certificates, [])
 
-    def test_given_incorrect_relation_id_when_get_issued_certificates_by_relation_id_then_returned_list_is_empty(
+    def test_given_incorrect_relation_id_when_get_issued_certificates_by_relation_id_then_returned_list_is_empty(  # noqa: E501
         self,
     ):
         random_relation_id = 1234
@@ -1110,7 +1109,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         certificates = self.harness.charm.certificates.get_issued_certificates(random_relation_id)
         self.assertEqual(certificates, [])
 
-    def test_given_requirer_has_one_unit_and_csr_when_get_requirer_csrs_then_csr_information_is_returned(
+    def test_given_requirer_has_one_unit_and_csr_when_get_requirer_csrs_then_csr_information_is_returned(  # noqa: E501
         self,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -1140,7 +1139,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         actual_csrs_info = self.harness.charm.certificates.get_requirer_csrs()
         self.assertEqual(actual_csrs_info, expected_csrs_info)
 
-    def test_given_requirer_has_multiple_units_and_csrs_when_get_requirer_csrs_then_csrs_information_is_returned(
+    def test_given_requirer_has_multiple_units_and_csrs_when_get_requirer_csrs_then_csrs_information_is_returned(  # noqa: E501
         self,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -1207,7 +1206,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             sorted(expected_csrs_info, key=lambda x: (x.relation_id, x.unit_name)),
         )
 
-    def test_given_multiple_requirers_with_csrs_when_get_requirer_csrs_then_csrs_information_is_returned(
+    def test_given_multiple_requirers_with_csrs_when_get_requirer_csrs_then_csrs_information_is_returned(  # noqa: E501
         self,
     ):
         application_1_relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -1296,7 +1295,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             sorted(expected_csrs_info, key=lambda x: (x.relation_id, x.unit_name)),
         )
 
-    def test_given_multiple_requirer_applications_and_relation_id_is_specified_when_get_requirer_csrs_then_csrs_information_is_returned(
+    def test_given_multiple_requirer_applications_and_relation_id_is_specified_when_get_requirer_csrs_then_csrs_information_is_returned(  # noqa: E501
         self,
     ):
         application_1_relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -1351,7 +1350,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         )
         self.assertEqual(actual_csrs_info, expected_csrs_info)
 
-    def test_given_csrs_with_certs_issued_when_get_outstanding_certificate_requests_then_the_info_of_those_csrs_not_returned(
+    def test_given_csrs_with_certs_issued_when_get_outstanding_certificate_requests_then_the_info_of_those_csrs_not_returned(  # noqa: E501
         self,
     ):
         application_1_relation_id = self.create_certificates_relation_with_1_remote_unit()
@@ -1470,7 +1469,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         )
         self.assertEqual(actual_csrs_info, expected_csrs_info)
 
-    def test_given_no_csrs_from_requirer_when_get_requirer_crss_with_certs_then_empty_list_returned(
+    def test_given_no_csrs_from_requirer_when_get_requirer_crss_with_certs_then_empty_list_returned(  # noqa: E501
         self,
     ):
         self.create_certificates_relation_with_1_remote_unit()
@@ -1479,7 +1478,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         self.assertEqual(actual_csrs_info, [])
 
-    def test_given_no_csrs_from_requirer_when_get_outstanding_certificate_requests_then_empty_list_returned(
+    def test_given_no_csrs_from_requirer_when_get_outstanding_certificate_requests_then_empty_list_returned(  # noqa: E501
         self,
     ):
         self.create_certificates_relation_with_1_remote_unit()
@@ -1487,7 +1486,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         actual_csrs_info = self.harness.charm.certificates.get_outstanding_certificate_requests()
         self.assertEqual(actual_csrs_info, [])
 
-    def test_given_one_issued_one_unissued_certificate_for_same_application_when_checking_certificate_issued_for_csr_then_correct_boolean_output_returned(
+    def test_given_one_issued_one_unissued_certificate_for_same_application_when_checking_certificate_issued_for_csr_then_correct_boolean_output_returned(  # noqa: E501
         self,
     ):
         application_1_relation_id = self.create_certificates_relation_with_1_remote_unit()
