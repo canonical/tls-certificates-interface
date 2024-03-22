@@ -354,6 +354,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             chain=chain,
             certificate_signing_request=certificate_signing_request,
             relation_id=relation_id,
+            recommended_expiry_notification_time=720,
         )
 
         expected_relation_data = {
@@ -363,6 +364,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                     "certificate_signing_request": certificate_signing_request,
                     "ca": ca,
                     "chain": chain,
+                    "recommended_expiry_notification_time": 720,
                 }
             ]
         }
@@ -396,6 +398,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                         "certificate_signing_request": initial_certificate_signing_request,
                         "ca": initial_ca,
                         "chain": initial_chain,
+                        "recommended_expiry_notification_time": None,
                     }
                 ]
             )
@@ -411,6 +414,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             chain=new_chain,
             certificate_signing_request=new_certificate_signing_request,
             relation_id=relation_id,
+            recommended_expiry_notification_time=720,
         )
 
         expected_relation_data = {
@@ -420,12 +424,14 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                     "certificate_signing_request": initial_certificate_signing_request,
                     "ca": initial_ca,
                     "chain": initial_chain,
+                    "recommended_expiry_notification_time": None,
                 },
                 {
                     "certificate": new_certificate,
                     "certificate_signing_request": new_certificate_signing_request,
                     "ca": new_ca,
                     "chain": new_chain,
+                    "recommended_expiry_notification_time": 720,
                 },
             ]
         }
@@ -467,6 +473,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             chain=initial_chain,
             certificate_signing_request=initial_certificate_signing_request,
             relation_id=relation_id,
+            recommended_expiry_notification_time=720,
         )
 
         expected_relation_data = {
@@ -476,6 +483,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                     "certificate_signing_request": initial_certificate_signing_request,
                     "ca": initial_ca,
                     "chain": initial_chain,
+                    "recommended_expiry_notification_time": 720,
                 },
             ]
         }
@@ -541,6 +549,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             chain=chain,
             certificate_signing_request=certificate_signing_request,
             relation_id=relation_2_id,
+            recommended_expiry_notification_time=720,
         )
 
         relation_1_data = self.harness.get_relation_data(
@@ -561,6 +570,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                             "certificate_signing_request": certificate_signing_request,
                             "ca": ca,
                             "chain": chain,
+                            "recommended_expiry_notification_time": 720,
                         }
                     ]
                 )
