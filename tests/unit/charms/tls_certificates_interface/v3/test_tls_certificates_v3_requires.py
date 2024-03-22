@@ -34,11 +34,20 @@ SECONDS_IN_ONE_HOUR = 60 * 60
 
 class TestTLSCertificatesRequiresV3(unittest.TestCase):
     def setUp(self):
+        self.patch_get_certificate_validity_start_time = patch(
+            f"{LIB_DIR}._get_certificate_validity_start_time",
+            return_value=datetime.now(timezone.utc),
+        )
+        self.mocked_function = self.patch_get_certificate_validity_start_time.start()
         self.relation_name = "certificates"
         self.remote_app = "tls-certificates-provider"
         self.harness = testing.Harness(DummyTLSCertificatesRequirerCharm)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
+
+    def tearDown(self):
+        self.patch_get_certificate_validity_start_time.stop()
+        super().tearDown()
 
     def create_certificates_relation(self) -> int:
         relation_id = self.harness.add_relation(
@@ -1634,6 +1643,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
         }
         expiry_date = datetime.now(timezone.utc) + timedelta(days=30)
         patch_get_expiry_time.return_value = expiry_date
+        assert self.harness.charm.certificates.expiry_notification_time
         expected_expiry_notification_time = (
             expiry_date - timedelta(hours=self.harness.charm.certificates.expiry_notification_time)
         )
@@ -1681,6 +1691,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
             )
         }
         patch_get_expiry_time.return_value = expiry_date
+        assert self.harness.charm.certificates.expiry_notification_time
         expected_expiry_notification_time = (
             expiry_date - timedelta(hours=self.harness.charm.certificates.expiry_notification_time)
         )
@@ -1729,7 +1740,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
         }
 
         patch_get_expiry_time.return_value = expiry_date
-        expected_expiry_notification_time = expiry_date - timedelta(hours=32)
+        expected_expiry_notification_time = expiry_date - timedelta(hours=33)
 
         self.harness.update_relation_data(
             relation_id=relation_id,
