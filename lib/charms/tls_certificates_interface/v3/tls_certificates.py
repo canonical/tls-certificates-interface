@@ -279,6 +279,7 @@ juju relate <tls-certificates provider charm> <tls-certificates requirer charm>
 import copy
 import json
 import logging
+import math
 import uuid
 from contextlib import suppress
 from dataclasses import dataclass
@@ -697,6 +698,23 @@ def _get_certificate_expiry_time(certificate: str) -> Optional[datetime]:
     try:
         certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
         return certificate_object.not_valid_after_utc
+    except ValueError:
+        logger.warning("Could not load certificate.")
+        return None
+
+
+def _get_certificate_validity_start_time(certificate: str) -> Optional[datetime]:
+    """Extract expiry time from a certificate string.
+
+    Args:
+        certificate (str): x509 certificate as a string
+
+    Returns:
+        Optional[datetime]: Time when this certificate is valid from or None
+    """
+    try:
+        certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
+        return certificate_object.not_valid_before_utc
     except ValueError:
         logger.warning("Could not load certificate.")
         return None
@@ -1486,7 +1504,7 @@ class TLSCertificatesRequiresV3(Object):
         self,
         charm: CharmBase,
         relationship_name: str,
-        expiry_notification_time: int = 168,
+        expiry_notification_time: Optional[int] = None,
     ):
         """Generate/use private key and observes relation changed event.
 
@@ -1563,9 +1581,11 @@ class TLSCertificatesRequiresV3(Object):
                 "recommended_expiry_notification_time"
             )
             expiry_time = _get_certificate_expiry_time(certificate)
+            validity_time = _get_certificate_validity_start_time(certificate)
             expiry_notification_time = None
-            if expiry_time:
+            if expiry_time and validity_time:
                 expiry_notification_time = self._calculate_expiry_notification_time(
+                    validity_time=validity_time,
                     expiry_time=expiry_time,
                     provider_recommended_notification_time=recommended_expiry_notification_time,
                 )
@@ -1921,6 +1941,7 @@ class TLSCertificatesRequiresV3(Object):
 
     def _calculate_expiry_notification_time(
         self,
+        validity_time: datetime,
         expiry_time: datetime,
         provider_recommended_notification_time: Optional[int],
     ) -> datetime:
@@ -1932,6 +1953,7 @@ class TLSCertificatesRequiresV3(Object):
         then dynmaicaly calculated time.
 
         Args:
+            validity_time: Certificate validity time
             expiry_time: Certificate expiry time
             provider_recommended_notification_time:
                 Time in hours prior to expiry to notify the user.
@@ -1947,13 +1969,15 @@ class TLSCertificatesRequiresV3(Object):
             if datetime.now(timezone.utc) < provider_recommendation_time_delta:
                 return provider_recommendation_time_delta
 
-        requirer_recommendation_time_delta = (
-            expiry_time - timedelta(hours=self.expiry_notification_time)
-        )
-        if datetime.now(timezone.utc) < requirer_recommendation_time_delta:
-            return requirer_recommendation_time_delta
+        if self.expiry_notification_time:
+            requirer_recommendation_time_delta = (
+                expiry_time - timedelta(hours=self.expiry_notification_time)
+            )
+            if datetime.now(timezone.utc) < requirer_recommendation_time_delta:
+                return requirer_recommendation_time_delta
 
-        calculated_hours = round(
-            (expiry_time - datetime.now(timezone.utc)).total_seconds() / (3600 * 3)
+        calculated_hours = math.ceil(
+            (expiry_time - validity_time).total_seconds() / (3600 * 3)
         )
+        print(calculated_hours)
         return expiry_time - timedelta(hours=calculated_hours)
