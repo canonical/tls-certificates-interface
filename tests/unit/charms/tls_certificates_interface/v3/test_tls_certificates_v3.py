@@ -19,7 +19,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, pkcs12
 
 from lib.charms.tls_certificates_interface.v3.tls_certificates import (
-    _calculate_expiry_notification_time,
+    calculate_expiry_notification_time,
 )
 from tests.unit.charms.tls_certificates_interface.v3.certificates import (
     generate_ca as generate_ca_helper,
@@ -550,7 +550,7 @@ def test_given_request_is_for_ca_certificate_when_generate_certificate_then_cert
     )
 
 
-def test_given_provider_recommended_notification_time_when_calculate_expiry_notification_time_then_returns_provider_recommendation():  # noqa: E501
+def test_given_provider_recommended_notification_time_whencalculate_expiry_notification_time_then_returns_provider_recommendation():  # noqa: E501
     expiry_time = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     validity_time_in_hours = 240
     validity_start_time = expiry_time - timedelta(hours=validity_time_in_hours)
@@ -559,7 +559,7 @@ def test_given_provider_recommended_notification_time_when_calculate_expiry_noti
     expected_notification_time = (
         expiry_time - timedelta(hours=provider_recommended_notification_time)
     )
-    notification_time = _calculate_expiry_notification_time(
+    notification_time = calculate_expiry_notification_time(
         expiry_time=expiry_time,
         validity_time=validity_start_time,
         provider_recommended_notification_time=provider_recommended_notification_time,
@@ -568,7 +568,7 @@ def test_given_provider_recommended_notification_time_when_calculate_expiry_noti
     assert notification_time == expected_notification_time
 
 
-def test_given_provider_recommended_notification_time_is_too_early_when_calculate_expiry_notification_time_then_returns_requirer_recommended_notification_time():  # noqa: E501
+def test_given_provider_recommended_notification_time_is_too_early_whencalculate_expiry_notification_time_then_returns_requirer_recommended_notification_time():  # noqa: E501
     expiry_time = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     validity_time_in_hours = 240
     validity_start_time = expiry_time - timedelta(hours=validity_time_in_hours)
@@ -577,7 +577,7 @@ def test_given_provider_recommended_notification_time_is_too_early_when_calculat
     expected_notification_time = (
         expiry_time - timedelta(hours=requirer_recommended_notification_time)
     )
-    notification_time = _calculate_expiry_notification_time(
+    notification_time = calculate_expiry_notification_time(
         expiry_time=expiry_time,
         validity_time=validity_start_time,
         provider_recommended_notification_time=provider_recommended_notification_time,
@@ -595,7 +595,7 @@ def test_given_provider_recommended_notification_time_is_none_when_calcualte_exp
     expected_notification_time = (
         expiry_time - timedelta(hours=requirer_recommended_notification_time)
     )
-    notification_time = _calculate_expiry_notification_time(
+    notification_time = calculate_expiry_notification_time(
         expiry_time=expiry_time,
         validity_time=validity_start_time,
         provider_recommended_notification_time=provider_recommended_notification_time,
@@ -604,7 +604,7 @@ def test_given_provider_recommended_notification_time_is_none_when_calcualte_exp
     assert notification_time == expected_notification_time
 
 
-def test_given_requirer_and_provider_recommendations_are_invalid_when_calculate_expiry_notification_time_then_returns_calculated_notification_time():  # noqa: E501
+def test_given_requirer_and_provider_recommendations_are_invalid_whencalculate_expiry_notification_time_then_returns_calculated_notification_time():  # noqa: E501
     expiry_time = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     validity_time_in_hours = 240
     validity_start_time = expiry_time - timedelta(hours=validity_time_in_hours)
@@ -612,7 +612,7 @@ def test_given_requirer_and_provider_recommendations_are_invalid_when_calculate_
     requirer_recommended_notification_time = 241
     calculated_hours = 80
     expected_notification_time = expiry_time - timedelta(hours=calculated_hours)
-    notification_time = _calculate_expiry_notification_time(
+    notification_time = calculate_expiry_notification_time(
         expiry_time=expiry_time,
         validity_time=validity_start_time,
         provider_recommended_notification_time=provider_recommended_notification_time,
@@ -620,7 +620,7 @@ def test_given_requirer_and_provider_recommendations_are_invalid_when_calculate_
     )
     assert notification_time == expected_notification_time
 
-def test_given_validity_time_is_too_short_when_calculate_expiry_notification_time_then_returns_calculated_notification_time():  # noqa: E501
+def test_given_validity_time_is_too_short_whencalculate_expiry_notification_time_then_returns_calculated_notification_time():  # noqa: E501
     expiry_time = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     validity_time_in_hours = 2
     validity_start_time = expiry_time - timedelta(hours=validity_time_in_hours)
@@ -628,7 +628,7 @@ def test_given_validity_time_is_too_short_when_calculate_expiry_notification_tim
     requirer_recommended_notification_time = 48
     calculated_hours = 1
     expected_notification_time = expiry_time - timedelta(hours=calculated_hours)
-    notification_time = _calculate_expiry_notification_time(
+    notification_time = calculate_expiry_notification_time(
         expiry_time=expiry_time,
         validity_time=validity_start_time,
         provider_recommended_notification_time=provider_recommended_notification_time,
