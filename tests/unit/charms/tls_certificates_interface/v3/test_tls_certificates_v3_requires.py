@@ -34,11 +34,20 @@ SECONDS_IN_ONE_HOUR = 60 * 60
 
 class TestTLSCertificatesRequiresV3(unittest.TestCase):
     def setUp(self):
+        self.patchget_certificate_validity_start_time = patch(
+            f"{LIB_DIR}.get_certificate_validity_start_time",
+            return_value=datetime.now(timezone.utc),
+        )
+        self.mocked_function = self.patchget_certificate_validity_start_time.start()
         self.relation_name = "certificates"
         self.remote_app = "tls-certificates-provider"
         self.harness = testing.Harness(DummyTLSCertificatesRequirerCharm)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
+
+    def tearDown(self):
+        self.patchget_certificate_validity_start_time.stop()
+        super().tearDown()
 
     def create_certificates_relation(self) -> int:
         relation_id = self.harness.add_relation(
@@ -796,7 +805,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
         assert certificate_available_event.ca == ca_certificate
         assert certificate_available_event.chain == chain
 
-    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
+    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_available")
     def test_given_csr_in_unit_relation_data_and_certificate_in_remote_relation_data_when_relation_changed_then_secret_is_added(  # noqa: E501
         self, patch_on_certificate_available, patch_get_expiry_time
@@ -838,7 +847,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
         assert secret.get_content()["certificate"] == certificate
         assert secret.get_info().expires == expiry_time - timedelta(hours=168)
 
-    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
+    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_available")
     def test_given_csr_in_unit_relation_data_and_certificate_in_remote_relation_data_and_secret_already_exists_when_relation_changed_then_secret_is_updated(  # noqa: E501
         self, patch_on_certificate_available, patch_get_expiry_time
@@ -1165,7 +1174,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
         )
         assert len(output) == 0
 
-    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
+    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
     def test_given_no_expired_certificates_in_relation_data_when_get_expiring_certificates_then_no_certificates_returned(  # noqa: E501
         self, patch_get_expiry_time
     ):
@@ -1205,9 +1214,12 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
         all_certs = self.harness.charm.certificates.get_expiring_certificates()
         assert len(all_certs) == 0
 
-    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
-    def test_given_expired_certificate_in_relation_data_when_get_expiring_certificates_then_correct_certificates_returned(  # noqa: E501
-        self, patch_get_expiry_time
+    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
+    @patch(f"{LIB_DIR}.calculate_expiry_notification_time")
+    def test_given_certificate_about_to_expire_in_relation_data_when_get_expiring_certificates_then_correct_certificates_returned(  # noqa: E501
+        self,
+        patchcalculate_expiry_notification_time,
+        patch_get_expiry_time,
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -1230,12 +1242,14 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
                         "chain": chain,
                         "certificate_signing_request": csr,
                         "certificate": certificate,
+                        "recommended_expiry_notification_time": 2,
                     },
                 ]
             )
         }
         expiry_time = datetime.now(timezone.utc) + timedelta(hours=1)
         patch_get_expiry_time.return_value = expiry_time
+        patchcalculate_expiry_notification_time.return_value = expiry_time - timedelta(hours=2)
         self.harness.update_relation_data(
             relation_id=relation_id,
             app_or_unit=self.remote_app,
@@ -1246,7 +1260,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
         assert len(all_certs) > 0
         assert all_certs[0].certificate == certificate
 
-    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
+    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_expired_certificate_in_relation_data_when_secret_expired_then_certificate_invalidated_event_with_reason_expired_emitted(  # noqa: E501
         self, patch_certificate_invalidated, patch_get_expiry_time
@@ -1292,7 +1306,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
         event_data = args[0]
         assert event_data.certificate == certificate
 
-    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
+    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_expired_certificate_and_other_certificates_in_relation_data_when_secret_expired_then_certificate_invalidated_event_with_reason_expired_emitted_once(  # noqa: E501
         self, patch_certificate_invalidated, patch_get_expiry_time
@@ -1344,7 +1358,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
         event_data = args[0]
         assert event_data.certificate == certificate
 
-    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
+    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_expired_certificate_in_relation_data_when_secret_expired_then_secret_revisions_are_removed(  # noqa: E501
         self, patch_certificate_invalidated, patch_get_expiry_time
@@ -1389,7 +1403,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
         with pytest.raises(RuntimeError):
             self.harness.get_secret_revisions(secret_id)
 
-    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
+    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_expiring")
     def test_given_almost_expiring_certificate_in_relation_data_when_secret_expired_then_certificate_expiring_event_emitted(  # noqa: E501
         self, patch_certificate_expiring, patch_get_expiry_time
@@ -1435,7 +1449,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
         event_data = args[0]
         assert event_data.certificate == certificate
 
-    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
+    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_expiring")
     def test_given_almost_expiring_certificate_in_relation_data_when_secret_expired_then_secret_expiry_is_set_to_certificate_expiry(  # noqa: E501
         self, patch_certificate_expiring, patch_get_expiry_time
@@ -1550,3 +1564,189 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
 
         with pytest.raises(RuntimeError):
             self.harness.get_secret_revisions(secret_id)
+
+    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
+    def test_given_certificate_has_expiry_time_and_notification_time_recommended_by_provider_is_valid_when_get_provider_certificates_then_recommended_expiry_notification_time_is_used(  # noqa: E501
+        self, patch_get_expiry_time
+    ):
+        relation_id = self.create_certificates_relation()
+        ca_certificate = "whatever certificate"
+        chain = ["certificate 1", "certiicate 2", "certificate 3"]
+        csr = "whatever csr"
+        certificate = "whatever certificate"
+        provider_recommended_notification_time = 2
+        unit_relation_data = {
+            "certificate_signing_requests": json.dumps([{"certificate_signing_request": csr}])
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values=unit_relation_data,
+        )
+        remote_app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate,
+                        "chain": chain,
+                        "certificate_signing_request": csr,
+                        "certificate": certificate,
+                        "recommended_expiry_notification_time": provider_recommended_notification_time,  # noqa: E501
+                    }
+                ]
+            )
+        }
+        expiry_date = datetime.now(timezone.utc) + timedelta(days=30)
+        patch_get_expiry_time.return_value = expiry_date
+        expected_expiry_notification_time = (
+            expiry_date - timedelta(hours=provider_recommended_notification_time)
+        )
+
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values=remote_app_relation_data,
+        )
+        certs = self.harness.charm.certificates.get_provider_certificates()
+        assert len(certs) == 1
+        assert certs[0].expiry_notification_time == expected_expiry_notification_time
+
+    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
+    def test_given_certificate_has_expiry_time_and_no_notification_time_recommended_by_provider_when_get_provider_certificates_then_different_notification_time_is_used(  # noqa: E501
+        self, patch_get_expiry_time
+    ):
+        relation_id = self.create_certificates_relation()
+        ca_certificate = "whatever certificate"
+        chain = ["certificate 1", "certiicate 2", "certificate 3"]
+        csr = "whatever csr"
+        certificate = "whatever certificate"
+        unit_relation_data = {
+            "certificate_signing_requests": json.dumps([{"certificate_signing_request": csr}])
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values=unit_relation_data,
+        )
+        remote_app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate,
+                        "chain": chain,
+                        "certificate_signing_request": csr,
+                        "certificate": certificate,
+                        "recommended_expiry_notification_time": None,
+                    }
+                ]
+            )
+        }
+        expiry_date = datetime.now(timezone.utc) + timedelta(days=30)
+        patch_get_expiry_time.return_value = expiry_date
+        assert self.harness.charm.certificates.expiry_notification_time
+        expected_expiry_notification_time = (
+            expiry_date - timedelta(hours=self.harness.charm.certificates.expiry_notification_time)
+        )
+
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values=remote_app_relation_data,
+        )
+        certs = self.harness.charm.certificates.get_provider_certificates()
+        assert len(certs) == 1
+        assert certs[0].expiry_notification_time == expected_expiry_notification_time  # noqa: E501
+
+    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
+    def test_given_certificate_has_expiry_time_and_provider_recommended_notification_time_too_long_when_get_provider_certificates_then_recommended_expiry_notification_time_is_used(  # noqa: E501
+        self, patch_get_expiry_time
+    ):
+        relation_id = self.create_certificates_relation()
+        ca_certificate = "whatever certificate"
+        chain = ["certificate 1", "certiicate 2", "certificate 3"]
+        csr = "whatever csr"
+        certificate = "whatever certificate"
+        unit_relation_data = {
+            "certificate_signing_requests": json.dumps([{"certificate_signing_request": csr}])
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values=unit_relation_data,
+        )
+        expiry_time = 30
+        expiry_date = datetime.now(timezone.utc) + timedelta(days=expiry_time)
+        recommended_expiry_notification_time = expiry_time * 24 + 1
+        remote_app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate,
+                        "chain": chain,
+                        "certificate_signing_request": csr,
+                        "certificate": certificate,
+                        "recommended_expiry_notification_time": recommended_expiry_notification_time,  # noqa: E501
+                    }
+                ]
+            )
+        }
+        patch_get_expiry_time.return_value = expiry_date
+        assert self.harness.charm.certificates.expiry_notification_time
+        expected_expiry_notification_time = (
+            expiry_date - timedelta(hours=self.harness.charm.certificates.expiry_notification_time)
+        )
+
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values=remote_app_relation_data,
+        )
+        certs = self.harness.charm.certificates.get_provider_certificates()
+        assert len(certs) == 1
+        assert certs[0].expiry_notification_time == expected_expiry_notification_time
+
+    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
+    def test_given_certificate_has_expiry_time_and_no_valid_requirer_recommended_notification_time_too_long_when_get_provider_certificates_then_expiry_notification_time_is_calculated(  # noqa: E501
+        self, patch_get_expiry_time
+    ):
+        relation_id = self.create_certificates_relation()
+        ca_certificate = "whatever certificate"
+        chain = ["certificate 1", "certiicate 2", "certificate 3"]
+        csr = "whatever csr"
+        certificate = "whatever certificate"
+        unit_relation_data = {
+            "certificate_signing_requests": json.dumps([{"certificate_signing_request": csr}])
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values=unit_relation_data,
+        )
+        expiry_time = 4
+        expiry_date = datetime.now(timezone.utc) + timedelta(days=expiry_time)
+        recommended_expiry_notification_time = self.harness.charm.certificates.expiry_notification_time  # noqa: E501
+        remote_app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate,
+                        "chain": chain,
+                        "certificate_signing_request": csr,
+                        "certificate": certificate,
+                        "recommended_expiry_notification_time": recommended_expiry_notification_time,  # noqa: E501
+                    }
+                ]
+            )
+        }
+
+        patch_get_expiry_time.return_value = expiry_date
+        expected_expiry_notification_time = expiry_date - timedelta(hours=33)
+
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values=remote_app_relation_data,
+        )
+        certs = self.harness.charm.certificates.get_provider_certificates()
+        assert len(certs) == 1
+        assert certs[0].expiry_notification_time == expected_expiry_notification_time
