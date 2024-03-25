@@ -686,7 +686,7 @@ def _get_closest_future_time(
     )
 
 
-def _get_certificate_expiry_time(certificate: str) -> Optional[datetime]:
+def get_certificate_expiry_time(certificate: str) -> Optional[datetime]:
     """Extract expiry time from a certificate string.
 
     Args:
@@ -703,7 +703,7 @@ def _get_certificate_expiry_time(certificate: str) -> Optional[datetime]:
         return None
 
 
-def _get_certificate_validity_start_time(certificate: str) -> Optional[datetime]:
+def get_certificate_validity_start_time(certificate: str) -> Optional[datetime]:
     """Extract expiry time from a certificate string.
 
     Args:
@@ -720,7 +720,7 @@ def _get_certificate_validity_start_time(certificate: str) -> Optional[datetime]
         return None
 
 
-def _calculate_expiry_notification_time(
+def calculate_expiry_notification_time(
         validity_time: datetime,
         expiry_time: datetime,
         provider_recommended_notification_time: Optional[int],
@@ -1557,8 +1557,9 @@ class TLSCertificatesRequiresV3(Object):
             charm: Charm object
             relationship_name: Juju relation name
             expiry_notification_time (int): Number of hours prior to certificate expiry.
-                Used to trigger the CertificateExpiring event. Default: 7 days.
-                This value is used as a recommendation only.
+                Used to trigger the CertificateExpiring event.
+                This value is used as a recommendation only,
+                The actual value is calculated taking into account the provider's recommendation.
         """
         super().__init__(charm, relationship_name)
         if not JujuVersion.from_environ().has_secrets:
@@ -1625,11 +1626,11 @@ class TLSCertificatesRequiresV3(Object):
             recommended_expiry_notification_time = provider_certificate_dict.get(
                 "recommended_expiry_notification_time"
             )
-            expiry_time = _get_certificate_expiry_time(certificate)
-            validity_time = _get_certificate_validity_start_time(certificate)
+            expiry_time = get_certificate_expiry_time(certificate)
+            validity_time = get_certificate_validity_start_time(certificate)
             expiry_notification_time = None
             if expiry_time and validity_time:
-                expiry_notification_time = _calculate_expiry_notification_time(
+                expiry_notification_time = calculate_expiry_notification_time(
                     validity_time=validity_time,
                     expiry_time=expiry_time,
                     provider_recommended_notification_time=recommended_expiry_notification_time,
