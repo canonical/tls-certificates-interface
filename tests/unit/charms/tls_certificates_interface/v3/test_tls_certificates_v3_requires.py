@@ -1225,7 +1225,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
         assert len(all_certs) == 0
 
     @patch(f"{LIB_DIR}._get_certificate_expiry_time")
-    @patch(f"{LIB_DIR}.TLSCertificatesRequiresV3._calculate_expiry_notification_time")
+    @patch(f"{LIB_DIR}._calculate_expiry_notification_time")
     def test_given_certificate_about_to_expire_in_relation_data_when_get_expiring_certificates_then_correct_certificates_returned(  # noqa: E501
         self,
         patch_calculate_expiry_notification_time,

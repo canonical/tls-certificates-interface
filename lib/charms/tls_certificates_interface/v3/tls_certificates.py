@@ -720,6 +720,51 @@ def _get_certificate_validity_start_time(certificate: str) -> Optional[datetime]
         return None
 
 
+def _calculate_expiry_notification_time(
+        validity_time: datetime,
+        expiry_time: datetime,
+        provider_recommended_notification_time: Optional[int],
+        requirer_recommended_notification_time: Optional[int],
+    ) -> datetime:
+        """Calculate a reasonable time to notify the user about the certificate expiry.
+
+        It takes into account the time recommended by the provider and by the requirer.
+        Time recommended by the provider is preferred,
+        then time recommended by the requirer,
+        then dynmaicaly calculated time.
+
+        Args:
+            validity_time: Certificate validity time
+            expiry_time: Certificate expiry time
+            provider_recommended_notification_time:
+                Time in hours prior to expiry to notify the user.
+                Recommended by the provider.
+            requirer_recommended_notification_time:
+                Time in hours prior to expiry to notify the user.
+                Recommended by the requirer.
+
+        Returns:
+            datetime: Time to notify the user about the certificate expiry.
+        """
+        if provider_recommended_notification_time:
+            provider_recommendation_time_delta = (
+                expiry_time - timedelta(hours=provider_recommended_notification_time)
+            )
+            if validity_time < provider_recommendation_time_delta:
+                return provider_recommendation_time_delta
+
+        if requirer_recommended_notification_time:
+            requirer_recommendation_time_delta = (
+                expiry_time - timedelta(hours=requirer_recommended_notification_time)
+            )
+            if validity_time < requirer_recommendation_time_delta:
+                return requirer_recommendation_time_delta
+        calculated_hours = math.ceil(
+            (expiry_time - validity_time).total_seconds() / (3600 * 3)
+        )
+        return expiry_time - timedelta(hours=calculated_hours)
+
+
 def generate_ca(
     private_key: bytes,
     subject: str,
@@ -1584,10 +1629,11 @@ class TLSCertificatesRequiresV3(Object):
             validity_time = _get_certificate_validity_start_time(certificate)
             expiry_notification_time = None
             if expiry_time and validity_time:
-                expiry_notification_time = self._calculate_expiry_notification_time(
+                expiry_notification_time = _calculate_expiry_notification_time(
                     validity_time=validity_time,
                     expiry_time=expiry_time,
                     provider_recommended_notification_time=recommended_expiry_notification_time,
+                    requirer_recommended_notification_time=self.expiry_notification_time,
                 )
             if not csr:
                 logger.warning("No CSR found in relation data - Skipping")
@@ -1938,46 +1984,3 @@ class TLSCertificatesRequiresV3(Object):
                 continue
             return provider_certificate
         return None
-
-    def _calculate_expiry_notification_time(
-        self,
-        validity_time: datetime,
-        expiry_time: datetime,
-        provider_recommended_notification_time: Optional[int],
-    ) -> datetime:
-        """Calculate a reasonable time to notify the user about the certificate expiry.
-
-        It takes into account the time recommended by the provider and by the requirer.
-        Time recommended by the provider is preferred,
-        then time recommended by the requirer,
-        then dynmaicaly calculated time.
-
-        Args:
-            validity_time: Certificate validity time
-            expiry_time: Certificate expiry time
-            provider_recommended_notification_time:
-                Time in hours prior to expiry to notify the user.
-                Recommended by the provider.
-
-        Returns:
-            datetime: Time to notify the user about the certificate expiry.
-        """
-        if provider_recommended_notification_time:
-            provider_recommendation_time_delta = (
-                expiry_time - timedelta(hours=provider_recommended_notification_time)
-            )
-            if datetime.now(timezone.utc) < provider_recommendation_time_delta:
-                return provider_recommendation_time_delta
-
-        if self.expiry_notification_time:
-            requirer_recommendation_time_delta = (
-                expiry_time - timedelta(hours=self.expiry_notification_time)
-            )
-            if datetime.now(timezone.utc) < requirer_recommendation_time_delta:
-                return requirer_recommendation_time_delta
-
-        calculated_hours = math.ceil(
-            (expiry_time - validity_time).total_seconds() / (3600 * 3)
-        )
-        print(calculated_hours)
-        return expiry_time - timedelta(hours=calculated_hours)
