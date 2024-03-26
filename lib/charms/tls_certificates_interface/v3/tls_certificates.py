@@ -134,7 +134,7 @@ from charms.tls_certificates_interface.v3.tls_certificates import (
     generate_csr,
     generate_private_key,
 )
-from ops.charm import CharmBase, RelationJoinedEvent
+from ops.charm import CharmBase, RelationCreatedEvent
 from ops.main import main
 from ops.model import ActiveStatus, WaitingStatus
 from typing import Union
@@ -148,7 +148,7 @@ class ExampleRequirerCharm(CharmBase):
         self.certificates = TLSCertificatesRequiresV3(self, "certificates")
         self.framework.observe(self.on.install, self._on_install)
         self.framework.observe(
-            self.on.certificates_relation_joined, self._on_certificates_relation_joined
+            self.on.certificates_relation_created, self._on_certificates_relation_created
         )
         self.framework.observe(
             self.certificates.on.certificate_available, self._on_certificate_available
@@ -176,7 +176,7 @@ class ExampleRequirerCharm(CharmBase):
             {"private_key_password": "banana", "private_key": private_key.decode()}
         )
 
-    def _on_certificates_relation_joined(self, event: RelationJoinedEvent) -> None:
+    def _on_certificates_relation_created(self, event: RelationCreatedEvent) -> None:
         replicas_relation = self.model.get_relation("replicas")
         if not replicas_relation:
             self.unit.status = WaitingStatus("Waiting for peer relation to be created")

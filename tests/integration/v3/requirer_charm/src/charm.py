@@ -41,7 +41,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
             self.certificates.on.certificate_invalidated, self._on_certificate_invalidated
         )
         self.framework.observe(
-            self.on.certificates_relation_joined, self._on_certificates_relation_joined
+            self.on.certificates_relation_created, self._on_certificates_relation_created
         )
         self.framework.observe(self.on.get_certificate_action, self._on_get_certificate_action)
 
@@ -149,7 +149,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         self._generate_private_key()
         self.unit.status = BlockedStatus("Waiting for relation to be created")
 
-    def _on_certificates_relation_joined(self, event) -> None:
+    def _on_certificates_relation_created(self, event) -> None:
         self._request_certificate()
 
     def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
