@@ -454,6 +454,10 @@ class ProviderCertificate:
     chain: List[str]
     revoked: bool
 
+    def chain_as_pem(self) -> str:
+        """Return full certificate chain as a PEM string."""
+        return "\n\n".join(reversed(self.chain))
+
 
 class CertificateAvailableEvent(EventBase):
     """Charm Event triggered when a TLS certificate is available."""
@@ -487,6 +491,10 @@ class CertificateAvailableEvent(EventBase):
         self.certificate_signing_request = snapshot["certificate_signing_request"]
         self.ca = snapshot["ca"]
         self.chain = snapshot["chain"]
+
+    def chain_as_pem(self) -> str:
+        """Return full certificate chain as a PEM string."""
+        return "\n\n".join(reversed(self.chain))
 
 
 class CertificateExpiringEvent(EventBase):

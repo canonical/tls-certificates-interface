@@ -3,6 +3,7 @@
 # See LICENSE file for licensing details.
 
 import uuid
+from unittest.mock import Mock
 
 import pytest
 from charms.tls_certificates_interface.v3.tls_certificates import (
@@ -15,8 +16,12 @@ from charms.tls_certificates_interface.v3.tls_certificates import (
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
-from cryptography.hazmat.primitives.serialization import load_pem_private_key, pkcs12
+from cryptography.hazmat.primitives.serialization import Encoding, load_pem_private_key, pkcs12
 
+from lib.charms.tls_certificates_interface.v3.tls_certificates import (
+    CertificateAvailableEvent,
+    ProviderCertificate,
+)
 from tests.unit.charms.tls_certificates_interface.v3.certificates import (
     generate_ca as generate_ca_helper,
 )
@@ -544,3 +549,83 @@ def test_given_request_is_for_ca_certificate_when_generate_certificate_then_cert
     assert (
         loaded_server_cert.extensions.get_extension_for_class(x509.KeyUsage).value.crl_sign is True
     )
+
+
+def test_given_provider_certificate_with_chain_when_chain_as_pem_then_pem_contains_full_chain():
+    ca_private_key = generate_private_key()
+    ca = generate_ca(
+        private_key=ca_private_key,
+        subject="my.demo.ca",
+    )
+
+    server_private_key = generate_private_key()
+    server_csr = generate_csr(
+        private_key=server_private_key,
+        subject="my.demo.server",
+        sans_dns=["my.demo.server"],
+        sans_ip=[],
+    )
+    server_cert = generate_certificate(
+        csr=server_csr,
+        ca=ca,
+        ca_key=ca_private_key,
+        is_ca=False,
+    )
+
+    provider_cert = ProviderCertificate(
+        relation_id=0,
+        application_name="app",
+        csr=server_csr.decode(),
+        certificate=server_cert.decode(),
+        ca=ca.decode(),
+        chain=[ca.decode(), server_cert.decode()],
+        revoked=False
+    )
+
+    fullchain = provider_cert.chain_as_pem()
+    loaded = x509.load_pem_x509_certificates(fullchain.encode())
+    store = x509.verification.Store([x509.load_pem_x509_certificate(ca)])
+    builder = x509.verification.PolicyBuilder().store(store)
+    verifier = builder.build_server_verifier(x509.DNSName("my.demo.server"))
+    loaded[0].verify_directly_issued_by(loaded[1])
+    chain = verifier.verify(loaded[0], loaded[1:])
+    assert chain[0].public_bytes(encoding=Encoding.PEM) == server_cert
+
+
+def test_given_certificate_available_with_chain_when_chain_as_pem_then_pem_contains_full_chain():
+    ca_private_key = generate_private_key()
+    ca = generate_ca(
+        private_key=ca_private_key,
+        subject="my.demo.ca",
+    )
+
+    server_private_key = generate_private_key()
+    server_csr = generate_csr(
+        private_key=server_private_key,
+        subject="my.demo.server",
+        sans_dns=["my.demo.server"],
+        sans_ip=[],
+    )
+    server_cert = generate_certificate(
+        csr=server_csr,
+        ca=ca,
+        ca_key=ca_private_key,
+        is_ca=False,
+    )
+
+    cert_available_event = CertificateAvailableEvent(
+        handle=Mock(),
+        certificate_signing_request=server_csr.decode(),
+        certificate=server_cert.decode(),
+        ca=ca.decode(),
+        chain=[ca.decode(), server_cert.decode()],
+    )
+
+    fullchain = cert_available_event.chain_as_pem()
+    loaded = x509.load_pem_x509_certificates(fullchain.encode())
+    store = x509.verification.Store([x509.load_pem_x509_certificate(ca)])
+    builder = x509.verification.PolicyBuilder().store(store)
+    verifier = builder.build_server_verifier(x509.DNSName("my.demo.server"))
+    loaded[0].verify_directly_issued_by(loaded[1])
+    chain = verifier.verify(loaded[0], loaded[1:])
+    assert chain[0].public_bytes(encoding=Encoding.PEM) == server_cert
