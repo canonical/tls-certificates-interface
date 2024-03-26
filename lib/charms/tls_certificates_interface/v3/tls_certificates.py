@@ -685,43 +685,8 @@ def _get_closest_future_time(
         else expiry_time
     )
 
-
-def get_certificate_expiry_time(certificate: str) -> Optional[datetime]:
-    """Extract expiry time from a certificate string.
-
-    Args:
-        certificate (str): x509 certificate as a string
-
-    Returns:
-        Optional[datetime]: Expiry datetime or None
-    """
-    try:
-        certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
-        return certificate_object.not_valid_after_utc
-    except ValueError:
-        logger.warning("Could not load certificate.")
-        return None
-
-
-def get_certificate_validity_start_time(certificate: str) -> Optional[datetime]:
-    """Extract expiry time from a certificate string.
-
-    Args:
-        certificate (str): x509 certificate as a string
-
-    Returns:
-        Optional[datetime]: Time when this certificate is valid from or None
-    """
-    try:
-        certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
-        return certificate_object.not_valid_before_utc
-    except ValueError:
-        logger.warning("Could not load certificate.")
-        return None
-
-
 def calculate_expiry_notification_time(
-        validity_time: datetime,
+        validity_start_time: datetime,
         expiry_time: datetime,
         provider_recommended_notification_time: Optional[int],
         requirer_recommended_notification_time: Optional[int],
@@ -734,7 +699,7 @@ def calculate_expiry_notification_time(
         then dynmaicaly calculated time.
 
         Args:
-            validity_time: Certificate validity time
+            validity_start_time: Certificate validity time
             expiry_time: Certificate expiry time
             provider_recommended_notification_time:
                 Time in hours prior to expiry to notify the user.
@@ -750,17 +715,17 @@ def calculate_expiry_notification_time(
             provider_recommendation_time_delta = (
                 expiry_time - timedelta(hours=provider_recommended_notification_time)
             )
-            if validity_time < provider_recommendation_time_delta:
+            if validity_start_time < provider_recommendation_time_delta:
                 return provider_recommendation_time_delta
 
         if requirer_recommended_notification_time:
             requirer_recommendation_time_delta = (
                 expiry_time - timedelta(hours=requirer_recommended_notification_time)
             )
-            if validity_time < requirer_recommendation_time_delta:
+            if validity_start_time < requirer_recommendation_time_delta:
                 return requirer_recommendation_time_delta
         calculated_hours = math.ceil(
-            (expiry_time - validity_time).total_seconds() / (3600 * 3)
+            (expiry_time - validity_start_time).total_seconds() / (3600 * 3)
         )
         return expiry_time - timedelta(hours=calculated_hours)
 
@@ -1620,22 +1585,25 @@ class TLSCertificatesRequiresV3(Object):
             if not certificate:
                 logger.warning("No certificate found in relation data - Skipping")
                 continue
+            try:
+                certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
+            except ValueError as e:
+                logger.error("Could not load certificate - Skipping: %s", e)
+                continue
             ca = provider_certificate_dict.get("ca")
             chain = provider_certificate_dict.get("chain", [])
             csr = provider_certificate_dict.get("certificate_signing_request")
             recommended_expiry_notification_time = provider_certificate_dict.get(
                 "recommended_expiry_notification_time"
             )
-            expiry_time = get_certificate_expiry_time(certificate)
-            validity_time = get_certificate_validity_start_time(certificate)
-            expiry_notification_time = None
-            if expiry_time and validity_time:
-                expiry_notification_time = calculate_expiry_notification_time(
-                    validity_time=validity_time,
-                    expiry_time=expiry_time,
-                    provider_recommended_notification_time=recommended_expiry_notification_time,
-                    requirer_recommended_notification_time=self.expiry_notification_time,
-                )
+            expiry_time = certificate_object.not_valid_after_utc
+            validity_start_time = certificate_object.not_valid_before_utc
+            expiry_notification_time = calculate_expiry_notification_time(
+                validity_start_time=validity_start_time,
+                expiry_time=expiry_time,
+                provider_recommended_notification_time=recommended_expiry_notification_time,
+                requirer_recommended_notification_time=self.expiry_notification_time,
+            )
             if not csr:
                 logger.warning("No CSR found in relation data - Skipping")
                 continue
