@@ -641,7 +641,7 @@ def _get_closest_future_time(
     )
 
 
-def get_certificate_expiry_time(certificate: str) -> Optional[datetime]:
+def _get_certificate_expiry_time(certificate: str) -> Optional[datetime]:
     """Extract expiry time from a certificate string.
 
     Args:
@@ -1704,7 +1704,7 @@ class TLSCertificatesRequiresV2(Object):
         for csr in self.get_certificate_signing_requests(fulfilled_only=True):
             assert isinstance(csr["certificate_signing_request"], str)
             if cert := self._find_certificate_in_relation_data(csr["certificate_signing_request"]):
-                expiry_time = get_certificate_expiry_time(cert["certificate"])
+                expiry_time = _get_certificate_expiry_time(cert["certificate"])
                 if not expiry_time:
                     continue
                 expiry_notification_time = expiry_time - timedelta(
@@ -1842,7 +1842,7 @@ class TLSCertificatesRequiresV2(Object):
             Optional[datetime]: None if the certificate expiry time cannot be read,
                                 next expiry time otherwise.
         """
-        expiry_time = get_certificate_expiry_time(certificate)
+        expiry_time = _get_certificate_expiry_time(certificate)
         if not expiry_time:
             return None
         expiry_notification_time = expiry_time - timedelta(hours=self.expiry_notification_time)
@@ -1887,7 +1887,7 @@ class TLSCertificatesRequiresV2(Object):
             event.secret.remove_all_revisions()
             return
 
-        expiry_time = get_certificate_expiry_time(certificate_dict["certificate"])
+        expiry_time = _get_certificate_expiry_time(certificate_dict["certificate"])
         if not expiry_time:
             # A secret expired but matching certificate is invalid. Cleaning up
             event.secret.remove_all_revisions()
@@ -1900,7 +1900,7 @@ class TLSCertificatesRequiresV2(Object):
                 expiry=expiry_time.isoformat(),
             )
             event.secret.set_info(
-                expire=get_certificate_expiry_time(certificate_dict["certificate"]),
+                expire=_get_certificate_expiry_time(certificate_dict["certificate"]),
             )
         else:
             logger.warning("Certificate is expired")
@@ -1936,7 +1936,7 @@ class TLSCertificatesRequiresV2(Object):
             None
         """
         for certificate_dict in self._provider_certificates:
-            expiry_time = get_certificate_expiry_time(certificate_dict["certificate"])
+            expiry_time = _get_certificate_expiry_time(certificate_dict["certificate"])
             if not expiry_time:
                 continue
             time_difference = expiry_time - datetime.now(timezone.utc)

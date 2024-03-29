@@ -1055,7 +1055,7 @@ class TestJuju3(unittest.TestCase):
         assert certificate_available_event.ca == ca_certificate
         assert certificate_available_event.chain == chain
 
-    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
+    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_available")
     def test_given_csr_in_unit_relation_data_and_certificate_in_remote_relation_data_when_relation_changed_then_secret_is_added(  # noqa: E501
         self, patch_on_certificate_available, patch_get_expiry_time
@@ -1097,7 +1097,7 @@ class TestJuju3(unittest.TestCase):
         assert secret.get_content()["certificate"] == certificate
         assert secret.get_info().expires == expiry_time - timedelta(hours=168)
 
-    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
+    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_available")
     def test_given_csr_in_unit_relation_data_and_certificate_in_remote_relation_data_and_secret_already_exists_when_relation_changed_then_secret_is_updated(  # noqa: E501
         self, patch_on_certificate_available, patch_get_expiry_time
@@ -1409,7 +1409,7 @@ class TestJuju3(unittest.TestCase):
         )
         assert len(output) == 0
 
-    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
+    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
     def test_given_no_expired_certificates_in_relation_data_when_get_expiring_certificates_then_no_certificates_returned(  # noqa: E501
         self, patch_get_expiry_time
     ):
@@ -1449,7 +1449,7 @@ class TestJuju3(unittest.TestCase):
         all_certs = self.harness.charm.certificates.get_expiring_certificates()
         assert len(all_certs) == 0
 
-    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
+    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
     def test_given_expired_certificate_in_relation_data_when_get_expiring_certificates_then_correct_certificates_returned(  # noqa: E501
         self, patch_get_expiry_time
     ):
@@ -1490,7 +1490,7 @@ class TestJuju3(unittest.TestCase):
         assert len(all_certs) > 0
         assert all_certs[0]["certificate"] == certificate
 
-    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
+    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_expired_certificate_in_relation_data_when_secret_expired_then_certificate_invalidated_event_with_reason_expired_emitted(  # noqa: E501
         self, patch_certificate_invalidated, patch_get_expiry_time
@@ -1536,7 +1536,7 @@ class TestJuju3(unittest.TestCase):
         event_data = args[0]
         assert event_data.certificate == certificate
 
-    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
+    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_expired_certificate_and_other_certificates_in_relation_data_when_secret_expired_then_certificate_invalidated_event_with_reason_expired_emitted_once(  # noqa: E501
         self, patch_certificate_invalidated, patch_get_expiry_time
@@ -1588,7 +1588,7 @@ class TestJuju3(unittest.TestCase):
         event_data = args[0]
         assert event_data.certificate == certificate
 
-    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
+    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_expired_certificate_in_relation_data_when_secret_expired_then_secret_revisions_are_removed(  # noqa: E501
         self, patch_certificate_invalidated, patch_get_expiry_time
@@ -1633,7 +1633,7 @@ class TestJuju3(unittest.TestCase):
         with pytest.raises(RuntimeError):
             self.harness.get_secret_revisions(secret_id)
 
-    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
+    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_expiring")
     def test_given_almost_expiring_certificate_in_relation_data_when_secret_expired_then_certificate_expiring_event_emitted(  # noqa: E501
         self, patch_certificate_expiring, patch_get_expiry_time
@@ -1679,7 +1679,7 @@ class TestJuju3(unittest.TestCase):
         event_data = args[0]
         assert event_data.certificate == certificate
 
-    @patch(f"{LIB_DIR}.get_certificate_expiry_time")
+    @patch(f"{LIB_DIR}._get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_expiring")
     def test_given_almost_expiring_certificate_in_relation_data_when_secret_expired_then_secret_expiry_is_set_to_certificate_expiry(  # noqa: E501
         self, patch_certificate_expiring, patch_get_expiry_time

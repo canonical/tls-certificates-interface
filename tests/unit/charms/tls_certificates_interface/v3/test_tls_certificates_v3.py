@@ -3,8 +3,8 @@
 # See LICENSE file for licensing details.
 
 import uuid
-from unittest.mock import Mock
 from datetime import datetime, timedelta, timezone
+from unittest.mock import Mock
 
 import pytest
 from charms.tls_certificates_interface.v3.tls_certificates import (
