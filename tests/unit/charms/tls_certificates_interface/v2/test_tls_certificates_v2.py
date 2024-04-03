@@ -41,7 +41,7 @@ def validate_induced_data_from_pfx_is_equal_to_initial_data(
     (
         induced_private_key_object,
         induced_certificate_object,
-        additional_certificate,
+        _,
     ) = pkcs12.load_key_and_certificates(pfx_file, password.encode())
     initial_private_key_object = load_pem_private_key(
         initial_private_key,

@@ -15,6 +15,8 @@ line-length = 99
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "C", "N", "D", "I001"]
+preview = true
+
 extend-ignore = [
     "D203",
     "D204",

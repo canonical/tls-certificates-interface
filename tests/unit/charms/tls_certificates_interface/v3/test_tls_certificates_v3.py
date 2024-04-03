@@ -47,7 +47,7 @@ def validate_induced_data_from_pfx_is_equal_to_initial_data(
     (
         induced_private_key_object,
         induced_certificate_object,
-        additional_certificate,
+        _,
     ) = pkcs12.load_key_and_certificates(pfx_file, password.encode())
     initial_private_key_object = load_pem_private_key(
         initial_private_key,
@@ -632,6 +632,7 @@ def test_given_certificate_available_with_chain_when_chain_as_pem_then_pem_conta
     chain = verifier.verify(loaded[0], loaded[1:])
     assert chain[0].public_bytes(encoding=Encoding.PEM) == server_cert
 
+
 def test_given_provider_recommended_notification_time_when_calculate_expiry_notification_time_then_returns_provider_recommendation():  # noqa: E501
     expiry_time = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     validity_start_time_in_hours = 240
@@ -648,6 +649,7 @@ def test_given_provider_recommended_notification_time_when_calculate_expiry_noti
         requirer_recommended_notification_time=requirer_recommended_notification_time,
     )
     assert notification_time == expected_notification_time
+
 
 def test_given_provider_recommended_notification_time_is_too_early_when_calculate_expiry_notification_time_then_returns_requirer_recommended_notification_time():  # noqa: E501
     expiry_time = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
@@ -700,6 +702,7 @@ def test_given_requirer_and_provider_recommendations_are_invalid_whencalculate_e
         requirer_recommended_notification_time=requirer_recommended_notification_time,
     )
     assert notification_time == expected_notification_time
+
 
 def test_given_validity_time_is_too_short_when_calculate_expiry_notification_time_then_returns_calculated_notification_time():  # noqa: E501
     expiry_time = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)

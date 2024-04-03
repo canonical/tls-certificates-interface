@@ -31,6 +31,7 @@ LIBID = "afd8c2bccf834997afce12c2706d2ede"
 LIB_DIR = "lib.charms.tls_certificates_interface.v3.tls_certificates"
 SECONDS_IN_ONE_HOUR = 60 * 60
 
+
 class FakeJujuVersion:
     @classmethod
     def from_environ(cls):
@@ -40,8 +41,8 @@ class FakeJujuVersion:
     def has_secrets(self):
         return True
 
-class TestTLSCertificatesRequiresV3(unittest.TestCase):
 
+class TestTLSCertificatesRequiresV3(unittest.TestCase):
     @patch(f"{LIB_DIR}.JujuVersion", new=FakeJujuVersion)
     def setUp(self):
         self.relation_name = "certificates"
