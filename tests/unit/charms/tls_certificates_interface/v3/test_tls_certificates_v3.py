@@ -631,6 +631,7 @@ def test_given_certificate_available_with_chain_when_chain_as_pem_then_pem_conta
     loaded[0].verify_directly_issued_by(loaded[1])
     chain = verifier.verify(loaded[0], loaded[1:])
     assert chain[0].public_bytes(encoding=Encoding.PEM) == server_cert
+
 def test_given_provider_recommended_notification_time_when_calculate_expiry_notification_time_then_returns_provider_recommendation():  # noqa: E501
     expiry_time = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     validity_start_time_in_hours = 240
@@ -648,8 +649,7 @@ def test_given_provider_recommended_notification_time_when_calculate_expiry_noti
     )
     assert notification_time == expected_notification_time
 
-
-def test_given_provider_recommended_notification_time_is_too_early_whencalculate_expiry_notification_time_then_returns_requirer_recommended_notification_time():  # noqa: E501
+def test_given_provider_recommended_notification_time_is_too_early_when_calculate_expiry_notification_time_then_returns_requirer_recommended_notification_time():  # noqa: E501
     expiry_time = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     validity_start_time_in_hours = 240
     validity_start_time = expiry_time - timedelta(hours=validity_start_time_in_hours)

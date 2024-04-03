@@ -52,7 +52,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
 
     def setup_mock_certificate_object(
         self, expiry_time=None, start_time=datetime.now(timezone.utc)
-    ):
+    ) -> Mock:
         if not expiry_time:
             expiry_time = datetime.now(timezone.utc) + timedelta(weeks=30)
         certificate_object = Mock()
