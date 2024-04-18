@@ -455,7 +455,7 @@ class ProviderCertificate:
     ca: str
     chain: List[str]
     revoked: bool
-    expiry_time: Optional[datetime] = None
+    expiry_time: datetime
     expiry_notification_time: Optional[datetime] = None
 
     def chain_as_pem(self) -> str:
@@ -1350,6 +1350,13 @@ class TLSCertificatesProvidesV3(Object):
             provider_relation_data = self._load_app_relation_data(relation)
             provider_certificates = provider_relation_data.get("certificates", [])
             for certificate in provider_certificates:
+                try:
+                    certificate_object = x509.load_pem_x509_certificate(
+                        data=certificate["certificate"].encode()
+                    )
+                except ValueError as e:
+                    logger.error("Could not load certificate - Skipping: %s", e)
+                    continue
                 provider_certificate = ProviderCertificate(
                     relation_id=relation.id,
                     application_name=relation.app.name,
@@ -1358,6 +1365,10 @@ class TLSCertificatesProvidesV3(Object):
                     ca=certificate["ca"],
                     chain=certificate["chain"],
                     revoked=certificate.get("revoked", False),
+                    expiry_time=certificate_object.not_valid_after_utc,
+                    expiry_notification_time=certificate.get(
+                        "recommended_expiry_notification_time"
+                    ),
                 )
                 certificates.append(provider_certificate)
         return certificates

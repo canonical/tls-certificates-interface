@@ -4,8 +4,9 @@
 
 import json
 import unittest
+from datetime import datetime, timedelta, timezone
 from typing import Mapping
-from unittest.mock import PropertyMock, call, patch
+from unittest.mock import Mock, PropertyMock, call, patch
 
 from ops import testing
 
@@ -56,6 +57,9 @@ qbNLuwLW2Nhf9xIOLFRoPMUnP7njo0t15qgMfA==
 -----END CERTIFICATE-----"""
 
 
+DEFAULT_EXPIRY_DAYS = 356
+
+
 def _load_relation_data(raw_relation_data: Mapping[str, str]) -> dict:
     """Load relation data from the relation data bag.
 
@@ -84,6 +88,16 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         self.harness = testing.Harness(DummyTLSCertificatesProviderCharm)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
+
+    def setup_mock_certificate_object(
+        self, expiry_time=None, start_time=datetime.now(timezone.utc)
+    ) -> Mock:
+        if not expiry_time:
+            expiry_time = start_time + timedelta(days=DEFAULT_EXPIRY_DAYS)
+        certificate_object = Mock()
+        certificate_object.not_valid_after_utc = expiry_time
+        certificate_object.not_valid_before_utc = start_time
+        return certificate_object
 
     def create_certificates_relation_with_1_remote_unit(self) -> int:
         relation_id = self.harness.add_relation(
@@ -144,12 +158,13 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         patch_certificate_creation_request.assert_not_called()
 
+    @patch("cryptography.x509.load_pem_x509_certificate")
     @patch(
         f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_creation_request",
         new_callable=PropertyMock,
     )
     def test_given_certificate_for_csr_already_in_relation_data_when_on_relation_changed_then_certificate_creation_request_is_not_emitted(  # noqa: E501
-        self, patch_certificate_creation_request
+        self, patch_certificate_creation_request, _
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
@@ -234,12 +249,13 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         patch_certificate_revocation_request.emit.assert_not_called()
 
+    @patch("cryptography.x509.load_pem_x509_certificate")
     @patch(f"{LIB_DIR}.TLSCertificatesProvidesV3.remove_certificate")
     @patch(
         f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_revocation_request",
     )
     def test_given_csr_in_provider_relation_data_but_not_in_requirer_when_on_relation_changed_then_certificate_revocation_request_is_emitted(  # noqa: E501
-        self, patch_certificate_revocation_request, _
+        self, patch_certificate_revocation_request, _, __
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
@@ -278,6 +294,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             chain=chain,
         )
 
+    @patch("cryptography.x509.load_pem_x509_certificate")
     @patch(f"{LIB_DIR}.TLSCertificatesProvidesV3.remove_certificate")
     @patch(
         f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_revocation_request",
@@ -287,6 +304,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         self,
         _,
         patch_remove_certificate,
+        patch_load_pem_x509_certificate,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
@@ -307,6 +325,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 )
             },
         )
+        patch_load_pem_x509_certificate.return_value = self.setup_mock_certificate_object()
         remote_unit_relation_data = {"certificate_signing_requests": "[]"}
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -922,8 +941,9 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         self.assertEqual(certificates, [])
 
+    @patch("cryptography.x509.load_pem_x509_certificate")
     def test_given_one_certificate_in_relation_data_when_get_issued_certificates_then_certificate_is_returned(  # noqa: E501
-        self,
+        self, patch_load_pem_x509_certificate
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
@@ -943,6 +963,11 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         self.harness.update_relation_data(
             relation_id=relation_id, app_or_unit=self.harness.charm.app.name, key_values=key_values
         )
+        start = datetime.now(timezone.utc)
+        patch_load_pem_x509_certificate.return_value = self.setup_mock_certificate_object(
+            start_time=start
+        )
+        expiry_time = start + timedelta(days=DEFAULT_EXPIRY_DAYS)
         expected_certificate = [
             ProviderCertificate(
                 relation_id=relation_id,
@@ -952,6 +977,8 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 chain=["whatever cert 1", "whatever cert 2"],
                 ca="whatever ca",
                 revoked=False,
+                expiry_time=expiry_time,
+                expiry_notification_time=None,
             )
         ]
 
@@ -959,8 +986,9 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         self.assertEqual(certificates, expected_certificate)
 
+    @patch("cryptography.x509.load_pem_x509_certificate")
     def test_given_multiple_certificate_in_relation_data_when_get_issued_certificates_then_certificate_are_returned(  # noqa: E501
-        self,
+        self, patch_load_pem_x509_certificate
     ):
         relation_id_requirer_1 = self.create_certificates_relation_with_1_remote_unit()
         requirer_2_app = "tls-certificates-requirer_2"
@@ -1011,6 +1039,11 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             app_or_unit=self.harness.charm.app.name,
             key_values=key_values_requirer_2,
         )
+        start = datetime.now(timezone.utc)
+        patch_load_pem_x509_certificate.return_value = self.setup_mock_certificate_object(
+            start_time=start
+        )
+        expiry_time = start + timedelta(days=DEFAULT_EXPIRY_DAYS)
         expected_certificates = [
             ProviderCertificate(
                 relation_id=relation_id_requirer_1,
@@ -1020,6 +1053,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 chain=["whatever cert 1", "whatever cert 2"],
                 ca="whatever ca",
                 revoked=False,
+                expiry_time=expiry_time
             ),
             ProviderCertificate(
                 relation_id=relation_id_requirer_2,
@@ -1029,6 +1063,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 chain=["whatever cert 1", "whatever cert 2"],
                 ca="whatever ca",
                 revoked=False,
+                expiry_time=expiry_time
             ),
         ]
         certificates = self.harness.charm.certificates.get_issued_certificates()
@@ -1044,8 +1079,10 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
         self.assertEqual(certificates, [])
 
+    @patch("cryptography.x509.load_pem_x509_certificate")
     def test_given_certificate_in_relation_data_when_get_issued_certificates_by_relation_id_then_certificate_is_returned(  # noqa: E501
         self,
+        patch_load_pem_x509_certificate,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
@@ -1065,6 +1102,11 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         self.harness.update_relation_data(
             relation_id=relation_id, app_or_unit=self.harness.charm.app.name, key_values=key_values
         )
+        start = datetime.now(timezone.utc)
+        patch_load_pem_x509_certificate.return_value = self.setup_mock_certificate_object(
+            start_time=start
+        )
+        expiry_time = start + timedelta(days=DEFAULT_EXPIRY_DAYS)
         expected_certificates = [
             ProviderCertificate(
                 relation_id=relation_id,
@@ -1074,6 +1116,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 chain=["whatever cert 1", "whatever cert 2"],
                 ca="whatever ca",
                 revoked=False,
+                expiry_time=expiry_time,
             )
         ]
 

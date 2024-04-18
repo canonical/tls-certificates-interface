@@ -574,6 +574,8 @@ def test_given_provider_certificate_with_chain_when_chain_as_pem_then_pem_contai
         is_ca=False,
     )
 
+    expiry_time = datetime.now() + timedelta(days=356)
+    expiry_notification_time = expiry_time - timedelta(days=30)
     provider_cert = ProviderCertificate(
         relation_id=0,
         application_name="app",
@@ -581,7 +583,9 @@ def test_given_provider_certificate_with_chain_when_chain_as_pem_then_pem_contai
         certificate=server_cert.decode(),
         ca=ca.decode(),
         chain=[ca.decode(), server_cert.decode()],
-        revoked=False
+        revoked=False,
+        expiry_time=expiry_time,
+        expiry_notification_time=expiry_notification_time,
     )
 
     fullchain = provider_cert.chain_as_pem()
