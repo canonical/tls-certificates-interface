@@ -279,7 +279,6 @@ juju relate <tls-certificates provider charm> <tls-certificates requirer charm>
 import copy
 import json
 import logging
-import math
 import uuid
 from contextlib import suppress
 from dataclasses import dataclass
@@ -697,7 +696,7 @@ def calculate_expiry_notification_time(
     It takes into account the time recommended by the provider and by the requirer.
     Time recommended by the provider is preferred,
     then time recommended by the requirer,
-    then dynmaicaly calculated time.
+    then dynamically calculated time.
 
     Args:
         validity_start_time: Certificate validity time
@@ -712,22 +711,22 @@ def calculate_expiry_notification_time(
     Returns:
         datetime: Time to notify the user about the certificate expiry.
     """
-    if provider_recommended_notification_time:
+    if provider_recommended_notification_time is not None:
+        provider_recommended_notification_time = abs(provider_recommended_notification_time)
         provider_recommendation_time_delta = (
             expiry_time - timedelta(hours=provider_recommended_notification_time)
         )
         if validity_start_time < provider_recommendation_time_delta:
             return provider_recommendation_time_delta
 
-    if requirer_recommended_notification_time:
+    if requirer_recommended_notification_time is not None:
+        requirer_recommended_notification_time = abs(requirer_recommended_notification_time)
         requirer_recommendation_time_delta = (
             expiry_time - timedelta(hours=requirer_recommended_notification_time)
         )
         if validity_start_time < requirer_recommendation_time_delta:
             return requirer_recommendation_time_delta
-    calculated_hours = math.ceil(
-        (expiry_time - validity_start_time).total_seconds() / (3600 * 3)
-    )
+    calculated_hours = (expiry_time - validity_start_time).total_seconds() / (3600 * 3)
     return expiry_time - timedelta(hours=calculated_hours)
 
 
