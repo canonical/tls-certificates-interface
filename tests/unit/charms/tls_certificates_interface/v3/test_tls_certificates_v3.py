@@ -629,3 +629,26 @@ def test_given_certificate_available_with_chain_when_chain_as_pem_then_pem_conta
     loaded[0].verify_directly_issued_by(loaded[1])
     chain = verifier.verify(loaded[0], loaded[1:])
     assert chain[0].public_bytes(encoding=Encoding.PEM) == server_cert
+
+
+def test_given_localization_is_specified_when_generate_csr_then_csr_contains_localization():
+    private_key = generate_private_key()
+
+    csr = generate_csr(
+        private_key=private_key,
+        subject="my.demo.server",
+        sans_dns=["my.demo.server"],
+        sans_ip=[],
+        country_name="CA",
+        state_or_province_name="Quebec",
+        locality_name="Montreal",
+    )
+
+    csr_object = x509.load_pem_x509_csr(csr)
+    assert csr_object.subject.get_attributes_for_oid(x509.NameOID.COUNTRY_NAME)[0].value == "CA"
+    assert csr_object.subject.get_attributes_for_oid(
+        x509.NameOID.STATE_OR_PROVINCE_NAME
+        )[0].value == "Quebec"
+    assert csr_object.subject.get_attributes_for_oid(
+        x509.NameOID.LOCALITY_NAME
+        )[0].value == "Montreal"
