@@ -2,7 +2,9 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+import json
 import uuid
+from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
 
 import pytest
@@ -21,6 +23,7 @@ from cryptography.hazmat.primitives.serialization import Encoding, load_pem_priv
 from lib.charms.tls_certificates_interface.v3.tls_certificates import (
     CertificateAvailableEvent,
     ProviderCertificate,
+    calculate_expiry_notification_time,
 )
 from tests.unit.charms.tls_certificates_interface.v3.certificates import (
     generate_ca as generate_ca_helper,
@@ -45,7 +48,7 @@ def validate_induced_data_from_pfx_is_equal_to_initial_data(
     (
         induced_private_key_object,
         induced_certificate_object,
-        additional_certificate,
+        _,
     ) = pkcs12.load_key_and_certificates(pfx_file, password.encode())
     initial_private_key_object = load_pem_private_key(
         initial_private_key,
@@ -572,6 +575,8 @@ def test_given_provider_certificate_with_chain_when_chain_as_pem_then_pem_contai
         is_ca=False,
     )
 
+    expiry_time = datetime.now() + timedelta(days=356)
+    expiry_notification_time = expiry_time - timedelta(days=30)
     provider_cert = ProviderCertificate(
         relation_id=0,
         application_name="app",
@@ -579,7 +584,9 @@ def test_given_provider_certificate_with_chain_when_chain_as_pem_then_pem_contai
         certificate=server_cert.decode(),
         ca=ca.decode(),
         chain=[ca.decode(), server_cert.decode()],
-        revoked=False
+        revoked=False,
+        expiry_time=expiry_time,
+        expiry_notification_time=expiry_notification_time,
     )
 
     fullchain = provider_cert.chain_as_pem()
@@ -629,6 +636,158 @@ def test_given_certificate_available_with_chain_when_chain_as_pem_then_pem_conta
     loaded[0].verify_directly_issued_by(loaded[1])
     chain = verifier.verify(loaded[0], loaded[1:])
     assert chain[0].public_bytes(encoding=Encoding.PEM) == server_cert
+
+
+def test_given_provider_recommended_notification_time_when_calculate_expiry_notification_time_then_returns_provider_recommendation():  # noqa: E501
+    expiry_time = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    validity_start_time_in_hours = 240
+    validity_start_time = expiry_time - timedelta(hours=validity_start_time_in_hours)
+    provider_recommended_notification_time = 24
+    requirer_recommended_notification_time = 48
+    expected_notification_time = (
+        expiry_time - timedelta(hours=provider_recommended_notification_time)
+    )
+    notification_time = calculate_expiry_notification_time(
+        expiry_time=expiry_time,
+        validity_start_time=validity_start_time,
+        provider_recommended_notification_time=provider_recommended_notification_time,
+        requirer_recommended_notification_time=requirer_recommended_notification_time,
+    )
+    assert notification_time == expected_notification_time
+
+
+def test_given_negative_provider_recommended_notification_time_when_calculate_expiry_notification_time_then_returns_provider_recommendation():  # noqa: E501
+    expiry_time = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    validity_start_time_in_hours = 240
+    validity_start_time = expiry_time - timedelta(hours=validity_start_time_in_hours)
+    negative_provider_recommended_notification_time = 24
+    requirer_recommended_notification_time = 48
+    expected_notification_time = (
+        expiry_time - timedelta(hours=abs(negative_provider_recommended_notification_time))
+    )
+    notification_time = calculate_expiry_notification_time(
+        expiry_time=expiry_time,
+        validity_start_time=validity_start_time,
+        provider_recommended_notification_time=negative_provider_recommended_notification_time,
+        requirer_recommended_notification_time=requirer_recommended_notification_time,
+    )
+    assert notification_time == expected_notification_time
+
+
+def test_given_provider_recommended_notification_time_is_too_early_when_calculate_expiry_notification_time_then_returns_requirer_recommended_notification_time():  # noqa: E501
+    expiry_time = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    validity_start_time_in_hours = 240
+    validity_start_time = expiry_time - timedelta(hours=validity_start_time_in_hours)
+    provider_recommended_notification_time = 241
+    requirer_recommended_notification_time = 24
+    expected_notification_time = (
+        expiry_time - timedelta(hours=requirer_recommended_notification_time)
+    )
+    notification_time = calculate_expiry_notification_time(
+        expiry_time=expiry_time,
+        validity_start_time=validity_start_time,
+        provider_recommended_notification_time=provider_recommended_notification_time,
+        requirer_recommended_notification_time=requirer_recommended_notification_time,
+    )
+    assert notification_time == expected_notification_time
+
+
+def test_given_provider_recommended_notification_time_is_none_when_calcualte_expiry_notification_time_then_returns_requirer_recommended_notification_time():  # noqa: E501
+    expiry_time = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    validity_start_time_in_hours = 240
+    validity_start_time = expiry_time - timedelta(hours=validity_start_time_in_hours)
+    provider_recommended_notification_time = None
+    requirer_recommended_notification_time = 24
+    expected_notification_time = (
+        expiry_time - timedelta(hours=requirer_recommended_notification_time)
+    )
+    notification_time = calculate_expiry_notification_time(
+        expiry_time=expiry_time,
+        validity_start_time=validity_start_time,
+        provider_recommended_notification_time=provider_recommended_notification_time,
+        requirer_recommended_notification_time=requirer_recommended_notification_time,
+    )
+    assert notification_time == expected_notification_time
+
+
+def test_given_requirer_and_provider_recommendations_are_invalid_whencalculate_expiry_notification_time_then_returns_calculated_notification_time():  # noqa: E501
+    expiry_time = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    validity_start_time_in_hours = 240
+    validity_start_time = expiry_time - timedelta(hours=validity_start_time_in_hours)
+    provider_recommended_notification_time = None
+    requirer_recommended_notification_time = 241
+    calculated_hours = 80
+    expected_notification_time = expiry_time - timedelta(hours=calculated_hours)
+    notification_time = calculate_expiry_notification_time(
+        expiry_time=expiry_time,
+        validity_start_time=validity_start_time,
+        provider_recommended_notification_time=provider_recommended_notification_time,
+        requirer_recommended_notification_time=requirer_recommended_notification_time,
+    )
+    assert notification_time == expected_notification_time
+
+
+def test_given_negative_requirer_and_provider_recommendations_are_invalid_whencalculate_expiry_notification_time_then_returns_calculated_notification_time():  # noqa: E501
+    expiry_time = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    validity_start_time_in_hours = 240
+    validity_start_time = expiry_time - timedelta(hours=validity_start_time_in_hours)
+    provider_recommended_notification_time = None
+    negative_requirer_recommended_notification_time = -241
+    calculated_hours = 80
+    expected_notification_time = expiry_time - timedelta(hours=calculated_hours)
+    notification_time = calculate_expiry_notification_time(
+        expiry_time=expiry_time,
+        validity_start_time=validity_start_time,
+        provider_recommended_notification_time=provider_recommended_notification_time,
+        requirer_recommended_notification_time=negative_requirer_recommended_notification_time,
+    )
+    assert notification_time == expected_notification_time
+
+
+def test_given_validity_time_is_too_short_when_calculate_expiry_notification_time_then_returns_calculated_notification_time():  # noqa: E501
+    expiry_time = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    validity_start_time_in_hours = 3
+    validity_start_time = expiry_time - timedelta(hours=validity_start_time_in_hours)
+    provider_recommended_notification_time = 24
+    requirer_recommended_notification_time = 48
+    calculated_hours = 1
+    expected_notification_time = expiry_time - timedelta(hours=calculated_hours)
+    notification_time = calculate_expiry_notification_time(
+        expiry_time=expiry_time,
+        validity_start_time=validity_start_time,
+        provider_recommended_notification_time=provider_recommended_notification_time,
+        requirer_recommended_notification_time=requirer_recommended_notification_time,
+    )
+    assert notification_time == expected_notification_time
+
+
+def test_given_provider_certificate_object_when_to_json_then_json_string_is_returned():
+    provider_certificate = ProviderCertificate(
+        relation_id=0,
+        application_name="app",
+        csr="csr",
+        certificate="certificate",
+        ca="ca",
+        chain=["ca", "certificate"],
+        revoked=False,
+        expiry_time=datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+        expiry_notification_time=datetime(2023, 12, 1, 0, 0, 0, tzinfo=timezone.utc),
+    )
+    json_string = provider_certificate.to_json()
+    expected_json = json.dumps(
+        {
+            "relation_id": 0,
+            "application_name": "app",
+            "csr": "csr",
+            "certificate": "certificate",
+            "ca": "ca",
+            "chain": ["ca", "certificate"],
+            "revoked": False,
+            "expiry_time": "2024-01-01T00:00:00+00:00",
+            "expiry_notification_time": "2023-12-01T00:00:00+00:00",
+        }
+    )
+    assert json_string == expected_json
 
 
 def test_given_localization_is_specified_when_generate_csr_then_csr_contains_localization():
