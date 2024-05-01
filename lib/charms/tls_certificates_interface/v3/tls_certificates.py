@@ -316,7 +316,7 @@ LIBAPI = 3
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 11
+LIBPATCH = 12
 
 PYDEPS = ["cryptography", "jsonschema"]
 
@@ -1803,6 +1803,7 @@ class TLSCertificatesRequiresV3(Object):
                             expire=self._get_next_secret_expiry_time(certificate.certificate),
                         )
                     except SecretNotFoundError:
+                        logger.debug("Adding secret with label %s", f"{LIBID}-{certificate.csr}")
                         secret = self.charm.unit.add_secret(
                             {"certificate": certificate.certificate},
                             label=f"{LIBID}-{certificate.csr}",
