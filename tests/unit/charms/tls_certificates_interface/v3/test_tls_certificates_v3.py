@@ -789,7 +789,7 @@ def test_given_provider_certificate_object_when_to_json_then_json_string_is_retu
     )
     assert json_string == expected_json
 
-    
+
 def test_given_localization_is_specified_when_generate_csr_then_csr_contains_localization():
     private_key = generate_private_key()
 
