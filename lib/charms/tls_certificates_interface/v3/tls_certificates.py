@@ -1018,6 +1018,8 @@ def generate_csr(  # noqa: C901
     organization: Optional[str] = None,
     email_address: Optional[str] = None,
     country_name: Optional[str] = None,
+    state_or_province_name: Optional[str] = None,
+    locality_name: Optional[str] = None,
     private_key_password: Optional[bytes] = None,
     sans: Optional[List[str]] = None,
     sans_oid: Optional[List[str]] = None,
@@ -1036,6 +1038,8 @@ def generate_csr(  # noqa: C901
         organization (str): Name of organization.
         email_address (str): Email address.
         country_name (str): Country Name.
+        state_or_province_name (str): State or Province Name.
+        locality_name (str): Locality Name.
         private_key_password (bytes): Private key password
         sans (list): Use sans_dns - this will be deprecated in a future release
             List of DNS subject alternative names (keeping it for now for backward compatibility)
@@ -1061,6 +1065,12 @@ def generate_csr(  # noqa: C901
         subject_name.append(x509.NameAttribute(x509.NameOID.EMAIL_ADDRESS, email_address))
     if country_name:
         subject_name.append(x509.NameAttribute(x509.NameOID.COUNTRY_NAME, country_name))
+    if state_or_province_name:
+        subject_name.append(
+            x509.NameAttribute(x509.NameOID.STATE_OR_PROVINCE_NAME, state_or_province_name)
+        )
+    if locality_name:
+        subject_name.append(x509.NameAttribute(x509.NameOID.LOCALITY_NAME, locality_name))
     csr = x509.CertificateSigningRequestBuilder(subject_name=x509.Name(subject_name))
 
     _sans: List[x509.GeneralName] = []
@@ -1881,6 +1891,7 @@ class TLSCertificatesRequiresV3(Object):
                             expire=self._get_next_secret_expiry_time(certificate),
                         )
                     except SecretNotFoundError:
+                        logger.debug("Adding secret with label %s", f"{LIBID}-{certificate.csr}")
                         secret = self.charm.unit.add_secret(
                             {"certificate": certificate.certificate},
                             label=f"{LIBID}-{certificate.csr}",
