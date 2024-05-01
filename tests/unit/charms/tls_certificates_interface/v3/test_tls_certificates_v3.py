@@ -2,6 +2,7 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+import json
 import uuid
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
@@ -758,3 +759,32 @@ def test_given_validity_time_is_too_short_when_calculate_expiry_notification_tim
         requirer_recommended_notification_time=requirer_recommended_notification_time,
     )
     assert notification_time == expected_notification_time
+
+
+def test_given_provider_certificate_object_when_to_json_then_json_string_is_returned():
+    provider_certificate = ProviderCertificate(
+        relation_id=0,
+        application_name="app",
+        csr="csr",
+        certificate="certificate",
+        ca="ca",
+        chain=["ca", "certificate"],
+        revoked=False,
+        expiry_time=datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+        expiry_notification_time=datetime(2023, 12, 1, 0, 0, 0, tzinfo=timezone.utc),
+    )
+    json_string = provider_certificate.to_json()
+    expected_json = json.dumps(
+        {
+            "relation_id": 0,
+            "application_name": "app",
+            "csr": "csr",
+            "certificate": "certificate",
+            "ca": "ca",
+            "chain": ["ca", "certificate"],
+            "revoked": False,
+            "expiry_time": "2024-01-01T00:00:00+00:00",
+            "expiry_notification_time": "2023-12-01T00:00:00+00:00",
+        }
+    )
+    assert json_string == expected_json

@@ -317,7 +317,7 @@ LIBAPI = 3
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 11
+LIBPATCH = 13
 
 PYDEPS = ["cryptography", "jsonschema"]
 
@@ -460,6 +460,28 @@ class ProviderCertificate:
     def chain_as_pem(self) -> str:
         """Return full certificate chain as a PEM string."""
         return "\n\n".join(reversed(self.chain))
+
+    def to_json(self) -> str:
+        """Return the object as a JSON string.
+
+        Returns:
+            str: JSON representation of the object
+        """
+        return json.dumps(
+            {
+                "relation_id": self.relation_id,
+                "application_name": self.application_name,
+                "csr": self.csr,
+                "certificate": self.certificate,
+                "ca": self.ca,
+                "chain": self.chain,
+                "revoked": self.revoked,
+                "expiry_time": self.expiry_time.isoformat(),
+                "expiry_notification_time": self.expiry_notification_time.isoformat()
+                if self.expiry_notification_time
+                else None,
+            }
+        )
 
 
 class CertificateAvailableEvent(EventBase):
