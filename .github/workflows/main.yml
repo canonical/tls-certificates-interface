@@ -60,34 +60,6 @@ jobs:
       - name: Build charm
         run: charmcraft pack --verbose
 
-  integration-tests-v2-juju-2:
-    name: Integration tests for tls interface v2 (Juju 2.9)
-    runs-on: ubuntu-22.04
-    needs:
-      - build
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup operator environment
-        uses: charmed-kubernetes/actions-operator@main
-        with:
-          juju-channel: 2.9/stable
-          provider: microk8s
-          channel: 1.29/stable
-      - name: Run tests using tox
-        run: tox -e integration-v2-juju-2
-      - name: Archive charmcraft logs
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: charmcraft-logs
-          path: /home/runner/.local/state/charmcraft/log/*.log
-      - name: Archive juju crashdump
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: juju-crashdump
-          path: juju-crashdump-*.tar.xz
-
   integration-tests-v2-juju-3:
     name: Integration tests for tls interface v2 (Juju 3.x)
     runs-on: ubuntu-22.04

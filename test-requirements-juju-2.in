@@ -1,8 +1,0 @@
-black
-codespell
-coverage[toml]
-pyright
-pytest
-pytest-operator
-ruff
-juju==3.4.0.0
