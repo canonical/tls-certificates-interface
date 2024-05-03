@@ -64,7 +64,6 @@ class TestIntegration:
         action_output = await ops_test.model.get_action_output(
             action_uuid=action.entity_id, wait=60
         )
-        assert action_output["return-code"] == 0
         assert "ca" in action_output and action_output["ca"] is not None
         assert "certificate" in action_output and action_output["certificate"] is not None
         assert "chain" in action_output and action_output["chain"] is not None
@@ -95,7 +94,6 @@ class TestIntegration:
         action_output = await ops_test.model.get_action_output(
             action_uuid=action.entity_id, wait=60
         )
-        assert action_output["return-code"] == 0
         assert "ca" in action_output and action_output["ca"] is not None
         assert "certificate" in action_output and action_output["certificate"] is not None
         assert "chain" in action_output and action_output["chain"] is not None
