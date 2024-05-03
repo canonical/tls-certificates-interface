@@ -1,6 +1,18 @@
 # Copyright 2021 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+name: tls-certificates-requirer
+description: tls-certificates-requirer.
+summary: tls-certificates-requirer.
+
+requires:
+  certificates:
+    interface: tls-certificates
+
+peers:
+  replicas:
+    interface: tls-certificates-replica
+
 type: "charm"
 bases:
   - build-on:
@@ -15,3 +27,7 @@ parts:
     charm-binary-python-packages:
       - cryptography
       - jsonschema
+
+actions:
+  get-certificate:
+    description: Returns the TLS Certificate.

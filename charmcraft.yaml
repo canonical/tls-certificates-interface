@@ -1,3 +1,25 @@
+# Copyright 2024 Canonical
+# See LICENSE file for licensing details.
+
+name: tls-certificates-interface
+description: |
+  Placeholder charm
+summary: |
+  Placeholder charm
+links:
+  documentation: https://discourse.charmhub.io/t/the-tls-certificate-interface-documentation/11635
+  website:
+    - https://github.com/canonical/tls-certificates-interface
+
+containers:
+  placeholder:
+    resource: placeholder-image
+
+resources:
+  placeholder-image:
+    type: oci-image
+    description: Placeholder for OCI image
+
 type: "charm"
 bases:
   - build-on:
