@@ -11,9 +11,9 @@ jobs:
     name: Charmhub upload lib
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+        uses: actions/checkout@v4
 
-      - uses: canonical/charming-actions/upload-charm@2.4.0
+      - uses: canonical/charming-actions/upload-charm@2.5.0-rc
         with:
           credentials: "${{ secrets.CHARMCRAFT_AUTH }}"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
