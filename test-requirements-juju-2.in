@@ -5,4 +5,4 @@ pyright
 pytest
 pytest-operator
 ruff
-juju==2.9.49.0
+juju==3.4.0.0
