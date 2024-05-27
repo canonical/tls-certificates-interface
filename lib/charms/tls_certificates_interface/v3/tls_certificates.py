@@ -1875,7 +1875,7 @@ class TLSCertificatesRequiresV3(Object):
                 if certificate.revoked:
                     with suppress(SecretNotFoundError):
                         logger.debug(
-                            "Removoing secret with label %s", f"{LIBID}-{certificate.csr}"
+                            "Removing secret with label %s", f"{LIBID}-{certificate.csr}"
                         )
                         secret = self.model.get_secret(label=f"{LIBID}-{certificate.csr}")
                         secret.remove_all_revisions()
