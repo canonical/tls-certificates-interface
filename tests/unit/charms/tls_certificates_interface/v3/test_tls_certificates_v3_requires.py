@@ -8,6 +8,9 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch
 
 import pytest
+from charms.tls_certificates_interface.v3.tls_certificates import (
+    get_sha256_hex as get_sha256_hex,
+)
 from ops import testing
 
 from tests.unit.charms.tls_certificates_interface.v3.certificates import (
@@ -695,6 +698,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
         chain = ["certificate 1", "certiicate 2", "certificate 3"]
         csr = "whatever csr"
         certificate = "whatever certificate"
+        patch_load_pem_x509_certificate.return_value = self.setup_mock_certificate_object()
         unit_relation_data = {
             "certificate_signing_requests": json.dumps([{"certificate_signing_request": csr}])
         }
@@ -711,24 +715,37 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
                         "chain": chain,
                         "certificate_signing_request": csr,
                         "certificate": certificate,
-                        "revoked": True,
                     }
                 ]
             )
         }
-        secret_id = self.harness.add_model_secret(
-            owner=self.harness.model.unit.name, content={"certificate": "old data"}
-        )
-        secret = self.harness.model.get_secret(id=secret_id)
-        secret.set_info(label=f"{LIBID}-{csr}")
-
-        patch_load_pem_x509_certificate.return_value = self.setup_mock_certificate_object()
         self.harness.update_relation_data(
             relation_id=relation_id,
             app_or_unit=self.remote_app,
             key_values=remote_app_relation_data,
         )
+        csr_sha256_hex = get_sha256_hex(csr)
+        secret = self.harness.model.get_secret(label=f"{LIBID}-{csr_sha256_hex}")
+        secret_id = secret.get_info().id
 
+        revoked_remote_app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate,
+                        "chain": chain,
+                        "certificate_signing_request": csr,
+                        "certificate": certificate,
+                        "revoked": True,
+                    }
+                ]
+            )
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values=revoked_remote_app_relation_data,
+        )
         with pytest.raises(RuntimeError):
             self.harness.get_secret_revisions(secret_id)
 
@@ -865,7 +882,8 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
             key_values=remote_app_relation_data,
         )
 
-        secret = self.harness.model.get_secret(label=f"{LIBID}-{csr}")
+        csr_sha256_hex = get_sha256_hex(csr)
+        secret = self.harness.model.get_secret(label=f"{LIBID}-{csr_sha256_hex}")
         assert secret.get_content()["certificate"] == certificate
         assert secret.get_info().expires == expiry_time - timedelta(hours=168)
 
@@ -916,7 +934,8 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
             key_values=remote_app_relation_data,
         )
 
-        secret = self.harness.model.get_secret(label=f"{LIBID}-{csr}")
+        csr_sha256_hex = get_sha256_hex(csr)
+        secret = self.harness.model.get_secret(label=f"{LIBID}-{csr_sha256_hex}")
         assert secret.get_content(refresh=True)["certificate"] == certificate
         assert secret.get_info().expires == expiry_time - timedelta(hours=168)
 
@@ -1344,7 +1363,8 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
             app_or_unit=self.remote_app,
             key_values=remote_app_relation_data,
         )
-        secret = self.harness.model.get_secret(label=f"{LIBID}-{csr}")
+        csr_sha256_hex = get_sha256_hex(csr)
+        secret = self.harness.model.get_secret(label=f"{LIBID}-{csr_sha256_hex}")
 
         self.harness.trigger_secret_expiration(secret.get_info().id, 0)
 
@@ -1400,7 +1420,8 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
             app_or_unit=self.remote_app,
             key_values=remote_app_relation_data,
         )
-        secret = self.harness.model.get_secret(label=f"{LIBID}-{csr}")
+        csr_sha256_hex = get_sha256_hex(csr)
+        secret = self.harness.model.get_secret(label=f"{LIBID}-{csr_sha256_hex}")
 
         self.harness.trigger_secret_expiration(secret.get_info().id, 0)
 
@@ -1450,7 +1471,8 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
             app_or_unit=self.remote_app,
             key_values=remote_app_relation_data,
         )
-        secret = self.harness.model.get_secret(label=f"{LIBID}-{csr}")
+        csr_sha256_hex = get_sha256_hex(csr)
+        secret = self.harness.model.get_secret(label=f"{LIBID}-{csr_sha256_hex}")
         secret_id = secret.get_info().id
 
         self.harness.trigger_secret_expiration(secret_id, 0)
@@ -1499,7 +1521,8 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
             app_or_unit=self.remote_app,
             key_values=remote_app_relation_data,
         )
-        secret = self.harness.model.get_secret(label=f"{LIBID}-{csr}")
+        csr_sha256_hex = get_sha256_hex(csr)
+        secret = self.harness.model.get_secret(label=f"{LIBID}-{csr_sha256_hex}")
 
         self.harness.trigger_secret_expiration(secret.get_info().id, 0)
 
@@ -1549,13 +1572,14 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
             app_or_unit=self.remote_app,
             key_values=remote_app_relation_data,
         )
-        secret = self.harness.model.get_secret(label=f"{LIBID}-{csr}")
+        csr_sha256_hex = get_sha256_hex(csr)
+        secret = self.harness.model.get_secret(label=f"{LIBID}-{csr_sha256_hex}")
 
         self.harness.trigger_secret_expiration(secret.get_info().id, 0)
 
         assert secret.get_info().expires == expiry_time
 
-    def test_given_secret_not_owner_by_lib_when_secret_expired_then_secret_revisions_are_not_removed(  # noqa: E501
+    def test_given_secret_not_owned_by_lib_when_secret_expired_then_secret_revisions_are_not_removed(  # noqa: E501
         self,
     ):
         secret_id = self.harness.add_model_secret(
@@ -1568,23 +1592,9 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
 
         assert self.harness.get_secret_revisions(secret_id)
 
+    @patch('cryptography.x509.load_pem_x509_certificate')
     def test_given_certificate_not_found_in_relation_data_when_secret_expired_then_secret_revisions_are_removed(  # noqa: E501
-        self,
-    ):
-        secret_id = self.harness.add_model_secret(
-            owner=self.harness.charm.unit.name, content={"certificate": "brisket"}
-        )
-        secret = self.harness.model.get_secret(id=secret_id)
-        secret.set_info(label=f"{LIBID}-brisket")
-        secret_id = secret.get_info().id
-
-        self.harness.trigger_secret_expiration(secret_id, 0)
-
-        with pytest.raises(RuntimeError):
-            self.harness.get_secret_revisions(secret_id)
-
-    def test_given_certificate_invalid_in_relation_data_when_secret_expired_then_secret_revisions_are_removed(  # noqa: E501
-        self,
+        self, patch_load_pem_x509_certificate
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -1611,16 +1621,84 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
                 ]
             )
         }
+        start_time = datetime.combine(datetime.today(), datetime.min.time(), tzinfo=timezone.utc)
+
+        expiry_time = start_time - timedelta(seconds=10)
+
+        patch_load_pem_x509_certificate.return_value = self.setup_mock_certificate_object(
+
+            expiry_time=expiry_time,
+
+            start_time=start_time,
+
+        )
         self.harness.update_relation_data(
             relation_id=relation_id,
             app_or_unit=self.remote_app,
             key_values=remote_app_relation_data,
         )
-        secret_id = self.harness.add_model_secret(
-            owner=self.harness.charm.unit.name, content={"certificate": certificate}
+        csr_sha256_hex = get_sha256_hex(csr)
+        secret = self.harness.model.get_secret(label=f"{LIBID}-{csr_sha256_hex}")
+        secret_id = secret.get_info().id
+
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values={},
         )
-        secret = self.harness.model.get_secret(id=secret_id)
-        secret.set_info(label=f"{LIBID}-{csr}")
+
+        self.harness.trigger_secret_expiration(secret_id, 0)
+
+        with pytest.raises(RuntimeError):
+            self.harness.get_secret_revisions(secret_id)
+
+    @patch('cryptography.x509.load_pem_x509_certificate')
+    def test_given_certificate_invalid_in_relation_data_when_secret_expired_then_secret_revisions_are_removed(  # noqa: E501
+        self, patch_load_pem_x509_certificate
+    ):
+        relation_id = self.create_certificates_relation()
+        ca_certificate = "whatever certificate"
+        chain = ["certificate 1", "certiicate 2", "certificate 3"]
+        csr = "whatever csr"
+        certificate = "whatever certificate"
+        unit_relation_data = {
+            "certificate_signing_requests": json.dumps([{"certificate_signing_request": csr}])
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values=unit_relation_data,
+        )
+        remote_app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate,
+                        "chain": chain,
+                        "certificate_signing_request": csr,
+                        "certificate": certificate,
+                    },
+                ]
+            )
+        }
+        start_time = datetime.combine(datetime.today(), datetime.min.time(), tzinfo=timezone.utc)
+
+        expiry_time = start_time - timedelta(seconds=10)
+
+        patch_load_pem_x509_certificate.return_value = self.setup_mock_certificate_object(
+
+            expiry_time=expiry_time,
+
+            start_time=start_time,
+
+        )
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values=remote_app_relation_data,
+        )
+        csr_sha256_hex = get_sha256_hex(csr)
+        secret = self.harness.model.get_secret(label=f"{LIBID}-{csr_sha256_hex}")
         secret_id = secret.get_info().id
 
         self.harness.trigger_secret_expiration(secret_id, 0)
