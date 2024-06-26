@@ -36,6 +36,7 @@ from tests.unit.charms.tls_certificates_interface.v3.certificates import (
 )
 from tests.unit.charms.tls_certificates_interface.v3.certificates import (
     generate_private_key as generate_private_key_helper,
+    generate_ec_private_key as generate_ec_private_key_helper
 )
 
 
@@ -448,6 +449,23 @@ def test_given_matching_cert_for_csr_when_csr_matches_certificate_then_it_return
     )
     assert csr_matches_certificate(csr.decode(), certificate.decode()) is True
 
+def test_given_matching_cert_for_csr_with_ec_key_when_csr_matches_certificate_then_it_returns_true():
+    private_key = generate_ec_private_key_helper()
+    csr = generate_csr_helper(
+        private_key=private_key,
+        common_name="same subject",
+    )
+    ca_key = generate_ec_private_key_helper()
+    ca = generate_ca_helper(
+        private_key=ca_key,
+        common_name="some subject",
+    )
+    certificate = generate_certificate_helper(
+        csr=csr,
+        ca=ca,
+        ca_key=generate_ec_private_key_helper(),
+    )
+    assert csr_matches_certificate(csr.decode(), certificate.decode()) is True
 
 def test_given_certificate_country_doesnt_match_with_csr_when_csr_matches_certificate_then_returns_true():  # noqa: E501
     ca_private_key = generate_private_key_helper()

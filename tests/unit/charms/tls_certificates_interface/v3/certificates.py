@@ -6,7 +6,7 @@ from typing import List, Optional
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import rsa, ec
 
 
 def generate_private_key(
@@ -39,6 +39,33 @@ def generate_private_key(
     )
     return key_bytes
 
+def generate_ec_private_key(
+        curve: Optional[ec.EllipticCurve] = ec.SECP256K1(),
+        password: Optional[bytes] = None
+) -> bytes:
+    """Generate a elliptic curve private key.
+
+    Args:
+        password (bytes): Password for decrypting the private key
+        key_size (int): Key size in bytes
+        public_exponent: Public exponent.
+
+    Returns:
+        bytes: Private Key
+    """
+    private_key = ec.generate_private_key(
+        curve=curve
+    )
+    key_bytes = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=(
+            serialization.BestAvailableEncryption(password)
+            if password
+            else serialization.NoEncryption()
+        ),
+    )
+    return key_bytes
 
 def generate_csr(
     private_key: bytes,
