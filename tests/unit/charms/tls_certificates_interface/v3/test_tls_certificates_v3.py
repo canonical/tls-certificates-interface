@@ -833,3 +833,21 @@ def test_given_localization_is_specified_when_generate_csr_then_csr_contains_loc
     assert csr_object.subject.get_attributes_for_oid(
         x509.NameOID.LOCALITY_NAME
         )[0].value == "Montreal"
+
+
+def test_given_ipv6_sans_when_generate_csr_then_csr_contains_ipv6_sans():
+    private_key = generate_private_key()
+
+    csr = generate_csr(
+        private_key=private_key,
+        subject="my.demo.server",
+        sans_dns=["my.demo.server"],
+        sans_ip=["2001:db8::1", "2001:db8::2"],
+    )
+
+    csr_object = x509.load_pem_x509_csr(csr)
+    sans = csr_object.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+    sans_ip = sans.get_values_for_type(x509.IPAddress)
+    assert len(sans_ip) == 2
+    assert sans_ip[0].compressed == "2001:db8::1"
+    assert sans_ip[1].compressed == "2001:db8::2"
