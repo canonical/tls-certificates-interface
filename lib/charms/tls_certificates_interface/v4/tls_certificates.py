@@ -149,6 +149,7 @@ class CertificateRequest:
     sans_oid: Optional[List[str]] = None
     email_address: Optional[str] = None
     organization: Optional[str] = None
+    organizational_unit: Optional[str] = None
     country_name: Optional[str] = None
     state_or_province_name: Optional[str] = None
     locality_name: Optional[str] = None
@@ -344,7 +345,10 @@ def csr_has_attributes(  # noqa: C901
         return False
     if len(csr_email_address) != 0 and csr_email_address[0].value != email_address:
         return False
-    sans = csr_object.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+    try:
+        sans = csr_object.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+    except x509.ExtensionNotFound:
+        sans = []
     if sorted([str(san.value) for san in sans]) != sorted(sans_dns):
         return False
     return True
@@ -1074,7 +1078,6 @@ class TLSCertificatesRequiresV4(Object):
                 f"Relation {self.relationship_name} does not exist - "
                 f"The certificate request can't be completed"
             )
-
         new_csr_dict = {
             "certificate_signing_request": csr.strip(),
             "ca": is_ca,

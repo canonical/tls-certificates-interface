@@ -9,6 +9,10 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 
 
+def csrs_match(csr_1: bytes, csr_2: bytes) -> bool:
+    return x509.load_pem_x509_csr(csr_1) == x509.load_pem_x509_csr(csr_2)
+
+
 def generate_private_key(
     password: Optional[bytes] = None,
     key_size: int = 2048,
@@ -41,8 +45,7 @@ def generate_private_key(
 
 
 def generate_ec_private_key(
-        curve: ec.EllipticCurve = ec.SECP256K1(),
-        password: Optional[bytes] = None
+    curve: ec.EllipticCurve = ec.SECP256K1(), password: Optional[bytes] = None
 ) -> bytes:
     """Generate a elliptic curve private key.
 
@@ -53,9 +56,7 @@ def generate_ec_private_key(
     Returns:
         bytes: Private Key
     """
-    private_key = ec.generate_private_key(
-        curve=curve
-    )
+    private_key = ec.generate_private_key(curve=curve)
     key_bytes = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
@@ -73,7 +74,6 @@ def generate_csr(
     common_name: str,
     private_key_password: Optional[bytes] = None,
     sans: Optional[List[str]] = None,
-    country: str = "US",
 ) -> bytes:
     """Generate a CSR using private key and subject.
 
@@ -82,7 +82,6 @@ def generate_csr(
         private_key_password (bytes): Private key password
         common_name (str): CSR common name.
         sans (list): List of subject alternative names
-        country (str): CSR Issuing country
 
     Returns:
         bytes: CSR
@@ -91,7 +90,6 @@ def generate_csr(
     csr = x509.CertificateSigningRequestBuilder(
         subject_name=x509.Name(
             [
-                x509.NameAttribute(x509.NameOID.COUNTRY_NAME, country),
                 x509.NameAttribute(x509.NameOID.COMMON_NAME, common_name),
             ]
         )
@@ -124,26 +122,22 @@ def generate_certificate(
         bytes: Certificate
     """
     csr_object = x509.load_pem_x509_csr(csr)
-    ca_object = x509.load_pem_x509_certificate(ca)
-    ca_subject = ca_object.subject
     csr_subject = csr_object.subject
-    ca_country = ca_subject.get_attributes_for_oid(x509.NameOID.COUNTRY_NAME)[0].value
     csr_common_name = csr_subject.get_attributes_for_oid(x509.NameOID.COMMON_NAME)[0].value
     issuer = x509.load_pem_x509_certificate(ca).issuer
     private_key = serialization.load_pem_private_key(ca_key, password=ca_key_password)
     subject = x509.Name(
         [
-            x509.NameAttribute(x509.NameOID.COUNTRY_NAME, ca_country),
             x509.NameAttribute(x509.NameOID.COMMON_NAME, csr_common_name),
         ]
     )
 
     if validity > 0:
-        not_valid_before = datetime.datetime.utcnow()
-        not_valid_after = datetime.datetime.utcnow() + datetime.timedelta(hours=validity)
+        not_valid_before = datetime.datetime.now(datetime.UTC)
+        not_valid_after = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=validity)
     else:
-        not_valid_before = datetime.datetime.utcnow() + datetime.timedelta(hours=validity)
-        not_valid_after = datetime.datetime.utcnow() - datetime.timedelta(seconds=1)
+        not_valid_before = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=validity)
+        not_valid_after = datetime.datetime.now(datetime.UTC) - datetime.timedelta(seconds=1)
     certificate_builder = (
         x509.CertificateBuilder()
         .subject_name(subject)
@@ -164,7 +158,6 @@ def generate_ca(
     common_name: str,
     private_key_password: Optional[bytes] = None,
     validity: int = 365,
-    country: str = "US",
 ) -> bytes:
     """Generate a CA Certificate.
 
@@ -183,7 +176,6 @@ def generate_ca(
     )
     subject = issuer = x509.Name(
         [
-            x509.NameAttribute(x509.NameOID.COUNTRY_NAME, country),
             x509.NameAttribute(x509.NameOID.COMMON_NAME, common_name),
         ]
     )
@@ -198,8 +190,8 @@ def generate_ca(
         .issuer_name(issuer)
         .public_key(private_key_object.public_key())  # type: ignore[arg-type]
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.datetime.utcnow())
-        .not_valid_after(datetime.datetime.utcnow() + datetime.timedelta(days=validity))
+        .not_valid_before(datetime.datetime.now(datetime.UTC))
+        .not_valid_after(datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=validity))
         .add_extension(x509.SubjectKeyIdentifier(digest=subject_identifier), critical=False)
         .add_extension(
             x509.AuthorityKeyIdentifier(

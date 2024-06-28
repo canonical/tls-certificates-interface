@@ -229,7 +229,7 @@ def test_given_csr_and_ca_when_generate_certificate_then_certificate_is_generate
     ca_subject = "whatever.ca.subject"
     csr_subject = "whatever.csr.subject"
     ca_key = generate_private_key_helper()
-    ca = generate_ca_helper(private_key=ca_key, common_name=ca_subject, country="US")
+    ca = generate_ca_helper(private_key=ca_key, common_name=ca_subject)
     csr_private_key = generate_private_key_helper()
     csr = generate_csr_helper(
         private_key=csr_private_key,
@@ -245,13 +245,11 @@ def test_given_csr_and_ca_when_generate_certificate_then_certificate_is_generate
     certificate_object = x509.load_pem_x509_certificate(certificate)
     assert certificate_object.issuer == x509.Name(
         [
-            x509.NameAttribute(x509.NameOID.COUNTRY_NAME, "US"),
             x509.NameAttribute(x509.NameOID.COMMON_NAME, ca_subject),
         ]
     )
     assert certificate_object.subject == x509.Name(
         [
-            x509.NameAttribute(x509.NameOID.COUNTRY_NAME, "US"),
             x509.NameAttribute(x509.NameOID.COMMON_NAME, csr_subject),
         ]
     )
@@ -320,9 +318,7 @@ def test_given_alt_names_when_generate_certificate_then_alt_names_are_correctly_
     )
 
     certificate_object = x509.load_pem_x509_certificate(certificate)
-    alt_names = certificate_object.extensions.get_extension_for_class(
-        x509.SubjectAlternativeName
-    )
+    alt_names = certificate_object.extensions.get_extension_for_class(x509.SubjectAlternativeName)
     alt_name_strings = [alt_name.value for alt_name in alt_names.value]
     assert len(alt_name_strings) == 2
     assert alt_name_1 in alt_name_strings
@@ -350,9 +346,7 @@ def test_given_sans_in_csr_and_alt_names_when_generate_certificate_then_alt_name
     certificate = generate_certificate(csr=csr, ca=ca, ca_key=ca_key, alt_names=src_alt_names)
 
     cert = x509.load_pem_x509_certificate(certificate)
-    result_all_sans = cert.extensions.get_extension_for_class(
-        x509.SubjectAlternativeName
-    )
+    result_all_sans = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
     result_sans_dns = sorted(result_all_sans.value.get_values_for_type(x509.DNSName))
 
     assert result_sans_dns == sorted(src_sans_dns + src_alt_names)
@@ -473,11 +467,12 @@ def test_given_matching_cert_for_csr_with_ec_key_when_csr_matches_certificate_th
 
 def test_given_certificate_country_doesnt_match_with_csr_when_csr_matches_certificate_then_returns_true():  # noqa: E501
     ca_private_key = generate_private_key_helper()
-    ca = generate_ca_helper(private_key=ca_private_key, common_name="ca subject", country="GB")
+    ca = generate_ca_helper(private_key=ca_private_key, common_name="ca subject")
 
     server_private_key = generate_private_key_helper()
     server_csr = generate_csr_helper(
-        private_key=server_private_key, common_name="server subject", country="US"
+        private_key=server_private_key,
+        common_name="server subject",
     )
 
     server_cert = generate_certificate_helper(
@@ -665,8 +660,8 @@ def test_given_provider_recommended_notification_time_when_calculate_expiry_noti
     validity_start_time_in_hours = 240
     validity_start_time = expiry_time - timedelta(hours=validity_start_time_in_hours)
     provider_recommended_notification_time = 24
-    expected_notification_time = (
-        expiry_time - timedelta(hours=provider_recommended_notification_time)
+    expected_notification_time = expiry_time - timedelta(
+        hours=provider_recommended_notification_time
     )
     notification_time = calculate_expiry_notification_time(
         expiry_time=expiry_time,
@@ -681,8 +676,8 @@ def test_given_negative_provider_recommended_notification_time_when_calculate_ex
     validity_start_time_in_hours = 240
     validity_start_time = expiry_time - timedelta(hours=validity_start_time_in_hours)
     negative_provider_recommended_notification_time = 24
-    expected_notification_time = (
-        expiry_time - timedelta(hours=abs(negative_provider_recommended_notification_time))
+    expected_notification_time = expiry_time - timedelta(
+        hours=abs(negative_provider_recommended_notification_time)
     )
     notification_time = calculate_expiry_notification_time(
         expiry_time=expiry_time,
@@ -781,12 +776,14 @@ def test_given_localization_is_specified_when_generate_csr_then_csr_contains_loc
 
     csr_object = x509.load_pem_x509_csr(csr)
     assert csr_object.subject.get_attributes_for_oid(x509.NameOID.COUNTRY_NAME)[0].value == "CA"
-    assert csr_object.subject.get_attributes_for_oid(
-        x509.NameOID.STATE_OR_PROVINCE_NAME
-        )[0].value == "Quebec"
-    assert csr_object.subject.get_attributes_for_oid(
-        x509.NameOID.LOCALITY_NAME
-        )[0].value == "Montreal"
+    assert (
+        csr_object.subject.get_attributes_for_oid(x509.NameOID.STATE_OR_PROVINCE_NAME)[0].value
+        == "Quebec"
+    )
+    assert (
+        csr_object.subject.get_attributes_for_oid(x509.NameOID.LOCALITY_NAME)[0].value
+        == "Montreal"
+    )
 
 
 def test_given_ipv6_sans_when_generate_csr_then_csr_contains_ipv6_sans():
