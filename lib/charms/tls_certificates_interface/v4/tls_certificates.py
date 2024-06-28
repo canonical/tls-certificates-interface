@@ -384,7 +384,7 @@ def calculate_expiry_notification_time(
 
 def generate_ca(
     private_key: bytes,
-    subject: str,
+    common_name: str,
     private_key_password: Optional[bytes] = None,
     validity: int = 365,
     country: str = "US",
@@ -393,7 +393,7 @@ def generate_ca(
 
     Args:
         private_key (bytes): Private key
-        subject (str): Common Name that can be an IP or a Full Qualified Domain Name (FQDN).
+        common_name (str): Common Name that can be an IP or a Full Qualified Domain Name (FQDN).
         private_key_password (bytes): Private key password
         validity (int): Certificate validity time (in days)
         country (str): Certificate Issuing country
@@ -407,7 +407,7 @@ def generate_ca(
     subject_name = x509.Name(
         [
             x509.NameAttribute(x509.NameOID.COUNTRY_NAME, country),
-            x509.NameAttribute(x509.NameOID.COMMON_NAME, subject),
+            x509.NameAttribute(x509.NameOID.COMMON_NAME, common_name),
         ]
     )
     subject_identifier_object = x509.SubjectKeyIdentifier.from_public_key(
