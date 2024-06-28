@@ -1,7 +1,7 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-import datetime
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from cryptography import x509
@@ -136,11 +136,11 @@ def generate_certificate(
     )
 
     if validity > 0:
-        not_valid_before = datetime.datetime.now(datetime.UTC)
-        not_valid_after = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=validity)
+        not_valid_before = datetime.now(timezone.utc)
+        not_valid_after = datetime.now(timezone.utc) + timedelta(hours=validity)
     else:
-        not_valid_before = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=validity)
-        not_valid_after = datetime.datetime.now(datetime.UTC) - datetime.timedelta(seconds=1)
+        not_valid_before = datetime.now(timezone.utc) + timedelta(hours=validity)
+        not_valid_after = datetime.now(timezone.utc) - timedelta(seconds=1)
     certificate_builder = (
         x509.CertificateBuilder()
         .subject_name(subject)
@@ -193,8 +193,8 @@ def generate_ca(
         .issuer_name(issuer)
         .public_key(private_key_object.public_key())  # type: ignore[arg-type]
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.datetime.now(datetime.UTC))
-        .not_valid_after(datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=validity))
+        .not_valid_before(datetime.now(timezone.utc))
+        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=validity))
         .add_extension(x509.SubjectKeyIdentifier(digest=subject_identifier), critical=False)
         .add_extension(
             x509.AuthorityKeyIdentifier(
