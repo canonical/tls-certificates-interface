@@ -3,7 +3,7 @@
 
 from typing import List, Optional, cast
 
-from ops.charm import CharmBase, ConfigChangedEvent
+from ops.charm import CharmBase
 from ops.main import main
 
 from lib.charms.tls_certificates_interface.v4.tls_certificates import (
@@ -25,7 +25,6 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
             mode=Mode.UNIT,
             refresh_events=[self.on.config_changed],
         )
-        self.framework.observe(self.on.config_changed, self._configure)
         self.framework.observe(
             self.certificates.on.certificate_available, self._on_certificate_available
         )
@@ -43,9 +42,6 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
                 locality_name=self._get_config_locality_name(),
             )
         ]
-
-    def _configure(self, event: ConfigChangedEvent):
-        pass
 
     def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
         pass
