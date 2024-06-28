@@ -83,12 +83,9 @@ def validate_induced_data_from_pfx_is_equal_to_initial_data(
 
 def test_given_subject_and_private_key_when_generate_csr_then_csr_is_generated_with_provided_subject():  # noqa: E501
     subject = "whatever"
-    private_key_password = b"whatever"
-    private_key = generate_private_key_helper(password=private_key_password)
+    private_key = generate_private_key_helper()
 
-    csr = generate_csr(
-        private_key=private_key, private_key_password=private_key_password, common_name=subject
-    )
+    csr = generate_csr(private_key=private_key, common_name=subject)
 
     csr_object = x509.load_pem_x509_csr(data=csr)
     subject_list = list(csr_object.subject)
@@ -99,8 +96,7 @@ def test_given_subject_and_private_key_when_generate_csr_then_csr_is_generated_w
 
 def test_given_additional_critical_extensions_when_generate_csr_then_extensions_are_added_to_csr():
     subject = "whatever"
-    private_key_password = b"whatever"
-    private_key = generate_private_key_helper(password=private_key_password)
+    private_key = generate_private_key_helper()
     additional_critical_extension = x509.KeyUsage(
         digital_signature=False,
         content_commitment=False,
@@ -115,7 +111,6 @@ def test_given_additional_critical_extensions_when_generate_csr_then_extensions_
 
     csr = generate_csr(
         private_key=private_key,
-        private_key_password=private_key_password,
         common_name=subject,
         additional_critical_extensions=[additional_critical_extension],
     )

@@ -14,7 +14,6 @@ def csrs_match(csr_1: bytes, csr_2: bytes) -> bool:
 
 
 def generate_private_key(
-    password: Optional[bytes] = None,
     key_size: int = 2048,
     public_exponent: int = 65537,
 ) -> bytes:
@@ -35,13 +34,17 @@ def generate_private_key(
     key_bytes = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=(
-            serialization.BestAvailableEncryption(password)
-            if password
-            else serialization.NoEncryption()
-        ),
+        encryption_algorithm=serialization.NoEncryption(),
     )
     return key_bytes
+
+
+def private_key_is_valid(private_key: bytes) -> bool:
+    try:
+        serialization.load_pem_private_key(private_key, password=None)
+        return True
+    except ValueError:
+        return False
 
 
 def generate_ec_private_key(
