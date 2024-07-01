@@ -5,6 +5,7 @@
 import json
 import uuid
 from datetime import datetime, timedelta, timezone
+from ipaddress import IPv6Address
 from unittest.mock import Mock
 
 import pytest
@@ -849,5 +850,5 @@ def test_given_ipv6_sans_when_generate_csr_then_csr_contains_ipv6_sans():
     sans = csr_object.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
     sans_ip = sans.get_values_for_type(x509.IPAddress)
     assert len(sans_ip) == 2
-    assert sans_ip[0].compressed == "2001:db8::1"
-    assert sans_ip[1].compressed == "2001:db8::2"
+    assert IPv6Address("2001:db8::1") in sans_ip
+    assert IPv6Address("2001:db8::2") in sans_ip
