@@ -1526,24 +1526,58 @@ class TLSCertificatesProvidesV3(Object):
                     relation_csrs.append(relation_csr)
         return relation_csrs
 
-    def certificate_issued_for_csr(
+    def get_certificate_for_csr(
         self, app_name: str, csr: str, relation_id: Optional[int]
-    ) -> bool:
-        """Check whether a certificate has been issued for a given CSR.
+    ) -> Optional[ProviderCertificate]:
+        """Return certificate for a given CSR.
 
         Args:
             app_name (str): Application name that the CSR belongs to.
-            csr (str): Certificate Signing Request.
-            relation_id (Optional[int]): Relation ID
+            csr (str): Certificate Signing Request
+            relation_id (int): Relation ID
+
+        Returns:
+            str: Certificate
+        """
+        issued_certificates_per_csr = self.get_issued_certificates(relation_id=relation_id)
+        for issued_certificate in issued_certificates_per_csr:
+            if (
+                issued_certificate.csr == csr
+                and issued_certificate.application_name == app_name
+                and csr_matches_certificate(csr, issued_certificate.certificate)
+            ):
+                return issued_certificate
+        return None
+
+    def certificate_issued_for_csr(
+        self,
+        app_name: str,
+        csr: str,
+        relation_id: Optional[int],
+        is_revoked: Optional[bool] = None,
+    ) -> bool:
+        """Check whether a certificate has been issued for a given CSR.
+
+        This method does not verify the validity of the certificate.
+
+        See also: `valid_certificate_issued_for_csr`
+
+        Args:
+            app_name: Application name that the CSR belongs to.
+            csr: Certificate Signing Request.
+            relation_id: Relation ID
+            is_revoked: If True, check if the certificate has been revoked, if False, check if it
+              has not been revoked. If unset, do not check the revoked status.
 
         Returns:
             bool: True/False depending on whether a certificate has been issued for the given CSR.
         """
-        issued_certificates_per_csr = self.get_issued_certificates(relation_id=relation_id)
-        for issued_certificate in issued_certificates_per_csr:
-            if issued_certificate.csr == csr and issued_certificate.application_name == app_name:
-                return csr_matches_certificate(csr, issued_certificate.certificate)
-        return False
+        issued_certificate = self.get_certificate_for_csr(app_name, csr, relation_id)
+        if not issued_certificate:
+            return False
+        if is_revoked is None:
+            return True
+        return issued_certificate.revoked == is_revoked
 
 
 class TLSCertificatesRequiresV3(Object):
