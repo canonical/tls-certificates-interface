@@ -4,3 +4,5 @@ pyright
 pytest
 pytest-operator
 ruff
+ops-scenario
+cryptography
