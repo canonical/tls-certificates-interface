@@ -5,8 +5,7 @@
 """Methods used to generate self-signed certificates."""
 
 import datetime
-import re
-from typing import List, Optional
+from typing import Optional
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -147,44 +146,3 @@ def generate_ca(
         .sign(private_key_object, hashes.SHA256())  # type: ignore[arg-type]
     )
     return cert.public_bytes(serialization.Encoding.PEM)
-
-
-def certificate_is_valid(certificate: bytes) -> bool:
-    """Return whether a certificate is valid.
-
-    Args:
-        certificate: Certificate
-
-    Returns:
-        bool: True/False
-    """
-    try:
-        x509.load_pem_x509_certificate(certificate)
-        return True
-    except ValueError:
-        return False
-
-
-def parse_ca_chain(ca_chain_pem: str) -> List[str]:
-    """Return list of certificates based on a PEM CA Chain file.
-
-    Args:
-        ca_chain_pem (str): String containing list of certificates. This string should look like:
-            -----BEGIN CERTIFICATE-----
-            <cert 1>
-            -----END CERTIFICATE-----
-            -----BEGIN CERTIFICATE-----
-            <cert 2>
-            -----END CERTIFICATE-----
-
-    Returns:
-        list: List of certificates
-    """
-    chain_list = re.findall(
-        pattern="(?=-----BEGIN CERTIFICATE-----)(.*?)(?<=-----END CERTIFICATE-----)",
-        string=ca_chain_pem,
-        flags=re.DOTALL,
-    )
-    if not chain_list:
-        raise ValueError("No certificate found in chain file")
-    return chain_list
