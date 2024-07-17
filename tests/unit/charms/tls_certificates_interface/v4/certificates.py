@@ -1,6 +1,7 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
@@ -90,13 +91,12 @@ def generate_csr(
         bytes: CSR
     """
     signing_key = serialization.load_pem_private_key(private_key, password=private_key_password)
-    csr = x509.CertificateSigningRequestBuilder(
-        subject_name=x509.Name(
-            [
-                x509.NameAttribute(x509.NameOID.COMMON_NAME, common_name),
-            ]
-        )
+    unique_identifier = uuid.uuid4()
+    subject_name = [x509.NameAttribute(x509.NameOID.COMMON_NAME, common_name)]
+    subject_name.append(
+        x509.NameAttribute(x509.NameOID.X500_UNIQUE_IDENTIFIER, str(unique_identifier))
     )
+    csr = x509.CertificateSigningRequestBuilder(subject_name=x509.Name(subject_name))
     if sans:
         csr.add_extension(
             x509.SubjectAlternativeName([x509.DNSName(san) for san in sans]), critical=False

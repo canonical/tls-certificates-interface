@@ -28,6 +28,7 @@ coverage[toml]==7.6.0
 cryptography==42.0.8
     # via
     #   -c requirements.txt
+    #   -r test-requirements.in
     #   paramiko
 decorator==5.1.1
     # via
@@ -73,7 +74,7 @@ ops==2.14.1
     # via
     #   -c requirements.txt
     #   ops-scenario
-ops-scenario==6.1.2
+ops-scenario==6.1.3
     # via -r test-requirements.in
 packaging==24.1
     # via
@@ -119,7 +120,7 @@ pyrfc3339==1.1
     # via
     #   juju
     #   macaroonbakery
-pyright==1.1.371
+pyright==1.1.372
     # via -r test-requirements.in
 pytest==8.2.2
     # via

@@ -749,14 +749,15 @@ def generate_certificate(
         bytes: Certificate
     """
     csr_object = x509.load_pem_x509_csr(csr)
-    subject = csr_object.subject
+    subject = csr_object.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0]
+    subject_name = x509.Name([subject])
     ca_pem = x509.load_pem_x509_certificate(ca)
     issuer = ca_pem.issuer
     private_key = serialization.load_pem_private_key(ca_key, password=ca_key_password)
 
     certificate_builder = (
         x509.CertificateBuilder()
-        .subject_name(subject)
+        .subject_name(subject_name)
         .issuer_name(issuer)
         .public_key(csr_object.public_key())
         .serial_number(x509.random_serial_number())
@@ -1055,9 +1056,7 @@ class TLSCertificatesRequiresV4(Object):
         if not event.secret.label or not event.secret.label.startswith(f"{LIBID}-certificate"):
             return
         csr = event.secret.get_content(refresh=True)["csr"]
-        provider_certificate = self._find_certificate_in_relation_data(csr)
-        if provider_certificate and provider_certificate.expiry_time:
-            self._renew_certificate_request(csr)
+        self._renew_certificate_request(csr)
         event.secret.remove_all_revisions()
 
     def _renew_certificate_request(self, csr: str):
@@ -1083,7 +1082,7 @@ class TLSCertificatesRequiresV4(Object):
             return
         new_relation_data = copy.deepcopy(requirer_relation_data.certificate_signing_requests)
         for requirer_csr in new_relation_data:
-            if requirer_csr.certificate_signing_request == csr:
+            if requirer_csr.certificate_signing_request.strip() == csr.strip():
                 new_relation_data.remove(requirer_csr)
         try:
             RequirerData(certificate_signing_requests=new_relation_data).dump(
@@ -1365,7 +1364,7 @@ class TLSCertificatesRequiresV4(Object):
     def _find_certificate_in_relation_data(self, csr: str) -> Optional[ProviderCertificate]:
         """Return the certificate that match the given CSR."""
         for provider_certificate in self.get_provider_certificates():
-            if provider_certificate.csr != csr:
+            if provider_certificate.csr.strip() != csr.strip():
                 continue
             return provider_certificate
         return None

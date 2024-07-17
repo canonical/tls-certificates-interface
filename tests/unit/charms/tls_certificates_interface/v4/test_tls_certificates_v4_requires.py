@@ -1,6 +1,6 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
-
+import datetime
 import json
 from pathlib import Path
 from typing import List
@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 import scenario
 import yaml
+from cryptography.hazmat.primitives import hashes
 from scenario.state import Secret
 
 from lib.charms.tls_certificates_interface.v4.tls_certificates import CertificateAvailableEvent
@@ -30,6 +31,13 @@ METADATA = yaml.safe_load(
         "tests/unit/charms/tls_certificates_interface/v4/dummy_requirer_charm/charmcraft.yaml"  # noqa: E501
     ).read_text()
 )
+
+
+def get_sha256_hex(data: bytes) -> str:
+    """Calculate the hash of the provided data and return the hexadecimal representation."""
+    digest = hashes.Hash(hashes.SHA256())
+    digest.update(data)
+    return digest.finalize().hex()
 
 
 class TestTLSCertificatesRequiresV4:
@@ -580,9 +588,121 @@ class TestTLSCertificatesRequiresV4:
 
         assert self.certificate_secret_exists(state_out.secrets)
 
+    @patch(LIB_DIR + ".generate_csr")
     def test_given_certificate_when_certificate_secret_expires_then_new_certificate_is_requested(  # noqa: E501
-        self,
+        self, patch_generate_csr
     ):
-        # This test was not implemented because of this issue in the scenario library:
-        # https://github.com/canonical/ops-scenario/issues/157
-        pass
+        private_key = generate_private_key()
+        csr = generate_csr(
+            private_key=private_key,
+            common_name="example.com",
+        )
+        csr_in_sha256_hex = get_sha256_hex(csr)
+        provider_private_key = generate_private_key()
+        provider_ca_certificate = generate_ca(
+            private_key=provider_private_key,
+            common_name="example.com",
+        )
+        certificate = generate_certificate(
+            ca_key=provider_private_key,
+            csr=csr,
+            ca=provider_ca_certificate,
+            validity=1,
+        )
+
+        new_csr = generate_csr(
+            private_key=private_key,
+            common_name="example.com",
+        )
+        assert csr != new_csr
+        patch_generate_csr.return_value = new_csr
+
+        private_key_secret = Secret(
+            id="0",
+            revision=0,
+            label=f"{LIBID}-private-key-0",
+            owner="unit",
+            contents={0: {"private-key": private_key.decode()}},
+        )
+
+        certificate_secret = Secret(
+            id="1",
+            revision=0,
+            label=f"{LIBID}-certificate-0-{csr_in_sha256_hex}",
+            owner="unit",
+            contents={
+                0: {
+                    "certificate": certificate.decode(),
+                    "csr": csr.decode(),
+                }
+            },
+            expire=datetime.datetime.now() - datetime.timedelta(minutes=1),
+        )
+
+        certificates_relation = scenario.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+            local_unit_data={
+                "certificate_signing_requests": json.dumps(
+                    [
+                        {
+                            "certificate_signing_request": csr.decode().strip(),
+                            "ca": False,
+                        }
+                    ]
+                )
+            },
+            remote_app_data={
+                "certificates": json.dumps(
+                    [
+                        {
+                            "certificate": certificate.decode().strip(),
+                            "certificate_signing_request": csr.decode().strip(),
+                            "ca": provider_ca_certificate.decode().strip(),
+                        }
+                    ]
+                ),
+            },
+        )
+
+        state_in = scenario.State(
+            config={"common_name": "example.com"},
+            relations=[certificates_relation],
+            secrets=[
+                private_key_secret,
+                certificate_secret,
+            ],
+        )
+
+        state_out = self.ctx.run(certificate_secret.expired_event, state_in)
+
+        assert state_out.relations == [
+            scenario.Relation(
+                relation_id=certificates_relation.relation_id,
+                endpoint="certificates",
+                interface="tls-certificates",
+                remote_app_name="certificate-requirer",
+                local_unit_data={
+                    "certificate_signing_requests": json.dumps(
+                        [
+                            {
+                                "certificate_signing_request": new_csr.decode().strip(),
+                                "ca": False,
+                            }
+                        ]
+                    )
+                },
+                remote_app_data={
+                    "certificates": json.dumps(
+                        [
+                            {
+                                "certificate": certificate.decode().strip(),
+                                "certificate_signing_request": csr.decode().strip(),
+                                "ca": provider_ca_certificate.decode().strip(),
+                            }
+                        ]
+                    ),
+                },
+            )
+        ]
