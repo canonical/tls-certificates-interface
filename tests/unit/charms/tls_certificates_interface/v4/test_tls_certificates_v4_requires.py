@@ -180,9 +180,17 @@ class TestTLSCertificatesRequiresV4:
             },
         )
 
+        private_key_secret = Secret(
+            id="0",
+            revision=0,
+            label=f"{LIBID}-private-key-0",
+            owner="unit",
+            contents={0: {"private-key": requirer_private_key.decode()}},
+        )
         state_in = scenario.State(
             relations=[certificates_relation],
             config={"common_name": "example.com"},
+            secrets=[private_key_secret],
         )
 
         self.ctx.run(certificates_relation.changed_event, state_in)
@@ -411,6 +419,94 @@ class TestTLSCertificatesRequiresV4:
             ),
         ]
 
+    def test_given_revoked_certificate_when_relation_changed_then_certificate_secret_is_removed(
+        self,
+    ):
+        requirer_private_key = generate_private_key()
+        csr = generate_csr(
+            private_key=requirer_private_key,
+            common_name="example.com",
+        )
+        provider_private_key = generate_private_key()
+        provider_ca_certificate = generate_ca(
+            private_key=provider_private_key,
+            common_name="example.com",
+        )
+        certificate = generate_certificate(
+            ca_key=provider_private_key,
+            csr=csr,
+            ca=provider_ca_certificate,
+        )
+        certificates_relation = scenario.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+            local_unit_data={
+                "certificate_signing_requests": json.dumps(
+                    [
+                        {
+                            "certificate_signing_request": csr.decode().strip(),
+                            "ca": False,
+                        }
+                    ]
+                )
+            },
+            remote_app_data={
+                "certificates": json.dumps(
+                    [
+                        {
+                            "certificate": certificate.decode().strip(),
+                            "certificate_signing_request": csr.decode().strip(),
+                            "ca": provider_ca_certificate.decode().strip(),
+                            "revoked": True,
+                        }
+                    ]
+                ),
+            },
+        )
+
+        private_key_secret = Secret(
+            id="0",
+            revision=0,
+            label=f"{LIBID}-private-key-0",
+            owner="unit",
+            contents={0: {"private-key": requirer_private_key.decode()}},
+        )
+
+        certificate_secret = Secret(
+            id="1",
+            revision=0,
+            label=f"{LIBID}-certificate-0-{get_sha256_hex(csr.decode().strip().encode())}",
+            owner="unit",
+            contents={
+                0: {
+                    "certificate": certificate.decode(),
+                    "csr": csr.decode(),
+                }
+            },
+        )
+        state_in = scenario.State(
+            relations=[certificates_relation],
+            config={"common_name": "example.com"},
+            secrets=[
+                private_key_secret,
+                certificate_secret,
+            ],
+        )
+
+        state_out = self.ctx.run(certificates_relation.changed_event, state_in)
+
+        assert state_out.secrets == [
+            private_key_secret,
+            Secret(
+                id="1",
+                revision=0,
+                label=f"{LIBID}-certificate-0-{get_sha256_hex(csr.decode().strip().encode())}",
+                owner="unit",
+                contents={},
+            ),
+        ]
+
     def test_given_private_key_generated_when_regenerate_private_key_then_new_private_key_is_generated(  # noqa: E501
         self,
     ):
@@ -579,14 +675,107 @@ class TestTLSCertificatesRequiresV4:
             },
         )
 
+        private_key_secret = Secret(
+            id="0",
+            revision=0,
+            label=f"{LIBID}-private-key-0",
+            owner="unit",
+            contents={0: {"private-key": private_key.decode()}},
+        )
+
         state_in = scenario.State(
             relations=[certificates_relation],
             config={"common_name": "example.com"},
+            secrets=[private_key_secret],
         )
 
         state_out = self.ctx.run(certificates_relation.changed_event, state_in)
 
         assert self.certificate_secret_exists(state_out.secrets)
+
+    def test_given_certificate_secret_exists_and_certificate_is_provided_when_relation_changed_then_certificate_secret_is_updated(  # noqa: E501
+        self,
+    ):
+        private_key = generate_private_key()
+        csr = generate_csr(
+            private_key=private_key,
+            common_name="example.com",
+        )
+
+        initial_certificate_secret = Secret(
+            id="1",
+            revision=0,
+            label=f"{LIBID}-certificate-0-{get_sha256_hex(csr.decode().strip().encode())}",
+            owner="unit",
+            contents={
+                0: {
+                    "certificate": "initial certificate",
+                    "csr": csr.decode().strip(),
+                }
+            },
+        )
+
+        provider_private_key = generate_private_key()
+        provider_ca_certificate = generate_ca(
+            private_key=provider_private_key,
+            common_name="example.com",
+        )
+        new_certificate = generate_certificate(
+            ca_key=provider_private_key,
+            csr=csr,
+            ca=provider_ca_certificate,
+        )
+        certificates_relation = scenario.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+            local_unit_data={
+                "certificate_signing_requests": json.dumps(
+                    [
+                        {
+                            "certificate_signing_request": csr.decode().strip(),
+                            "ca": False,
+                        }
+                    ]
+                )
+            },
+            remote_app_data={
+                "certificates": json.dumps(
+                    [
+                        {
+                            "certificate": new_certificate.decode().strip(),
+                            "certificate_signing_request": csr.decode().strip(),
+                            "ca": provider_ca_certificate.decode().strip(),
+                        }
+                    ]
+                ),
+            },
+        )
+
+        private_key_secret = Secret(
+            id="0",
+            revision=0,
+            label=f"{LIBID}-private-key-0",
+            owner="unit",
+            contents={0: {"private-key": private_key.decode().strip()}},
+        )
+
+        state_in = scenario.State(
+            relations=[certificates_relation],
+            config={"common_name": "example.com"},
+            secrets=[private_key_secret, initial_certificate_secret],
+        )
+
+        state_out = self.ctx.run(certificates_relation.changed_event, state_in)
+
+        assert self.certificate_secret_exists(state_out.secrets)
+
+        certificate_secret = self.get_certificate_secret(state_out.secrets)
+
+        assert certificate_secret.contents[1] == {
+            "certificate": new_certificate.decode().strip(),
+            "csr": csr.decode().strip(),
+        }
 
     @patch(LIB_DIR + ".generate_csr")
     def test_given_certificate_when_certificate_secret_expires_then_new_certificate_is_requested(  # noqa: E501
