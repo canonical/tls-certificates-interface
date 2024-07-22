@@ -663,29 +663,6 @@ def get_sha256_hex(data: str) -> str:
     return digest.finalize().hex()
 
 
-def csr_matches_certificate(csr: str, cert: str) -> bool:
-    """Check if a CSR matches a certificate.
-
-    Args:
-        csr (str): Certificate Signing Request as a string
-        cert (str): Certificate as a string
-    Returns:
-        bool: True/False depending on whether the CSR matches the certificate.
-    """
-    csr_object = x509.load_pem_x509_csr(csr.encode("utf-8"))
-    cert_object = x509.load_pem_x509_certificate(cert.encode("utf-8"))
-
-    if csr_object.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    ) != cert_object.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    ):
-        return False
-    return True
-
-
 def csr_matches_private_key(csr: str, key: str) -> bool:
     """Check if a CSR matches a private key.
 
@@ -1031,8 +1008,8 @@ class TLSCertificatesRequiresV4(Object):
                 == certificate_request
             ):
                 return self._find_certificate_in_relation_data(
-                requirer_csr.certificate_signing_request
-            ), self.private_key
+                    requirer_csr.certificate_signing_request
+                ), self.private_key
         return None, None
 
     def get_assigned_certificates(self) -> Tuple[List[ProviderCertificate], PrivateKey | None]:

@@ -9,7 +9,6 @@ from ipaddress import IPv6Address
 
 import pytest
 from charms.tls_certificates_interface.v4.tls_certificates import (
-    csr_matches_certificate,
     generate_csr,
     generate_private_key,
 )
@@ -21,18 +20,6 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key, p
 from lib.charms.tls_certificates_interface.v4.tls_certificates import (
     ProviderCertificate,
     calculate_expiry_notification_time,
-)
-from tests.unit.charms.tls_certificates_interface.v4.certificates import (
-    generate_ca as generate_ca_helper,
-)
-from tests.unit.charms.tls_certificates_interface.v4.certificates import (
-    generate_certificate as generate_certificate_helper,
-)
-from tests.unit.charms.tls_certificates_interface.v4.certificates import (
-    generate_csr as generate_csr_helper,
-)
-from tests.unit.charms.tls_certificates_interface.v4.certificates import (
-    generate_ec_private_key as generate_ec_private_key_helper,
 )
 from tests.unit.charms.tls_certificates_interface.v4.certificates import (
     generate_private_key as generate_private_key_helper,
@@ -168,85 +155,6 @@ def test_given_key_size_provided_when_generate_private_key_then_private_key_is_g
     private_key_object = serialization.load_pem_private_key(private_key, password=None)
     assert isinstance(private_key_object, rsa.RSAPrivateKeyWithSerialization)
     assert private_key_object.key_size == key_size
-
-
-def test_given_matching_cert_for_csr_when_csr_matches_certificate_then_it_returns_true():
-    private_key = generate_private_key_helper()
-    csr = generate_csr_helper(
-        private_key=private_key,
-        common_name="same subject",
-    )
-    ca_key = generate_private_key_helper()
-    ca = generate_ca_helper(
-        private_key=ca_key,
-        common_name="some subject",
-    )
-    certificate = generate_certificate_helper(
-        csr=csr,
-        ca=ca,
-        ca_key=generate_private_key_helper(),
-    )
-    assert csr_matches_certificate(csr.decode(), certificate.decode()) is True
-
-
-def test_given_matching_cert_for_csr_with_ec_key_when_csr_matches_certificate_then_it_returns_true():  # noqa: E501
-    private_key = generate_ec_private_key_helper()
-    csr = generate_csr_helper(
-        private_key=private_key,
-        common_name="same subject",
-    )
-    ca_key = generate_ec_private_key_helper()
-    ca = generate_ca_helper(
-        private_key=ca_key,
-        common_name="some subject",
-    )
-    certificate = generate_certificate_helper(
-        csr=csr,
-        ca=ca,
-        ca_key=generate_ec_private_key_helper(),
-    )
-    assert csr_matches_certificate(csr.decode(), certificate.decode()) is True
-
-
-def test_given_certificate_country_doesnt_match_with_csr_when_csr_matches_certificate_then_returns_true():  # noqa: E501
-    ca_private_key = generate_private_key_helper()
-    ca = generate_ca_helper(private_key=ca_private_key, common_name="ca subject")
-
-    server_private_key = generate_private_key_helper()
-    server_csr = generate_csr_helper(
-        private_key=server_private_key,
-        common_name="server subject",
-    )
-
-    server_cert = generate_certificate_helper(
-        csr=server_csr,
-        ca=ca,
-        ca_key=ca_private_key,
-    )
-
-    assert csr_matches_certificate(server_csr.decode(), server_cert.decode()) is True
-
-
-def test_given_csr_public_key_not_matching_certificate_public_key_when_csr_matches_certificate_then_it_returns_false():  # noqa: E501
-    csr_key_1 = generate_csr_helper(
-        private_key=generate_private_key_helper(),
-        common_name="matching subject",
-    )
-    csr_key_2 = generate_csr_helper(
-        private_key=generate_private_key_helper(),
-        common_name="matching subject",
-    )
-    ca_key = generate_private_key_helper()
-    ca = generate_ca_helper(
-        private_key=ca_key,
-        common_name="matching subject",
-    )
-    certificate = generate_certificate_helper(
-        csr=csr_key_1,
-        ca=ca,
-        ca_key=ca_key,
-    )
-    assert csr_matches_certificate(csr_key_2.decode(), certificate.decode()) is False
 
 
 def test_given_provider_recommended_notification_time_when_calculate_expiry_notification_time_then_returns_provider_recommendation():  # noqa: E501
