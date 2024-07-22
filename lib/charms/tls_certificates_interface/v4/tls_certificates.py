@@ -10,7 +10,7 @@ This library contains the Requires and Provides classes for handling the tls-cer
 interface.
 
 Pre-requisites:
-  - Juju >= 3.0
+  - Juju >= 3.1.8
 
 ## Getting Started
 From a charm directory, fetch the library using `charmcraft`:
