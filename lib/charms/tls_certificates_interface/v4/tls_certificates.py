@@ -367,17 +367,17 @@ class CertificateRequest:
         try:
             sans = csr_object.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
             sans_dns = [
-                san
+                str(san)
                 for san in sans.get_values_for_type(x509.DNSName)
                 if isinstance(san, x509.DNSName)
             ]
             sans_ip = [
-                san
+                str(san)
                 for san in sans.get_values_for_type(x509.IPAddress)
                 if isinstance(san, x509.IPAddress)
             ]
             sans_oid = [
-                san
+                str(san)
                 for san in sans.get_values_for_type(x509.RegisteredID)
                 if isinstance(san, x509.RegisteredID)
             ]
