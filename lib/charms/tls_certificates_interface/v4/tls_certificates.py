@@ -183,7 +183,7 @@ PYDEPS = ["cryptography", "pydantic"]
 logger = logging.getLogger(__name__)
 
 
-class TLSCertificatesError(RuntimeError):
+class TLSCertificatesError(Exception):
     """Base class for custom errors raised by this library."""
 
 
