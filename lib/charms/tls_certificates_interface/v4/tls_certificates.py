@@ -340,11 +340,65 @@ class CertificateRequest:
     locality_name: Optional[str] = None
     is_ca: bool = False
 
+    def __eq__(self, other: object) -> bool:
+        """Check if two CertificateRequest objects are equal."""
+        if not isinstance(other, CertificateRequest):
+            return False
+        return self.__dict__ == other.__dict__
+
     def is_valid(self) -> bool:
         """Check whether the certificate request is valid."""
         if not self.common_name:
             return False
         return True
+
+    @staticmethod
+    def from_string(csr: str) -> "CertificateRequest":
+        """Create a CertificateRequest object from a CSR."""
+        csr_object = x509.load_pem_x509_csr(csr.encode())
+        common_name = csr_object.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+        country_name = csr_object.subject.get_attributes_for_oid(NameOID.COUNTRY_NAME)
+        state_or_province_name = csr_object.subject.get_attributes_for_oid(
+            NameOID.STATE_OR_PROVINCE_NAME
+        )
+        locality_name = csr_object.subject.get_attributes_for_oid(NameOID.LOCALITY_NAME)
+        organization_name = csr_object.subject.get_attributes_for_oid(NameOID.ORGANIZATION_NAME)
+        email_address = csr_object.subject.get_attributes_for_oid(NameOID.EMAIL_ADDRESS)
+        try:
+            sans = csr_object.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+            sans_dns = [
+                san
+                for san in sans.get_values_for_type(x509.DNSName)
+                if isinstance(san, x509.DNSName)
+            ]
+            sans_ip = [
+                san
+                for san in sans.get_values_for_type(x509.IPAddress)
+                if isinstance(san, x509.IPAddress)
+            ]
+            sans_oid = [
+                san
+                for san in sans.get_values_for_type(x509.RegisteredID)
+                if isinstance(san, x509.RegisteredID)
+            ]
+        except x509.ExtensionNotFound:
+            sans = []
+            sans_dns = []
+            sans_ip = []
+            sans_oid = []
+        return CertificateRequest(
+            common_name=str(common_name[0].value),
+            country_name=str(country_name[0].value) if country_name else None,
+            state_or_province_name=str(state_or_province_name[0].value)
+            if state_or_province_name
+            else None,
+            locality_name=str(locality_name[0].value) if locality_name else None,
+            organization=str(organization_name[0].value) if organization_name else None,
+            email_address=str(email_address[0].value) if email_address else None,
+            sans_dns=sans_dns,
+            sans_ip=sans_ip if sans_ip else None,
+            sans_oid=sans_oid if sans_oid else None,
+        )
 
 
 @dataclass
@@ -466,62 +520,6 @@ def _get_closest_future_time(
         if datetime.now(timezone.utc) < expiry_notification_time
         else expiry_time
     )
-
-
-def csr_has_attributes(  # noqa: C901
-    csr: str,
-    common_name: str,
-    sans_dns: Optional[List[str]],
-    organization: Optional[str],
-    email_address: Optional[str],
-    country_name: Optional[str],
-    state_or_province_name: Optional[str],
-    locality_name: Optional[str],
-) -> bool:
-    """Check whether CSR has the specified attributes."""
-    csr_object = x509.load_pem_x509_csr(csr.encode())
-    csr_common_name = csr_object.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
-    csr_country_name = csr_object.subject.get_attributes_for_oid(NameOID.COUNTRY_NAME)
-    csr_state_or_province_name = csr_object.subject.get_attributes_for_oid(
-        NameOID.STATE_OR_PROVINCE_NAME
-    )
-    csr_locality_name = csr_object.subject.get_attributes_for_oid(NameOID.LOCALITY_NAME)
-    csr_organization_name = csr_object.subject.get_attributes_for_oid(NameOID.ORGANIZATION_NAME)
-    csr_email_address = csr_object.subject.get_attributes_for_oid(NameOID.EMAIL_ADDRESS)
-    if len(csr_common_name) == 0 and common_name:
-        return False
-    if csr_common_name[0].value != common_name:
-        return False
-    if len(csr_country_name) == 0 and country_name:
-        return False
-    if len(csr_country_name) != 0 and csr_country_name[0].value != country_name:
-        return False
-    if len(csr_state_or_province_name) == 0 and state_or_province_name:
-        return False
-    if (
-        len(csr_state_or_province_name) != 0
-        and csr_state_or_province_name[0].value != state_or_province_name
-    ):
-        return False
-    if len(csr_locality_name) == 0 and locality_name:
-        return False
-    if len(csr_locality_name) != 0 and csr_locality_name[0].value != locality_name:
-        return False
-    if len(csr_organization_name) == 0 and organization:
-        return False
-    if len(csr_organization_name) != 0 and csr_organization_name[0].value != organization:
-        return False
-    if len(csr_email_address) == 0 and email_address:
-        return False
-    if len(csr_email_address) != 0 and csr_email_address[0].value != email_address:
-        return False
-    try:
-        sans = csr_object.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
-    except x509.ExtensionNotFound:
-        sans = []
-    if sans_dns and sorted([str(san.value) for san in sans]) != sorted(sans_dns):
-        return False
-    return True
 
 
 def calculate_expiry_notification_time(
@@ -1150,17 +1148,9 @@ class TLSCertificatesRequiresV4(Object):
 
     def _csr_matches_request_attributes(self, csr: str) -> bool:
         for certificate_request in self.certificate_requests:
-            if csr_has_attributes(
-                csr=csr,
-                common_name=certificate_request.common_name,
-                sans_dns=certificate_request.sans_dns,
-                organization=certificate_request.organization,
-                email_address=certificate_request.email_address,
-                country_name=certificate_request.country_name,
-                state_or_province_name=certificate_request.state_or_province_name,
-                locality_name=certificate_request.locality_name,
-            ):
+            if CertificateRequest.from_string(csr=csr) == certificate_request:
                 return True
+        print("CSR does not match any certificate request")
         return False
 
     def _certificate_requested(self, certificate_request: CertificateRequest) -> bool:
@@ -1178,16 +1168,7 @@ class TLSCertificatesRequiresV4(Object):
     ) -> Optional[str]:
         for requirer_csr in self.get_requirer_csrs():
             csr_str = requirer_csr.csr
-            if csr_has_attributes(
-                csr=csr_str,
-                common_name=certificate_request.common_name,
-                sans_dns=certificate_request.sans_dns,
-                organization=certificate_request.organization,
-                email_address=certificate_request.email_address,
-                country_name=certificate_request.country_name,
-                state_or_province_name=certificate_request.state_or_province_name,
-                locality_name=certificate_request.locality_name,
-            ):
+            if CertificateRequest.from_string(csr_str) == certificate_request:
                 return csr_str
         return None
 
@@ -1323,16 +1304,7 @@ class TLSCertificatesRequiresV4(Object):
     ) -> Optional[RequirerCSR]:
         """Get the CSR that was sent to the provider for the given certificate request."""
         for requirer_csr in self.get_requirer_csrs():
-            if csr_has_attributes(
-                csr=requirer_csr.csr,
-                common_name=certificate_request.common_name,
-                sans_dns=certificate_request.sans_dns,
-                organization=certificate_request.organization,
-                email_address=certificate_request.email_address,
-                country_name=certificate_request.country_name,
-                state_or_province_name=certificate_request.state_or_province_name,
-                locality_name=certificate_request.locality_name,
-            ):
+            if CertificateRequest.from_string(csr=requirer_csr.csr) == certificate_request:
                 return requirer_csr
         return None
 
