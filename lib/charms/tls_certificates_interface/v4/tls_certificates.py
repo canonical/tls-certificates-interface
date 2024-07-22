@@ -342,7 +342,7 @@ class CertificateRequest:
 
     def is_valid(self) -> bool:
         """Check whether the certificate request is valid."""
-        if not self.common_name or self.common_name == "":
+        if not self.common_name:
             return False
         return True
 
