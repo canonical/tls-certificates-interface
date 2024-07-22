@@ -31,9 +31,6 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         self.framework.observe(
             self.on.regenerate_private_key_action, self._on_regenerate_private_key_action
         )
-        self.framework.observe(
-            self.on.get_certificate_request_action, self._on_get_certificate_request_action
-        )
         self.framework.observe(self.on.get_certificate_action, self._on_get_certificate_action)
 
     def _get_certificate_requests(self) -> List[CertificateRequest]:
@@ -57,20 +54,6 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
 
     def _on_regenerate_private_key_action(self, event: ActionEvent) -> None:
         self.certificates.regenerate_private_key()
-
-    def _on_get_certificate_request_action(self, event: ActionEvent) -> None:
-        certificate_request = self.certificates.get_certificate_signing_request(
-            certificate_request=self._get_certificate_requests()[0]
-        )
-        if not certificate_request:
-            event.fail("Certificate request not available")
-            return
-        event.set_results(
-            {
-                "csr": certificate_request.csr,
-                "is-ca": certificate_request.is_ca,
-            }
-        )
 
     def _on_get_certificate_action(self, event: ActionEvent) -> None:
         certificate, _ = self.certificates.get_assigned_certificate(

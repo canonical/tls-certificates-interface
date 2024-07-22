@@ -152,7 +152,6 @@ from enum import Enum
 from typing import List, MutableMapping, Optional, Tuple, Union
 
 from cryptography import x509
-from cryptography.hazmat._oid import ExtensionOID
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
@@ -311,17 +310,6 @@ class Mode(Enum):
 
     UNIT = 1
     APP = 2
-
-
-@dataclass
-class RequirerCSR:
-    """This class represents a certificate signing request from an interface Requirer."""
-
-    relation_id: int
-    application_name: str
-    csr: str
-    is_ca: Optional[bool]
-    unit_name: Optional[str] = None
 
 
 @dataclass
@@ -552,105 +540,6 @@ def calculate_expiry_notification_time(
             return provider_recommendation_time_delta
     calculated_hours = (expiry_time - validity_start_time).total_seconds() / (3600 * 3)
     return expiry_time - timedelta(hours=calculated_hours)
-
-
-def get_certificate_extensions(
-    authority_key_identifier: bytes,
-    csr: x509.CertificateSigningRequest,
-    alt_names: Optional[List[str]],
-    is_ca: bool,
-) -> List[x509.Extension]:
-    """Generate a list of certificate extensions from a CSR and other known information.
-
-    Args:
-        authority_key_identifier (bytes): Authority key identifier
-        csr (x509.CertificateSigningRequest): CSR
-        alt_names (list): List of alt names to put on cert - prefer putting SANs in CSR
-        is_ca (bool): Whether the certificate is a CA certificate
-
-    Returns:
-        List[x509.Extension]: List of extensions
-    """
-    cert_extensions_list: List[x509.Extension] = [
-        x509.Extension(
-            oid=ExtensionOID.AUTHORITY_KEY_IDENTIFIER,
-            value=x509.AuthorityKeyIdentifier(
-                key_identifier=authority_key_identifier,
-                authority_cert_issuer=None,
-                authority_cert_serial_number=None,
-            ),
-            critical=False,
-        ),
-        x509.Extension(
-            oid=ExtensionOID.SUBJECT_KEY_IDENTIFIER,
-            value=x509.SubjectKeyIdentifier.from_public_key(csr.public_key()),
-            critical=False,
-        ),
-        x509.Extension(
-            oid=ExtensionOID.BASIC_CONSTRAINTS,
-            critical=True,
-            value=x509.BasicConstraints(ca=is_ca, path_length=None),
-        ),
-    ]
-
-    sans: List[x509.GeneralName] = []
-    san_alt_names = [x509.DNSName(name) for name in alt_names] if alt_names else []
-    sans.extend(san_alt_names)
-    try:
-        loaded_san_ext = csr.extensions.get_extension_for_class(x509.SubjectAlternativeName)
-        sans.extend(
-            [x509.DNSName(name) for name in loaded_san_ext.value.get_values_for_type(x509.DNSName)]
-        )
-        sans.extend(
-            [x509.IPAddress(ip) for ip in loaded_san_ext.value.get_values_for_type(x509.IPAddress)]
-        )
-        sans.extend(
-            [
-                x509.RegisteredID(oid)
-                for oid in loaded_san_ext.value.get_values_for_type(x509.RegisteredID)
-            ]
-        )
-    except x509.ExtensionNotFound:
-        pass
-
-    if sans:
-        cert_extensions_list.append(
-            x509.Extension(
-                oid=ExtensionOID.SUBJECT_ALTERNATIVE_NAME,
-                critical=False,
-                value=x509.SubjectAlternativeName(sans),
-            )
-        )
-
-    if is_ca:
-        cert_extensions_list.append(
-            x509.Extension(
-                ExtensionOID.KEY_USAGE,
-                critical=True,
-                value=x509.KeyUsage(
-                    digital_signature=False,
-                    content_commitment=False,
-                    key_encipherment=False,
-                    data_encipherment=False,
-                    key_agreement=False,
-                    key_cert_sign=True,
-                    crl_sign=True,
-                    encipher_only=False,
-                    decipher_only=False,
-                ),
-            )
-        )
-
-    existing_oids = {ext.oid for ext in cert_extensions_list}
-    for extension in csr.extensions:
-        if extension.oid == ExtensionOID.SUBJECT_ALTERNATIVE_NAME:
-            continue
-        if extension.oid in existing_oids:
-            logger.warning("Extension %s is managed by the TLS provider, ignoring.", extension.oid)
-            continue
-        cert_extensions_list.append(extension)
-
-    return cert_extensions_list
 
 
 def generate_private_key(
@@ -1026,33 +915,23 @@ class TLSCertificatesRequiresV4(Object):
         self, certificate_request: CertificateRequest
     ) -> Optional[str]:
         for requirer_csr in self.get_requirer_csrs():
-            csr_str = requirer_csr.csr
+            csr_str = requirer_csr.certificate_signing_request
             if CertificateRequest.from_string(csr_str) == certificate_request:
                 return csr_str
         return None
 
-    def get_requirer_csrs(self) -> List[RequirerCSR]:
+    def get_requirer_csrs(self) -> List[CertificateSigningRequest]:
         """Return list of requirer's CSRs from relation unit data."""
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
             return []
         app_or_unit = self._get_app_or_unit()
-        requirer_csrs = []
         try:
             requirer_relation_data = RequirerData.load(relation.data[app_or_unit])
         except DataValidationError:
             logger.warning("Invalid relation data")
             return []
-        for requirer_csr in requirer_relation_data.certificate_signing_requests:
-            relation_csr = RequirerCSR(
-                relation_id=relation.id,
-                application_name=self.model.app.name,
-                unit_name=self.model.unit.name if self.mode == Mode.UNIT else None,
-                csr=requirer_csr.certificate_signing_request,
-                is_ca=requirer_csr.ca,
-            )
-            requirer_csrs.append(relation_csr)
-        return requirer_csrs
+        return requirer_relation_data.certificate_signing_requests
 
     def get_provider_certificates(self) -> List[ProviderCertificate]:
         """Return list of certificates from the provider's relation data."""
@@ -1146,51 +1025,25 @@ class TLSCertificatesRequiresV4(Object):
         self, certificate_request: CertificateRequest
     ) -> Tuple[ProviderCertificate | None, PrivateKey | None]:
         """Get the certificate that was assigned to the given certificate request."""
-        if requirer_csr := self.get_certificate_signing_request(certificate_request):
-            return self._find_certificate_in_relation_data(requirer_csr.csr), self.private_key
+        for requirer_csr in self.get_requirer_csrs():
+            if (
+                CertificateRequest.from_string(csr=requirer_csr.certificate_signing_request)
+                == certificate_request
+            ):
+                return self._find_certificate_in_relation_data(
+                requirer_csr.certificate_signing_request
+            ), self.private_key
         return None, None
 
     def get_assigned_certificates(self) -> Tuple[List[ProviderCertificate], PrivateKey | None]:
         """Get a list of certificates that were assigned to this unit."""
         assigned_certificates = []
-        for requirer_csr in self.get_certificate_signing_requests(fulfilled_only=True):
-            if cert := self._find_certificate_in_relation_data(requirer_csr.csr):
+        for requirer_csr in self.get_requirer_csrs():
+            if cert := self._find_certificate_in_relation_data(
+                requirer_csr.certificate_signing_request
+            ):
                 assigned_certificates.append(cert)
         return assigned_certificates, self.private_key
-
-    def get_certificate_signing_request(
-        self, certificate_request: CertificateRequest
-    ) -> Optional[RequirerCSR]:
-        """Get the CSR that was sent to the provider for the given certificate request."""
-        for requirer_csr in self.get_requirer_csrs():
-            if CertificateRequest.from_string(csr=requirer_csr.csr) == certificate_request:
-                return requirer_csr
-        return None
-
-    def get_certificate_signing_requests(
-        self,
-        fulfilled_only: bool = False,
-        unfulfilled_only: bool = False,
-    ) -> List[RequirerCSR]:
-        """Get the list of CSR's that were sent to the provider.
-
-        You can choose to get only the CSR's that have a certificate assigned or only the CSR's
-        that don't.
-
-        Args:
-            fulfilled_only (bool): This option will discard CSRs that don't have certificates yet.
-            unfulfilled_only (bool): This option will discard CSRs that have certificates signed.
-
-        Returns:
-            List of RequirerCSR objects.
-        """
-        csrs = []
-        for requirer_csr in self.get_requirer_csrs():
-            cert = self._find_certificate_in_relation_data(requirer_csr.csr)
-            if (unfulfilled_only and cert) or (fulfilled_only and not cert):
-                continue
-            csrs.append(requirer_csr)
-        return csrs
 
     def _find_certificate_in_relation_data(self, csr: str) -> Optional[ProviderCertificate]:
         """Return the certificate that match the given CSR."""
@@ -1218,7 +1071,7 @@ class TLSCertificatesRequiresV4(Object):
             logger.debug("Relation data did not pass JSON Schema validation")
             return
         requirer_csrs = [
-            certificate_creation_request.csr
+            certificate_creation_request.certificate_signing_request
             for certificate_creation_request in self.get_requirer_csrs()
         ]
         provider_certificates = self.get_provider_certificates()
@@ -1274,13 +1127,17 @@ class TLSCertificatesRequiresV4(Object):
         the charm's certificate_requests attribute.
         - The CSR public key does not match the private key.
         """
-        for requirer_csr in self.get_certificate_signing_requests():
-            if not self._csr_matches_request_attributes(requirer_csr.csr):
-                self._remove_requirer_csr_from_relation_data(requirer_csr.csr)
+        for requirer_csr in self.get_requirer_csrs():
+            if not self._csr_matches_request_attributes(requirer_csr.certificate_signing_request):
+                self._remove_requirer_csr_from_relation_data(
+                    requirer_csr.certificate_signing_request
+                )
             elif self.private_key and not csr_matches_private_key(
-                requirer_csr.csr, self.private_key.private_key
+                requirer_csr.certificate_signing_request, self.private_key.private_key
             ):
-                self._remove_requirer_csr_from_relation_data(requirer_csr.csr)
+                self._remove_requirer_csr_from_relation_data(
+                    requirer_csr.certificate_signing_request
+                )
 
     def _get_next_secret_expiry_time(self, certificate: ProviderCertificate) -> Optional[datetime]:
         """Return the expiry time or expiry notification time.

@@ -537,42 +537,6 @@ class TestTLSCertificatesRequiresV4:
         secret = self.get_private_key_secret(action_output.state.secrets)
         assert secret.contents[1]["private-key"] != initial_private_key
 
-    def test_given_certificate_requested_when_get_certificate_requests_then_certificate_request_is_returned(  # noqa: E501
-        self,
-    ):
-        private_key = generate_private_key()
-        csr = generate_csr(
-            private_key=private_key,
-            common_name="example.com",
-        )
-        certificates_relation = scenario.Relation(
-            endpoint="certificates",
-            interface="tls-certificates",
-            remote_app_name="certificate-requirer",
-            local_unit_data={
-                "certificate_signing_requests": json.dumps(
-                    [
-                        {
-                            "certificate_signing_request": csr.decode().strip(),
-                            "ca": False,
-                        }
-                    ]
-                )
-            },
-        )
-        state_in = scenario.State(
-            relations=[certificates_relation],
-            config={"common_name": "example.com"},
-        )
-
-        action_output = self.ctx.run_action("get-certificate-request", state_in)
-
-        assert action_output.success is True
-        assert action_output.results == {
-            "csr": csr.decode().strip(),
-            "is-ca": False,
-        }
-
     def test_given_certificate_is_provided_when_get_certificate_then_certificate_is_returned(self):
         private_key = generate_private_key()
         csr = generate_csr(
