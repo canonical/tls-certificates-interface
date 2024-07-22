@@ -389,27 +389,6 @@ class CertificateRequest:
         )
 
 
-@dataclass
-class PrivateKey:
-    """This class represents a private key."""
-
-    private_key: str
-    password: str
-
-    def to_json(self) -> str:
-        """Return the object as a JSON string.
-
-        Returns:
-            str: JSON representation of the object
-        """
-        return json.dumps(
-            {
-                "private_key": self.private_key,
-                "password": self.password,
-            }
-        )
-
-
 class CertificateAvailableEvent(EventBase):
     """Charm Event triggered when a TLS certificate is available."""
 
@@ -785,16 +764,13 @@ class TLSCertificatesRequiresV4(Object):
         raise TLSCertificatesError("Invalid mode")
 
     @property
-    def private_key(self) -> PrivateKey | None:
+    def private_key(self) -> str | None:
         """Return the private key."""
         if not self._private_key_generated():
             return None
         secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
         private_key = secret.get_content(refresh=True)["private-key"]
-        return PrivateKey(
-            private_key=private_key,
-            password="",
-        )
+        return private_key
 
     def _generate_private_key(self) -> None:
         if self._private_key_generated():
@@ -929,7 +905,7 @@ class TLSCertificatesRequiresV4(Object):
 
     def get_assigned_certificate(
         self, certificate_request: CertificateRequest
-    ) -> Tuple[Certificate | None, PrivateKey | None]:
+    ) -> Tuple[Certificate | None, str | None]:
         """Get the certificate that was assigned to the given certificate request."""
         for requirer_csr in self.get_requirer_csrs():
             if (
@@ -941,7 +917,7 @@ class TLSCertificatesRequiresV4(Object):
                 ), self.private_key
         return None, None
 
-    def get_assigned_certificates(self) -> Tuple[List[Certificate], PrivateKey | None]:
+    def get_assigned_certificates(self) -> Tuple[List[Certificate], str | None]:
         """Get a list of certificates that were assigned to this unit."""
         assigned_certificates = []
         for requirer_csr in self.get_requirer_csrs():
