@@ -817,7 +817,7 @@ class TLSCertificatesRequiresV4(Object):
         csr = self._certificate_requested_for_attributes(certificate_request)
         if not csr:
             return False
-        if not csr_matches_private_key(csr=csr, key=self.private_key.private_key):
+        if not csr_matches_private_key(csr=csr, key=self.private_key):
             return False
         return True
 
@@ -892,7 +892,7 @@ class TLSCertificatesRequiresV4(Object):
         for certificate_request in self.certificate_requests:
             if not self._certificate_requested(certificate_request):
                 csr = generate_csr(
-                    private_key=self.private_key.private_key.encode(),
+                    private_key=self.private_key.encode(),
                     sans_dns=certificate_request.sans_dns,
                     common_name=certificate_request.common_name,
                     organization=certificate_request.organization,
@@ -1017,7 +1017,7 @@ class TLSCertificatesRequiresV4(Object):
                     requirer_csr.certificate_signing_request
                 )
             elif self.private_key and not csr_matches_private_key(
-                requirer_csr.certificate_signing_request, self.private_key.private_key
+                requirer_csr.certificate_signing_request, self.private_key
             ):
                 self._remove_requirer_csr_from_relation_data(
                     requirer_csr.certificate_signing_request
