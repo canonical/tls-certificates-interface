@@ -554,76 +554,6 @@ def calculate_expiry_notification_time(
     return expiry_time - timedelta(hours=calculated_hours)
 
 
-def generate_ca(
-    private_key: bytes,
-    common_name: str,
-    private_key_password: Optional[bytes] = None,
-    validity: int = 365,
-    country: str = "US",
-) -> bytes:
-    """Generate a CA Certificate.
-
-    Args:
-        private_key (bytes): Private key
-        common_name (str): Common Name that can be an IP or a Full Qualified Domain Name (FQDN).
-        private_key_password (bytes): Private key password
-        validity (int): Certificate validity time (in days)
-        country (str): Certificate Issuing country
-
-    Returns:
-        bytes: CA Certificate.
-    """
-    private_key_object = serialization.load_pem_private_key(
-        private_key, password=private_key_password
-    )
-    subject_name = x509.Name(
-        [
-            x509.NameAttribute(x509.NameOID.COUNTRY_NAME, country),
-            x509.NameAttribute(x509.NameOID.COMMON_NAME, common_name),
-        ]
-    )
-    subject_identifier_object = x509.SubjectKeyIdentifier.from_public_key(
-        private_key_object.public_key()  # type: ignore[arg-type]
-    )
-    subject_identifier = key_identifier = subject_identifier_object.public_bytes()
-    key_usage = x509.KeyUsage(
-        digital_signature=True,
-        key_encipherment=True,
-        key_cert_sign=True,
-        key_agreement=False,
-        content_commitment=False,
-        data_encipherment=False,
-        crl_sign=False,
-        encipher_only=False,
-        decipher_only=False,
-    )
-    cert = (
-        x509.CertificateBuilder()
-        .subject_name(subject_name)
-        .issuer_name(subject_name)
-        .public_key(private_key_object.public_key())  # type: ignore[arg-type]
-        .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.now(timezone.utc))
-        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=validity))
-        .add_extension(x509.SubjectKeyIdentifier(digest=subject_identifier), critical=False)
-        .add_extension(
-            x509.AuthorityKeyIdentifier(
-                key_identifier=key_identifier,
-                authority_cert_issuer=None,
-                authority_cert_serial_number=None,
-            ),
-            critical=False,
-        )
-        .add_extension(key_usage, critical=True)
-        .add_extension(
-            x509.BasicConstraints(ca=True, path_length=None),
-            critical=True,
-        )
-        .sign(private_key_object, hashes.SHA256())  # type: ignore[arg-type]
-    )
-    return cert.public_bytes(serialization.Encoding.PEM)
-
-
 def get_certificate_extensions(
     authority_key_identifier: bytes,
     csr: x509.CertificateSigningRequest,
@@ -721,66 +651,6 @@ def get_certificate_extensions(
         cert_extensions_list.append(extension)
 
     return cert_extensions_list
-
-
-def generate_certificate(
-    csr: bytes,
-    ca: bytes,
-    ca_key: bytes,
-    ca_key_password: Optional[bytes] = None,
-    validity: int = 365,
-    alt_names: Optional[List[str]] = None,
-    is_ca: bool = False,
-) -> bytes:
-    """Generate a TLS certificate based on a CSR.
-
-    Args:
-        csr (bytes): CSR
-        ca (bytes): CA Certificate
-        ca_key (bytes): CA private key
-        ca_key_password: CA private key password
-        validity (int): Certificate validity (in days)
-        alt_names (list): List of alt names to put on cert - prefer putting SANs in CSR
-        is_ca (bool): Whether the certificate is a CA certificate
-
-    Returns:
-        bytes: Certificate
-    """
-    csr_object = x509.load_pem_x509_csr(csr)
-    subject = csr_object.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0]
-    subject_name = x509.Name([subject])
-    ca_pem = x509.load_pem_x509_certificate(ca)
-    issuer = ca_pem.issuer
-    private_key = serialization.load_pem_private_key(ca_key, password=ca_key_password)
-
-    certificate_builder = (
-        x509.CertificateBuilder()
-        .subject_name(subject_name)
-        .issuer_name(issuer)
-        .public_key(csr_object.public_key())
-        .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.now(timezone.utc))
-        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=validity))
-    )
-    extensions = get_certificate_extensions(
-        authority_key_identifier=ca_pem.extensions.get_extension_for_class(
-            x509.SubjectKeyIdentifier
-        ).value.key_identifier,
-        csr=csr_object,
-        alt_names=alt_names,
-        is_ca=is_ca,
-    )
-    for extension in extensions:
-        try:
-            certificate_builder = certificate_builder.add_extension(
-                extval=extension.value,
-                critical=extension.critical,
-            )
-        except ValueError as e:
-            logger.warning("Failed to add extension %s: %s", extension.oid, e)
-
-    cert = certificate_builder.sign(private_key, hashes.SHA256())  # type: ignore[arg-type]
-    return cert.public_bytes(serialization.Encoding.PEM)
 
 
 def generate_private_key(
@@ -961,16 +831,6 @@ def csr_matches_private_key(csr: str, key: str) -> bool:
 def _relation_data_is_valid(
     relation: Relation, app_or_unit: Union[Application, Unit], databag_model
 ) -> bool:
-    """Check whether relation data is valid based on the databag model.
-
-    Args:
-        relation (Relation): Relation object
-        app_or_unit (Union[Application, Unit]): Application or unit object
-        databag_model (DatabagModel): Databag model
-
-    Returns:
-        bool: Whether relation data is valid.
-    """
     databag = relation.data[app_or_unit]
     try:
         databag_model.load(databag)
@@ -1150,7 +1010,6 @@ class TLSCertificatesRequiresV4(Object):
         for certificate_request in self.certificate_requests:
             if CertificateRequest.from_string(csr=csr) == certificate_request:
                 return True
-        print("CSR does not match any certificate request")
         return False
 
     def _certificate_requested(self, certificate_request: CertificateRequest) -> bool:
