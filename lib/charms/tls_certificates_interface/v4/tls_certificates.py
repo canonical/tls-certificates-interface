@@ -328,8 +328,8 @@ class RequirerCSR:
 class CertificateRequest:
     """This class represents a certificate request."""
 
-    sans_dns: List[str]
     common_name: str
+    sans_dns: Optional[List[str]] = None
     sans_ip: Optional[List[str]] = None
     sans_oid: Optional[List[str]] = None
     email_address: Optional[str] = None
@@ -471,7 +471,7 @@ def _get_closest_future_time(
 def csr_has_attributes(  # noqa: C901
     csr: str,
     common_name: str,
-    sans_dns: List[str],
+    sans_dns: Optional[List[str]],
     organization: Optional[str],
     email_address: Optional[str],
     country_name: Optional[str],
@@ -519,7 +519,7 @@ def csr_has_attributes(  # noqa: C901
         sans = csr_object.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
     except x509.ExtensionNotFound:
         sans = []
-    if sorted([str(san.value) for san in sans]) != sorted(sans_dns):
+    if sans_dns and sorted([str(san.value) for san in sans]) != sorted(sans_dns):
         return False
     return True
 
@@ -1018,6 +1018,9 @@ class TLSCertificatesRequiresV4(Object):
             logger.warning("This version of the TLS library requires Juju secrets (Juju >= 3.0)")
         if not self._mode_is_valid(mode):
             raise TLSCertificatesError("Invalid mode. Must be Mode.UNIT or Mode.APP")
+        for certificate_request in certificate_requests:
+            if not certificate_request.is_valid():
+                raise TLSCertificatesError("Invalid certificate request")
         self.charm = charm
         self.relationship_name = relationship_name
         self.certificate_requests = certificate_requests
@@ -1286,9 +1289,6 @@ class TLSCertificatesRequiresV4(Object):
             logger.debug("Private key not generated yet.")
             return
         for certificate_request in self.certificate_requests:
-            if not certificate_request.is_valid():
-                logger.warning("Invalid certificate request - Skipping")
-                continue
             if not self._certificate_requested(certificate_request):
                 csr = generate_csr(
                     private_key=self.private_key.private_key.encode(),

@@ -17,11 +17,11 @@ from lib.charms.tls_certificates_interface.v4.tls_certificates import (
 class DummyTLSCertificatesRequirerCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
-        certificate_request = self._get_certificate_request()
+        certificate_requests = self._get_certificate_requests()
         self.certificates = TLSCertificatesRequiresV4(
             charm=self,
             relationship_name="certificates",
-            certificate_requests=[certificate_request],
+            certificate_requests=certificate_requests,
             mode=Mode.UNIT,
             refresh_events=[self.on.config_changed],
         )
@@ -36,17 +36,21 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         )
         self.framework.observe(self.on.get_certificate_action, self._on_get_certificate_action)
 
-    def _get_certificate_request(self) -> CertificateRequest:
-        return CertificateRequest(
-            common_name=self._get_config_common_name(),
-            sans_dns=self._get_config_sans_dns(),
-            organization=self._get_config_organization_name(),
-            organizational_unit=self._get_config_organization_unit_name(),
-            email_address=self._get_config_email_address(),
-            country_name=self._get_config_country_name(),
-            state_or_province_name=self._get_config_state_or_province_name(),
-            locality_name=self._get_config_locality_name(),
-        )
+    def _get_certificate_requests(self) -> List[CertificateRequest]:
+        if not self._get_config_common_name():
+            return []
+        return [
+            CertificateRequest(
+                common_name=self._get_config_common_name(),
+                sans_dns=self._get_config_sans_dns(),
+                organization=self._get_config_organization_name(),
+                organizational_unit=self._get_config_organization_unit_name(),
+                email_address=self._get_config_email_address(),
+                country_name=self._get_config_country_name(),
+                state_or_province_name=self._get_config_state_or_province_name(),
+                locality_name=self._get_config_locality_name(),
+            )
+        ]
 
     def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
         print("Certificate available")
@@ -56,7 +60,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
 
     def _on_get_certificate_request_action(self, event: ActionEvent) -> None:
         certificate_request = self.certificates.get_certificate_signing_request(
-            certificate_request=self._get_certificate_request()
+            certificate_request=self._get_certificate_requests()[0]
         )
         if not certificate_request:
             event.fail("Certificate request not available")
@@ -70,7 +74,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
 
     def _on_get_certificate_action(self, event: ActionEvent) -> None:
         certificate, _ = self.certificates.get_assigned_certificate(
-            certificate_request=self._get_certificate_request()
+            certificate_request=self._get_certificate_requests()[0]
         )
         if not certificate:
             event.fail("Certificate not available")
