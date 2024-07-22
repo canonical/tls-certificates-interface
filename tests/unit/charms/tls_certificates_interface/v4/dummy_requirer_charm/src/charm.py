@@ -66,7 +66,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
             {
                 "certificate": certificate.certificate,
                 "ca": certificate.ca,
-                "csr": certificate.csr,
+                "csr": certificate.certificate_signing_request,
             }
         )
 

@@ -2,7 +2,6 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-import json
 import uuid
 from datetime import datetime, timedelta, timezone
 from ipaddress import IPv6Address
@@ -18,7 +17,6 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, pkcs12
 
 from lib.charms.tls_certificates_interface.v4.tls_certificates import (
-    ProviderCertificate,
     calculate_expiry_notification_time,
 )
 from tests.unit.charms.tls_certificates_interface.v4.certificates import (
@@ -232,35 +230,6 @@ def test_given_validity_time_is_too_short_when_calculate_expiry_notification_tim
         provider_recommended_notification_time=provider_recommended_notification_time,
     )
     assert notification_time == expected_notification_time
-
-
-def test_given_provider_certificate_object_when_to_json_then_json_string_is_returned():
-    provider_certificate = ProviderCertificate(
-        relation_id=0,
-        application_name="app",
-        csr="csr",
-        certificate="certificate",
-        ca="ca",
-        chain=["ca", "certificate"],
-        revoked=False,
-        expiry_time=datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
-        expiry_notification_time=datetime(2023, 12, 1, 0, 0, 0, tzinfo=timezone.utc),
-    )
-    json_string = provider_certificate.to_json()
-    expected_json = json.dumps(
-        {
-            "relation_id": 0,
-            "application_name": "app",
-            "csr": "csr",
-            "certificate": "certificate",
-            "ca": "ca",
-            "chain": ["ca", "certificate"],
-            "revoked": False,
-            "expiry_time": "2024-01-01T00:00:00+00:00",
-            "expiry_notification_time": "2023-12-01T00:00:00+00:00",
-        }
-    )
-    assert json_string == expected_json
 
 
 def test_given_localization_is_specified_when_generate_csr_then_csr_contains_localization():
