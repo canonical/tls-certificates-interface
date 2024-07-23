@@ -648,10 +648,7 @@ class CertificatesRequirerCharmEvents(CharmEvents):
 
 
 class TLSCertificatesRequiresV4(Object):
-    """A class to manage the TLS certificates interface for a unit.
-
-    Use this class if your charm's certificates are managed per unit.
-    """
+    """A class to manage the TLS certificates interface for a unit or app."""
 
     on = CertificatesRequirerCharmEvents()  # type: ignore[reportAssignmentType]
 
@@ -734,7 +731,7 @@ class TLSCertificatesRequiresV4(Object):
                 f"Relation {self.relationship_name} does not exist - "
                 f"The certificate request can't be completed"
             )
-        if not self.get_requirer_csrs():
+        if not self.get_csrs_from_requirer_relation_data():
             logger.info("No CSRs in relation data - Doing nothing")
             return
         app_or_unit = self._get_app_or_unit()
@@ -756,7 +753,7 @@ class TLSCertificatesRequiresV4(Object):
             logger.warning("Failed to update relation data")
 
     def _get_app_or_unit(self) -> Union[Application, Unit]:
-        """Return the application or unit object based on the mode."""
+        """Return the unit or app object based on the mode."""
         if self.mode == Mode.UNIT:
             return self.model.unit
         elif self.mode == Mode.APP:
@@ -780,7 +777,7 @@ class TLSCertificatesRequiresV4(Object):
             content={"private-key": private_key.decode()},
             label=self._get_private_key_secret_label(),
         )
-        logger.info("private key generated for unit")
+        logger.info("Private key generated")
 
     def regenerate_private_key(self) -> None:
         """Regenerate the private key.
@@ -824,14 +821,14 @@ class TLSCertificatesRequiresV4(Object):
     def _certificate_requested_for_attributes(
         self, certificate_request: CertificateRequest
     ) -> Optional[str]:
-        for requirer_csr in self.get_requirer_csrs():
+        for requirer_csr in self.get_csrs_from_requirer_relation_data():
             csr_str = requirer_csr.certificate_signing_request
             if CertificateRequest.from_string(csr_str) == certificate_request:
                 return csr_str
         return None
 
-    def get_requirer_csrs(self) -> List[CertificateSigningRequest]:
-        """Return list of requirer's CSRs from relation unit data."""
+    def get_csrs_from_requirer_relation_data(self) -> List[CertificateSigningRequest]:
+        """Return list of requirer's CSRs from relation data."""
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
             return []
@@ -907,7 +904,7 @@ class TLSCertificatesRequiresV4(Object):
         self, certificate_request: CertificateRequest
     ) -> Tuple[Certificate | None, str | None]:
         """Get the certificate that was assigned to the given certificate request."""
-        for requirer_csr in self.get_requirer_csrs():
+        for requirer_csr in self.get_csrs_from_requirer_relation_data():
             if (
                 CertificateRequest.from_string(csr=requirer_csr.certificate_signing_request)
                 == certificate_request
@@ -918,9 +915,9 @@ class TLSCertificatesRequiresV4(Object):
         return None, None
 
     def get_assigned_certificates(self) -> Tuple[List[Certificate], str | None]:
-        """Get a list of certificates that were assigned to this unit."""
+        """Get a list of certificates that were assigned to this or app."""
         assigned_certificates = []
-        for requirer_csr in self.get_requirer_csrs():
+        for requirer_csr in self.get_csrs_from_requirer_relation_data():
             if cert := self._find_certificate_in_relation_data(
                 requirer_csr.certificate_signing_request
             ):
@@ -954,7 +951,7 @@ class TLSCertificatesRequiresV4(Object):
             return
         requirer_csrs = [
             certificate_creation_request.certificate_signing_request
-            for certificate_creation_request in self.get_requirer_csrs()
+            for certificate_creation_request in self.get_csrs_from_requirer_relation_data()
         ]
         provider_certificates = self.get_provider_certificates()
         for certificate in provider_certificates:
@@ -1011,7 +1008,7 @@ class TLSCertificatesRequiresV4(Object):
         the charm's certificate_requests attribute.
         - The CSR public key does not match the private key.
         """
-        for requirer_csr in self.get_requirer_csrs():
+        for requirer_csr in self.get_csrs_from_requirer_relation_data():
             if not self._csr_matches_request_attributes(requirer_csr.certificate_signing_request):
                 self._remove_requirer_csr_from_relation_data(
                     requirer_csr.certificate_signing_request
