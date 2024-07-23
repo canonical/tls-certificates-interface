@@ -682,7 +682,6 @@ class TLSCertificatesRequiresV4(Object):
         self.relationship_name = relationship_name
         self.certificate_requests = certificate_requests
         self.mode = mode
-        self.framework.observe(self.on.update_status, self._configure)
         self.framework.observe(charm.on[relationship_name].relation_created, self._configure)
         self.framework.observe(charm.on[relationship_name].relation_changed, self._configure)
         self.framework.observe(charm.on.secret_expired, self._on_secret_expired)
@@ -727,10 +726,8 @@ class TLSCertificatesRequiresV4(Object):
     def _remove_requirer_csr_from_relation_data(self, csr: str) -> None:
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
-            raise TLSCertificatesError(
-                f"Relation {self.relationship_name} does not exist - "
-                f"The certificate request can't be completed"
-            )
+            logger.debug("No relation: %s", self.relationship_name)
+            return
         if not self.get_csrs_from_requirer_relation_data():
             logger.info("No CSRs in relation data - Doing nothing")
             return
@@ -831,6 +828,7 @@ class TLSCertificatesRequiresV4(Object):
         """Return list of requirer's CSRs from relation data."""
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
+            logger.debug("No relation: %s", self.relationship_name)
             return []
         app_or_unit = self._get_app_or_unit()
         try:
@@ -860,10 +858,8 @@ class TLSCertificatesRequiresV4(Object):
         """Add CSR to relation data."""
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
-            raise TLSCertificatesError(
-                f"Relation {self.relationship_name} does not exist - "
-                f"The certificate request can't be completed"
-            )
+            logger.debug("No relation: %s", self.relationship_name)
+            return
         new_csr = CertificateSigningRequest(certificate_signing_request=csr.strip(), ca=is_ca)
         app_or_unit = self._get_app_or_unit()
         try:
@@ -939,16 +935,6 @@ class TLSCertificatesRequiresV4(Object):
         If a certificate is found, it will be set as a secret and an event will be emitted.
         If a certificate is revoked, the secret will be removed and an event will be emitted.
         """
-        relation = self.model.get_relation(self.relationship_name)
-        if not relation:
-            logger.debug("No relation: %s", self.relationship_name)
-            return
-        if not relation.app:
-            logger.debug("No remote app in relation: %s", self.relationship_name)
-            return
-        if not _relation_data_is_valid(relation, relation.app, ProviderApplicationData):
-            logger.debug("Relation data did not pass JSON Schema validation")
-            return
         requirer_csrs = [
             certificate_creation_request.certificate_signing_request
             for certificate_creation_request in self.get_csrs_from_requirer_relation_data()
