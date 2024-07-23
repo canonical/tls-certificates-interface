@@ -328,12 +328,6 @@ class CertificateRequest:
     locality_name: Optional[str] = None
     is_ca: bool = False
 
-    def __eq__(self, other: object) -> bool:
-        """Check if two CertificateRequest objects are equal."""
-        if not isinstance(other, CertificateRequest):
-            return False
-        return self.__dict__ == other.__dict__
-
     def is_valid(self) -> bool:
         """Check whether the certificate request is valid."""
         if not self.common_name:
