@@ -306,7 +306,13 @@ class RequirerSchema(BaseModel):
 
 
 class Mode(Enum):
-    """Enum representing the mode of the certificate request."""
+    """Enum representing the mode of the certificate request.
+
+    UNIT (default): Request a certificate for the unit.
+        Each unit will have its own private key and certificate.
+    APP: Request a certificate for the application.
+        The private key and certificate will be shared by all units.
+    """
 
     UNIT = 1
     APP = 2
