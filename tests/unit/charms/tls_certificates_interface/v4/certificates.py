@@ -7,11 +7,7 @@ from typing import List, Optional
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ec, rsa
-
-
-def csrs_match(csr_1: bytes, csr_2: bytes) -> bool:
-    return x509.load_pem_x509_csr(csr_1) == x509.load_pem_x509_csr(csr_2)
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 
 def generate_private_key(
@@ -36,39 +32,6 @@ def generate_private_key(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
         encryption_algorithm=serialization.NoEncryption(),
-    )
-    return key_bytes
-
-
-def private_key_is_valid(private_key: bytes) -> bool:
-    try:
-        serialization.load_pem_private_key(private_key, password=None)
-        return True
-    except ValueError:
-        return False
-
-
-def generate_ec_private_key(
-    curve: ec.EllipticCurve = ec.SECP256K1(), password: Optional[bytes] = None
-) -> bytes:
-    """Generate a elliptic curve private key.
-
-    Args:
-        curve (ec.EllipticCurve): The choice of EC curve to use for the private key
-        password (bytes): Password for decrypting the private key
-
-    Returns:
-        bytes: Private Key
-    """
-    private_key = ec.generate_private_key(curve=curve)
-    key_bytes = private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=(
-            serialization.BestAvailableEncryption(password)
-            if password
-            else serialization.NoEncryption()
-        ),
     )
     return key_bytes
 
