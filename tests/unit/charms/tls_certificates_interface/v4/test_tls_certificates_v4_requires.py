@@ -33,10 +33,10 @@ METADATA = yaml.safe_load(
 )
 
 
-def get_sha256_hex(data: bytes) -> str:
+def get_sha256_hex(data: str) -> str:
     """Calculate the hash of the provided data and return the hexadecimal representation."""
     digest = hashes.Hash(hashes.SHA256())
-    digest.update(data)
+    digest.update(data.encode())
     return digest.finalize().hex()
 
 
@@ -109,7 +109,7 @@ class TestTLSCertificatesRequiresV4:
                     revision=0,
                     label=f"{LIBID}-private-key-0",
                     owner="unit",
-                    contents={0: {"private-key": private_key.decode()}},
+                    contents={0: {"private-key": private_key}},
                 )
             ],
         )
@@ -126,7 +126,7 @@ class TestTLSCertificatesRequiresV4:
                     "certificate_signing_requests": json.dumps(
                         [
                             {
-                                "certificate_signing_request": csr.decode().strip(),
+                                "certificate_signing_request": csr.strip(),
                                 "ca": False,
                             }
                         ]
@@ -161,7 +161,7 @@ class TestTLSCertificatesRequiresV4:
                 "certificate_signing_requests": json.dumps(
                     [
                         {
-                            "certificate_signing_request": csr.decode().strip(),
+                            "certificate_signing_request": csr.strip(),
                             "ca": False,
                         }
                     ]
@@ -171,9 +171,9 @@ class TestTLSCertificatesRequiresV4:
                 "certificates": json.dumps(
                     [
                         {
-                            "certificate": certificate.decode().strip(),
-                            "certificate_signing_request": csr.decode().strip(),
-                            "ca": provider_ca_certificate.decode().strip(),
+                            "certificate": certificate.strip(),
+                            "certificate_signing_request": csr.strip(),
+                            "ca": provider_ca_certificate.strip(),
                         }
                     ]
                 ),
@@ -185,7 +185,7 @@ class TestTLSCertificatesRequiresV4:
             revision=0,
             label=f"{LIBID}-private-key-0",
             owner="unit",
-            contents={0: {"private-key": requirer_private_key.decode()}},
+            contents={0: {"private-key": requirer_private_key}},
         )
         state_in = scenario.State(
             relations=[certificates_relation],
@@ -197,9 +197,9 @@ class TestTLSCertificatesRequiresV4:
 
         assert len(self.ctx.emitted_events) == 2
         assert isinstance(self.ctx.emitted_events[1], CertificateAvailableEvent)
-        assert self.ctx.emitted_events[1].certificate == certificate.decode().strip()
-        assert self.ctx.emitted_events[1].ca == provider_ca_certificate.decode().strip()
-        assert self.ctx.emitted_events[1].certificate_signing_request == csr.decode().strip()
+        assert self.ctx.emitted_events[1].certificate == certificate.strip()
+        assert self.ctx.emitted_events[1].ca == provider_ca_certificate.strip()
+        assert self.ctx.emitted_events[1].certificate_signing_request == csr.strip()
 
     def test_given_no_request_and_certificate_in_provider_relation_data_when_relation_changed_then_certificate_available_event_is_not_emitted(  # noqa: E501
         self,
@@ -227,8 +227,8 @@ class TestTLSCertificatesRequiresV4:
                 "certificates": json.dumps(
                     [
                         {
-                            "certificate": certificate.decode().strip(),
-                            "ca": provider_ca_certificate.decode().strip(),
+                            "certificate": certificate.strip(),
+                            "ca": provider_ca_certificate.strip(),
                         }
                     ]
                 ),
@@ -260,7 +260,7 @@ class TestTLSCertificatesRequiresV4:
                 "certificate_signing_requests": json.dumps(
                     [
                         {
-                            "certificate_signing_request": csr.decode().strip(),
+                            "certificate_signing_request": csr.strip(),
                             "ca": False,
                         }
                     ]
@@ -303,7 +303,7 @@ class TestTLSCertificatesRequiresV4:
                 "certificate_signing_requests": json.dumps(
                     [
                         {
-                            "certificate_signing_request": csr.decode().strip(),
+                            "certificate_signing_request": csr.strip(),
                             "ca": False,
                         }
                     ]
@@ -328,7 +328,7 @@ class TestTLSCertificatesRequiresV4:
                     revision=0,
                     label=f"{LIBID}-private-key-0",
                     owner="unit",
-                    contents={0: {"private-key": new_private_key.decode()}},
+                    contents={0: {"private-key": new_private_key}},
                 )
             ],
         )
@@ -345,7 +345,7 @@ class TestTLSCertificatesRequiresV4:
                     "certificate_signing_requests": json.dumps(
                         [
                             {
-                                "certificate_signing_request": new_csr.decode().strip(),
+                                "certificate_signing_request": new_csr.strip(),
                                 "ca": False,
                             }
                         ]
@@ -376,7 +376,7 @@ class TestTLSCertificatesRequiresV4:
                 "certificate_signing_requests": json.dumps(
                     [
                         {
-                            "certificate_signing_request": csr_in_relation_data.decode().strip(),
+                            "certificate_signing_request": csr_in_relation_data.strip(),
                             "ca": False,
                         }
                     ]
@@ -393,7 +393,7 @@ class TestTLSCertificatesRequiresV4:
                     revision=0,
                     label=f"{LIBID}-private-key-0",
                     owner="unit",
-                    contents={0: {"private-key": private_key.decode()}},
+                    contents={0: {"private-key": private_key}},
                 )
             ],
         )
@@ -410,7 +410,7 @@ class TestTLSCertificatesRequiresV4:
                     "certificate_signing_requests": json.dumps(
                         [
                             {
-                                "certificate_signing_request": new_csr.decode().strip(),
+                                "certificate_signing_request": new_csr.strip(),
                                 "ca": False,
                             }
                         ]
@@ -445,7 +445,7 @@ class TestTLSCertificatesRequiresV4:
                 "certificate_signing_requests": json.dumps(
                     [
                         {
-                            "certificate_signing_request": csr.decode().strip(),
+                            "certificate_signing_request": csr.strip(),
                             "ca": False,
                         }
                     ]
@@ -455,9 +455,9 @@ class TestTLSCertificatesRequiresV4:
                 "certificates": json.dumps(
                     [
                         {
-                            "certificate": certificate.decode().strip(),
-                            "certificate_signing_request": csr.decode().strip(),
-                            "ca": provider_ca_certificate.decode().strip(),
+                            "certificate": certificate.strip(),
+                            "certificate_signing_request": csr.strip(),
+                            "ca": provider_ca_certificate.strip(),
                             "revoked": True,
                         }
                     ]
@@ -470,18 +470,18 @@ class TestTLSCertificatesRequiresV4:
             revision=0,
             label=f"{LIBID}-private-key-0",
             owner="unit",
-            contents={0: {"private-key": requirer_private_key.decode()}},
+            contents={0: {"private-key": requirer_private_key}},
         )
 
         certificate_secret = Secret(
             id="1",
             revision=0,
-            label=f"{LIBID}-certificate-0-{get_sha256_hex(csr.decode().strip().encode())}",
+            label=f"{LIBID}-certificate-0-{get_sha256_hex(csr.strip())}",
             owner="unit",
             contents={
                 0: {
-                    "certificate": certificate.decode(),
-                    "csr": csr.decode(),
+                    "certificate": certificate,
+                    "csr": csr,
                 }
             },
         )
@@ -501,7 +501,7 @@ class TestTLSCertificatesRequiresV4:
             Secret(
                 id="1",
                 revision=0,
-                label=f"{LIBID}-certificate-0-{get_sha256_hex(csr.decode().strip().encode())}",
+                label=f"{LIBID}-certificate-0-{get_sha256_hex(csr.strip())}",
                 owner="unit",
                 contents={},
             ),
@@ -561,7 +561,7 @@ class TestTLSCertificatesRequiresV4:
                 "certificate_signing_requests": json.dumps(
                     [
                         {
-                            "certificate_signing_request": csr.decode().strip(),
+                            "certificate_signing_request": csr.strip(),
                             "ca": False,
                         }
                     ]
@@ -571,9 +571,9 @@ class TestTLSCertificatesRequiresV4:
                 "certificates": json.dumps(
                     [
                         {
-                            "certificate": certificate.decode().strip(),
-                            "certificate_signing_request": csr.decode().strip(),
-                            "ca": provider_ca_certificate.decode().strip(),
+                            "certificate": certificate.strip(),
+                            "certificate_signing_request": csr.strip(),
+                            "ca": provider_ca_certificate.strip(),
                         }
                     ]
                 ),
@@ -589,9 +589,9 @@ class TestTLSCertificatesRequiresV4:
 
         assert action_output.success is True
         assert action_output.results == {
-            "certificate": certificate.decode().strip(),
-            "ca": provider_ca_certificate.decode().strip(),
-            "csr": csr.decode().strip(),
+            "certificate": certificate.strip(),
+            "ca": provider_ca_certificate.strip(),
+            "csr": csr.strip(),
         }
 
     def test_given_certificate_is_provided_when_relation_changed_then_certificate_secret_is_created(  # noqa: E501
@@ -620,7 +620,7 @@ class TestTLSCertificatesRequiresV4:
                 "certificate_signing_requests": json.dumps(
                     [
                         {
-                            "certificate_signing_request": csr.decode().strip(),
+                            "certificate_signing_request": csr.strip(),
                             "ca": False,
                         }
                     ]
@@ -630,9 +630,9 @@ class TestTLSCertificatesRequiresV4:
                 "certificates": json.dumps(
                     [
                         {
-                            "certificate": certificate.decode().strip(),
-                            "certificate_signing_request": csr.decode().strip(),
-                            "ca": provider_ca_certificate.decode().strip(),
+                            "certificate": certificate.strip(),
+                            "certificate_signing_request": csr.strip(),
+                            "ca": provider_ca_certificate.strip(),
                         }
                     ]
                 ),
@@ -644,7 +644,7 @@ class TestTLSCertificatesRequiresV4:
             revision=0,
             label=f"{LIBID}-private-key-0",
             owner="unit",
-            contents={0: {"private-key": private_key.decode()}},
+            contents={0: {"private-key": private_key}},
         )
 
         state_in = scenario.State(
@@ -669,12 +669,12 @@ class TestTLSCertificatesRequiresV4:
         initial_certificate_secret = Secret(
             id="1",
             revision=0,
-            label=f"{LIBID}-certificate-0-{get_sha256_hex(csr.decode().strip().encode())}",
+            label=f"{LIBID}-certificate-0-{get_sha256_hex(csr.strip())}",
             owner="unit",
             contents={
                 0: {
                     "certificate": "initial certificate",
-                    "csr": csr.decode().strip(),
+                    "csr": csr.strip(),
                 }
             },
         )
@@ -697,7 +697,7 @@ class TestTLSCertificatesRequiresV4:
                 "certificate_signing_requests": json.dumps(
                     [
                         {
-                            "certificate_signing_request": csr.decode().strip(),
+                            "certificate_signing_request": csr.strip(),
                             "ca": False,
                         }
                     ]
@@ -707,9 +707,9 @@ class TestTLSCertificatesRequiresV4:
                 "certificates": json.dumps(
                     [
                         {
-                            "certificate": new_certificate.decode().strip(),
-                            "certificate_signing_request": csr.decode().strip(),
-                            "ca": provider_ca_certificate.decode().strip(),
+                            "certificate": new_certificate.strip(),
+                            "certificate_signing_request": csr.strip(),
+                            "ca": provider_ca_certificate.strip(),
                         }
                     ]
                 ),
@@ -721,7 +721,7 @@ class TestTLSCertificatesRequiresV4:
             revision=0,
             label=f"{LIBID}-private-key-0",
             owner="unit",
-            contents={0: {"private-key": private_key.decode().strip()}},
+            contents={0: {"private-key": private_key.strip()}},
         )
 
         state_in = scenario.State(
@@ -737,8 +737,8 @@ class TestTLSCertificatesRequiresV4:
         certificate_secret = self.get_certificate_secret(state_out.secrets)
 
         assert certificate_secret.contents[1] == {
-            "certificate": new_certificate.decode().strip(),
-            "csr": csr.decode().strip(),
+            "certificate": new_certificate.strip(),
+            "csr": csr.strip(),
         }
 
     @patch(LIB_DIR + ".generate_csr")
@@ -750,7 +750,7 @@ class TestTLSCertificatesRequiresV4:
             private_key=private_key,
             common_name="example.com",
         )
-        csr_in_sha256_hex = get_sha256_hex(csr)
+        csr_in_sha256_hex = get_sha256_hex(csr.strip())
         provider_private_key = generate_private_key()
         provider_ca_certificate = generate_ca(
             private_key=provider_private_key,
@@ -775,7 +775,7 @@ class TestTLSCertificatesRequiresV4:
             revision=0,
             label=f"{LIBID}-private-key-0",
             owner="unit",
-            contents={0: {"private-key": private_key.decode()}},
+            contents={0: {"private-key": private_key}},
         )
 
         certificate_secret = Secret(
@@ -785,8 +785,8 @@ class TestTLSCertificatesRequiresV4:
             owner="unit",
             contents={
                 0: {
-                    "certificate": certificate.decode(),
-                    "csr": csr.decode(),
+                    "certificate": certificate,
+                    "csr": csr,
                 }
             },
             expire=datetime.datetime.now() - datetime.timedelta(minutes=1),
@@ -800,7 +800,7 @@ class TestTLSCertificatesRequiresV4:
                 "certificate_signing_requests": json.dumps(
                     [
                         {
-                            "certificate_signing_request": csr.decode().strip(),
+                            "certificate_signing_request": csr.strip(),
                             "ca": False,
                         }
                     ]
@@ -810,9 +810,9 @@ class TestTLSCertificatesRequiresV4:
                 "certificates": json.dumps(
                     [
                         {
-                            "certificate": certificate.decode().strip(),
-                            "certificate_signing_request": csr.decode().strip(),
-                            "ca": provider_ca_certificate.decode().strip(),
+                            "certificate": certificate.strip(),
+                            "certificate_signing_request": csr.strip(),
+                            "ca": provider_ca_certificate.strip(),
                         }
                     ]
                 ),
@@ -840,7 +840,7 @@ class TestTLSCertificatesRequiresV4:
                     "certificate_signing_requests": json.dumps(
                         [
                             {
-                                "certificate_signing_request": new_csr.decode().strip(),
+                                "certificate_signing_request": new_csr.strip(),
                                 "ca": False,
                             }
                         ]
@@ -850,9 +850,9 @@ class TestTLSCertificatesRequiresV4:
                     "certificates": json.dumps(
                         [
                             {
-                                "certificate": certificate.decode().strip(),
-                                "certificate_signing_request": csr.decode().strip(),
-                                "ca": provider_ca_certificate.decode().strip(),
+                                "certificate": certificate.strip(),
+                                "certificate_signing_request": csr.strip(),
+                                "ca": provider_ca_certificate.strip(),
                             }
                         ]
                     ),

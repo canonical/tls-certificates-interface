@@ -6,7 +6,6 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from ipaddress import IPv6Address
 
-import pytest
 from charms.tls_certificates_interface.v4.tls_certificates import (
     generate_csr,
     generate_private_key,
@@ -69,7 +68,7 @@ def test_given_subject_and_private_key_when_generate_csr_then_csr_is_generated_w
 
     csr = generate_csr(private_key=private_key, common_name=subject)
 
-    csr_object = x509.load_pem_x509_csr(data=csr)
+    csr_object = x509.load_pem_x509_csr(data=csr.encode())
     subject_list = list(csr_object.subject)
     assert len(subject_list) == 2
     assert subject == subject_list[0].value
@@ -97,7 +96,7 @@ def test_given_additional_critical_extensions_when_generate_csr_then_extensions_
         additional_critical_extensions=[additional_critical_extension],
     )
 
-    csr_object = x509.load_pem_x509_csr(data=csr)
+    csr_object = x509.load_pem_x509_csr(data=csr.encode())
     assert csr_object.extensions[0].critical is True
     assert csr_object.extensions[0].value == additional_critical_extension
 
@@ -108,7 +107,7 @@ def test_given_no_private_key_password_when_generate_csr_then_csr_is_generated_a
 
     csr = generate_csr(private_key=private_key, common_name=subject)
 
-    csr_object = x509.load_pem_x509_csr(data=csr)
+    csr_object = x509.load_pem_x509_csr(data=csr.encode())
     assert x509.NameAttribute(x509.NameOID.COMMON_NAME, subject) in csr_object.subject
 
 
@@ -119,7 +118,7 @@ def test_given_unique_id_set_to_false_when_generate_csr_then_csr_is_generated_wi
         private_key=private_key, common_name=subject, add_unique_id_to_subject_name=False
     )
 
-    csr_object = x509.load_pem_x509_csr(data=csr)
+    csr_object = x509.load_pem_x509_csr(data=csr.encode())
     subject_list = list(csr_object.subject)
     assert subject == subject_list[0].value
 
@@ -127,22 +126,7 @@ def test_given_unique_id_set_to_false_when_generate_csr_then_csr_is_generated_wi
 def test_given_no_password_when_generate_private_key_then_key_is_generated_and_loadable():
     private_key = generate_private_key()
 
-    load_pem_private_key(data=private_key, password=None)
-
-
-def test_given_password_when_generate_private_key_then_private_key_is_generated_and_loadable():
-    private_key_password = b"whatever"
-    private_key = generate_private_key(password=private_key_password)
-
-    load_pem_private_key(data=private_key, password=private_key_password)
-
-
-def test_given_generated_private_key_when_load_with_bad_password_then_error_is_thrown():
-    private_key_password = b"whatever"
-    private_key = generate_private_key(password=private_key_password)
-
-    with pytest.raises(ValueError):
-        load_pem_private_key(data=private_key, password=b"bad password")
+    load_pem_private_key(data=private_key.encode(), password=None)
 
 
 def test_given_key_size_provided_when_generate_private_key_then_private_key_is_generated():
@@ -150,7 +134,7 @@ def test_given_key_size_provided_when_generate_private_key_then_private_key_is_g
 
     private_key = generate_private_key(key_size=key_size)
 
-    private_key_object = serialization.load_pem_private_key(private_key, password=None)
+    private_key_object = serialization.load_pem_private_key(private_key.encode(), password=None)
     assert isinstance(private_key_object, rsa.RSAPrivateKeyWithSerialization)
     assert private_key_object.key_size == key_size
 
@@ -245,7 +229,7 @@ def test_given_localization_is_specified_when_generate_csr_then_csr_contains_loc
         locality_name="Montreal",
     )
 
-    csr_object = x509.load_pem_x509_csr(csr)
+    csr_object = x509.load_pem_x509_csr(csr.encode())
     assert csr_object.subject.get_attributes_for_oid(x509.NameOID.COUNTRY_NAME)[0].value == "CA"
     assert (
         csr_object.subject.get_attributes_for_oid(x509.NameOID.STATE_OR_PROVINCE_NAME)[0].value
@@ -267,7 +251,7 @@ def test_given_ipv6_sans_when_generate_csr_then_csr_contains_ipv6_sans():
         sans_ip=["2001:db8::1", "2001:db8::2"],
     )
 
-    csr_object = x509.load_pem_x509_csr(csr)
+    csr_object = x509.load_pem_x509_csr(csr.encode())
     sans = csr_object.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
     sans_ip = sans.get_values_for_type(x509.IPAddress)
     assert len(sans_ip) == 2

@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 def generate_private_key(
     key_size: int = 2048,
     public_exponent: int = 65537,
-) -> bytes:
+) -> str:
     """Generate a private key.
 
     Args:
@@ -22,7 +22,7 @@ def generate_private_key(
         public_exponent: Public exponent.
 
     Returns:
-        bytes: Private Key
+        str: Private Key
     """
     private_key = rsa.generate_private_key(
         public_exponent=public_exponent,
@@ -33,27 +33,25 @@ def generate_private_key(
         format=serialization.PrivateFormat.TraditionalOpenSSL,
         encryption_algorithm=serialization.NoEncryption(),
     )
-    return key_bytes
+    return key_bytes.decode()
 
 
 def generate_csr(
-    private_key: bytes,
+    private_key: str,
     common_name: str,
-    private_key_password: Optional[bytes] = None,
     sans: Optional[List[str]] = None,
-) -> bytes:
+) -> str:
     """Generate a CSR using private key and subject.
 
     Args:
-        private_key (bytes): Private key
-        private_key_password (bytes): Private key password
+        private_key (str): Private key
         common_name (str): CSR common name.
         sans (list): List of subject alternative names
 
     Returns:
-        bytes: CSR
+        str: CSR
     """
-    signing_key = serialization.load_pem_private_key(private_key, password=private_key_password)
+    signing_key = serialization.load_pem_private_key(private_key.encode(), password=None)
     unique_identifier = uuid.uuid4()
     subject_name = [x509.NameAttribute(x509.NameOID.COMMON_NAME, common_name)]
     subject_name.append(
@@ -65,33 +63,31 @@ def generate_csr(
             x509.SubjectAlternativeName([x509.DNSName(san) for san in sans]), critical=False
         )
     signed_certificate = csr.sign(signing_key, hashes.SHA256())  # type: ignore[arg-type]
-    return signed_certificate.public_bytes(serialization.Encoding.PEM)
+    return signed_certificate.public_bytes(serialization.Encoding.PEM).decode()
 
 
 def generate_certificate(
-    csr: bytes,
-    ca: bytes,
-    ca_key: bytes,
-    ca_key_password: Optional[bytes] = None,
+    csr: str,
+    ca: str,
+    ca_key: str,
     validity: int = 24 * 365,
-) -> bytes:
+) -> str:
     """Generate a TLS certificate based on a CSR.
 
     Args:
-        csr (bytes): CSR
-        ca (bytes): CA Certificate
-        ca_key (bytes): CA private key
-        ca_key_password (bytes): CA Private key password
+        csr (str): CSR
+        ca (str): CA Certificate
+        ca_key (str): CA private key
         validity (int): Certificate validity (in hours)
 
     Returns:
-        bytes: Certificate
+        str: Certificate
     """
-    csr_object = x509.load_pem_x509_csr(csr)
+    csr_object = x509.load_pem_x509_csr(csr.encode())
     csr_subject = csr_object.subject
     csr_common_name = csr_subject.get_attributes_for_oid(x509.NameOID.COMMON_NAME)[0].value
-    issuer = x509.load_pem_x509_certificate(ca).issuer
-    private_key = serialization.load_pem_private_key(ca_key, password=ca_key_password)
+    issuer = x509.load_pem_x509_certificate(ca.encode()).issuer
+    private_key = serialization.load_pem_private_key(ca_key.encode(), password=None)
     subject = x509.Name(
         [
             x509.NameAttribute(x509.NameOID.COMMON_NAME, csr_common_name),
@@ -116,15 +112,14 @@ def generate_certificate(
 
     certificate_builder._version = x509.Version.v3
     cert = certificate_builder.sign(private_key, hashes.SHA256())  # type: ignore[arg-type]
-    return cert.public_bytes(serialization.Encoding.PEM)
+    return cert.public_bytes(serialization.Encoding.PEM).decode()
 
 
 def generate_ca(
-    private_key: bytes,
+    private_key: str,
     common_name: str,
-    private_key_password: Optional[bytes] = None,
     validity: int = 365,
-) -> bytes:
+) -> str:
     """Generate a CA Certificate.
 
     Args:
@@ -135,11 +130,9 @@ def generate_ca(
         country (str): Certificate Issuing country
 
     Returns:
-        bytes: CA Certificate
+        str: CA Certificate
     """
-    private_key_object = serialization.load_pem_private_key(
-        private_key, password=private_key_password
-    )
+    private_key_object = serialization.load_pem_private_key(private_key.encode(), password=None)
     subject = issuer = x509.Name(
         [
             x509.NameAttribute(x509.NameOID.COMMON_NAME, common_name),
@@ -173,4 +166,4 @@ def generate_ca(
         )
         .sign(private_key_object, hashes.SHA256())  # type: ignore[arg-type]
     )
-    return cert.public_bytes(serialization.Encoding.PEM)
+    return cert.public_bytes(serialization.Encoding.PEM).decode()

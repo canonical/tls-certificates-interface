@@ -161,7 +161,6 @@ from ops.jujuversion import JujuVersion
 from ops.model import (
     Application,
     ModelError,
-    Relation,
     SecretNotFoundError,
     Unit,
 )
@@ -341,9 +340,13 @@ class CertificateRequest:
         return True
 
     @staticmethod
-    def from_string(csr: str) -> "CertificateRequest":
+    def from_string(csr: str) -> Optional["CertificateRequest"]:
         """Create a CertificateRequest object from a CSR."""
-        csr_object = x509.load_pem_x509_csr(csr.encode())
+        try:
+            csr_object = x509.load_pem_x509_csr(csr.encode())
+        except ValueError as e:
+            logger.error("Could not load CSR: %s", e)
+            return None
         common_name = csr_object.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
         country_name = csr_object.subject.get_attributes_for_oid(NameOID.COUNTRY_NAME)
         state_or_province_name = csr_object.subject.get_attributes_for_oid(
@@ -386,6 +389,84 @@ class CertificateRequest:
             sans_dns=sans_dns,
             sans_ip=sans_ip if sans_ip else None,
             sans_oid=sans_oid if sans_oid else None,
+        )
+
+
+@dataclass
+class ProviderCertificate:
+    """This class represents a certificate provided by the TLS provider."""
+
+    common_name: str
+    sans_dns: Optional[List[str]] = None
+    sans_ip: Optional[List[str]] = None
+    sans_oid: Optional[List[str]] = None
+    email_address: Optional[str] = None
+    organization: Optional[str] = None
+    organizational_unit: Optional[str] = None
+    country_name: Optional[str] = None
+    state_or_province_name: Optional[str] = None
+    locality_name: Optional[str] = None
+    expiry_time: Optional[datetime] = None
+    validity_start_time: Optional[datetime] = None
+
+    @staticmethod
+    def from_string(certificate: str) -> Optional["ProviderCertificate"]:
+        """Create a ProviderCertificate object from a certificate."""
+        try:
+            certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
+        except ValueError as e:
+            logger.error("Could not load certificate: %s", e)
+            return None
+        common_name = certificate_object.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+        country_name = certificate_object.subject.get_attributes_for_oid(NameOID.COUNTRY_NAME)
+        state_or_province_name = certificate_object.subject.get_attributes_for_oid(
+            NameOID.STATE_OR_PROVINCE_NAME
+        )
+        locality_name = certificate_object.subject.get_attributes_for_oid(NameOID.LOCALITY_NAME)
+        organization_name = certificate_object.subject.get_attributes_for_oid(
+            NameOID.ORGANIZATION_NAME
+        )
+        email_address = certificate_object.subject.get_attributes_for_oid(NameOID.EMAIL_ADDRESS)
+        try:
+            sans = certificate_object.extensions.get_extension_for_class(
+                x509.SubjectAlternativeName
+            ).value
+            sans_dns = [
+                str(san)
+                for san in sans.get_values_for_type(x509.DNSName)
+                if isinstance(san, x509.DNSName)
+            ]
+            sans_ip = [
+                str(san)
+                for san in sans.get_values_for_type(x509.IPAddress)
+                if isinstance(san, x509.IPAddress)
+            ]
+            sans_oid = [
+                str(san)
+                for san in sans.get_values_for_type(x509.RegisteredID)
+                if isinstance(san, x509.RegisteredID)
+            ]
+        except x509.ExtensionNotFound:
+            sans_dns = []
+            sans_ip = []
+            sans_oid = []
+        expiry_time = certificate_object.not_valid_after_utc
+        validity_start_time = certificate_object.not_valid_before_utc
+
+        return ProviderCertificate(
+            common_name=str(common_name[0].value),
+            country_name=str(country_name[0].value) if country_name else None,
+            state_or_province_name=str(state_or_province_name[0].value)
+            if state_or_province_name
+            else None,
+            locality_name=str(locality_name[0].value) if locality_name else None,
+            organization=str(organization_name[0].value) if organization_name else None,
+            email_address=str(email_address[0].value) if email_address else None,
+            sans_dns=sans_dns,
+            sans_ip=sans_ip if sans_ip else None,
+            sans_oid=sans_oid if sans_oid else None,
+            expiry_time=expiry_time,
+            validity_start_time=validity_start_time,
         )
 
 
@@ -479,19 +560,17 @@ def calculate_expiry_notification_time(
 
 
 def generate_private_key(
-    password: Optional[bytes] = None,
     key_size: int = 2048,
     public_exponent: int = 65537,
-) -> bytes:
+) -> str:
     """Generate a private key with the RSA algorithm.
 
     Args:
-        password (bytes): Password for decrypting the private key
         key_size (int): Key size in bytes
         public_exponent: Public exponent.
 
     Returns:
-        bytes: Private Key
+        str: Private Key
     """
     private_key = rsa.generate_private_key(
         public_exponent=public_exponent,
@@ -500,17 +579,13 @@ def generate_private_key(
     key_bytes = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=(
-            serialization.BestAvailableEncryption(password)
-            if password
-            else serialization.NoEncryption()
-        ),
+        encryption_algorithm=serialization.NoEncryption(),
     )
-    return key_bytes
+    return key_bytes.decode()
 
 
 def generate_csr(  # noqa: C901
-    private_key: bytes,
+    private_key: str,
     common_name: str,
     add_unique_id_to_subject_name: bool = True,
     organization: Optional[str] = None,
@@ -518,17 +593,16 @@ def generate_csr(  # noqa: C901
     country_name: Optional[str] = None,
     state_or_province_name: Optional[str] = None,
     locality_name: Optional[str] = None,
-    private_key_password: Optional[bytes] = None,
     sans: Optional[List[str]] = None,
     sans_oid: Optional[List[str]] = None,
     sans_ip: Optional[List[str]] = None,
     sans_dns: Optional[List[str]] = None,
     additional_critical_extensions: Optional[List] = None,
-) -> bytes:
+) -> str:
     """Generate a CSR using private key and subject.
 
     Args:
-        private_key (bytes): Private key
+        private_key (str): Private key
         common_name (str): CSR Common Name that can be an IP or a
             Full Qualified Domain Name (FQDN).
         add_unique_id_to_subject_name (bool): Whether a unique ID must be added to the CSR's
@@ -539,7 +613,6 @@ def generate_csr(  # noqa: C901
         country_name (str): Country Name.
         state_or_province_name (str): State or Province Name.
         locality_name (str): Locality Name.
-        private_key_password (bytes): Private key password
         sans (list): Use sans_dns - this will be deprecated in a future release
             List of DNS subject alternative names (keeping it for now for backward compatibility)
         sans_oid (list): List of registered ID SANs
@@ -549,9 +622,9 @@ def generate_csr(  # noqa: C901
             Object must be a x509 ExtensionType.
 
     Returns:
-        bytes: CSR
+        str: CSR
     """
-    signing_key = serialization.load_pem_private_key(private_key, password=private_key_password)
+    signing_key = serialization.load_pem_private_key(private_key.encode(), password=None)
     subject_name = [x509.NameAttribute(x509.NameOID.COMMON_NAME, common_name)]
     if add_unique_id_to_subject_name:
         unique_identifier = uuid.uuid4()
@@ -589,7 +662,7 @@ def generate_csr(  # noqa: C901
             csr = csr.add_extension(extension, critical=True)
 
     signed_certificate = csr.sign(signing_key, hashes.SHA256())  # type: ignore[arg-type]
-    return signed_certificate.public_bytes(serialization.Encoding.PEM)
+    return signed_certificate.public_bytes(serialization.Encoding.PEM).decode()
 
 
 def get_sha256_hex(data: str) -> str:
@@ -612,7 +685,7 @@ def csr_matches_private_key(csr: str, key: str) -> bool:
     """
     try:
         csr_object = x509.load_pem_x509_csr(csr.encode("utf-8"))
-        key_object = serialization.load_pem_private_key(key.encode("utf-8"), password=None)
+        key_object = serialization.load_pem_private_key(data=key.encode("utf-8"), password=None)
         key_object_public_key = key_object.public_key()
         csr_object_public_key = csr_object.public_key()
         if not isinstance(key_object_public_key, rsa.RSAPublicKey):
@@ -628,17 +701,6 @@ def csr_matches_private_key(csr: str, key: str) -> bool:
         logger.warning("Could not load certificate or CSR.")
         return False
     return True
-
-
-def _relation_data_is_valid(
-    relation: Relation, app_or_unit: Union[Application, Unit], databag_model
-) -> bool:
-    databag = relation.data[app_or_unit]
-    try:
-        databag_model.load(databag)
-        return True
-    except DataValidationError:
-        return False
 
 
 class CertificatesRequirerCharmEvents(CharmEvents):
@@ -771,7 +833,7 @@ class TLSCertificatesRequiresV4(Object):
             return
         private_key = generate_private_key()
         self.charm.unit.add_secret(
-            content={"private-key": private_key.decode()},
+            content={"private-key": private_key},
             label=self._get_private_key_secret_label(),
         )
         logger.info("Private key generated")
@@ -790,7 +852,7 @@ class TLSCertificatesRequiresV4(Object):
 
     def _regenerate_private_key(self) -> None:
         secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
-        secret.set_content({"private-key": generate_private_key().decode()})
+        secret.set_content({"private-key": generate_private_key()})
 
     def _private_key_generated(self) -> bool:
         try:
@@ -885,7 +947,7 @@ class TLSCertificatesRequiresV4(Object):
         for certificate_request in self.certificate_requests:
             if not self._certificate_requested(certificate_request):
                 csr = generate_csr(
-                    private_key=self.private_key.encode(),
+                    private_key=self.private_key,
                     sans_dns=certificate_request.sans_dns,
                     common_name=certificate_request.common_name,
                     organization=certificate_request.organization,
@@ -894,7 +956,7 @@ class TLSCertificatesRequiresV4(Object):
                     state_or_province_name=certificate_request.state_or_province_name,
                     locality_name=certificate_request.locality_name,
                 )
-                self._request_certificate(csr=csr.decode(), is_ca=certificate_request.is_ca)
+                self._request_certificate(csr=csr, is_ca=certificate_request.is_ca)
 
     def get_assigned_certificate(
         self, certificate_request: CertificateRequest
@@ -1020,25 +1082,27 @@ class TLSCertificatesRequiresV4(Object):
             Optional[datetime]: None if the certificate expiry time cannot be read,
                                 next expiry time otherwise.
         """
-        try:
-            certificate_object = x509.load_pem_x509_certificate(
-                data=certificate.certificate.encode()
-            )
-        except ValueError as e:
-            logger.error("Could not load certificate - Skipping: %s", e)
+        cert = ProviderCertificate.from_string(certificate.certificate)
+        if not cert:
+            logger.warning("Could not load certificate")
             return None
-        expiry_time = certificate_object.not_valid_after_utc
-        validity_start_time = certificate_object.not_valid_before_utc
+        if not cert.expiry_time:
+            logger.warning("Certificate has no expiry time")
+            return None
+        if not cert.validity_start_time:
+            logger.warning("Certificate has no validity start time")
+            return None
         expiry_notification_time = calculate_expiry_notification_time(
-            validity_start_time=validity_start_time,
-            expiry_time=expiry_time,
+            validity_start_time=cert.validity_start_time,
+            expiry_time=cert.expiry_time,
             provider_recommended_notification_time=certificate.recommended_expiry_notification_time,
         )
-        if not expiry_time or not expiry_notification_time:
+        if not expiry_notification_time:
+            logger.warning("Could not calculate expiry notification time")
             return None
         return _get_closest_future_time(
             expiry_notification_time,
-            expiry_time,
+            cert.expiry_time,
         )
 
     def _tls_relation_created(self) -> bool:
