@@ -237,7 +237,7 @@ class DataValidationError(TLSCertificatesError):
     """Raised when data validation fails."""
 
 
-class DatabagModel(BaseModel):
+class _DatabagModel(BaseModel):
     """Base databag model."""
 
     model_config = ConfigDict(
@@ -352,13 +352,13 @@ class _CertificateSigningRequest(BaseModel):
     ca: Optional[bool]
 
 
-class _ProviderApplicationData(DatabagModel):
+class _ProviderApplicationData(_DatabagModel):
     """Provider application data model."""
 
     certificates: List[_Certificate]
 
 
-class _RequirerData(DatabagModel):
+class _RequirerData(_DatabagModel):
     """Requirer data model.
 
     The same model is used for the unit and application data.
