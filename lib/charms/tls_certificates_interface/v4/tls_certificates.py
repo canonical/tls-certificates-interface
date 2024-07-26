@@ -342,29 +342,6 @@ class Mode(Enum):
 
 
 @dataclass
-class CertificateRequest:
-    """This class represents a certificate request."""
-
-    common_name: str
-    sans_dns: Optional[List[str]] = None
-    sans_ip: Optional[List[str]] = None
-    sans_oid: Optional[List[str]] = None
-    email_address: Optional[str] = None
-    organization: Optional[str] = None
-    organizational_unit: Optional[str] = None
-    country_name: Optional[str] = None
-    state_or_province_name: Optional[str] = None
-    locality_name: Optional[str] = None
-    is_ca: bool = False
-
-    def is_valid(self) -> bool:
-        """Check whether the certificate request is valid."""
-        if not self.common_name:
-            return False
-        return True
-
-
-@dataclass
 class PrivateKey:
     """This class represents a private key."""
 
@@ -407,7 +384,7 @@ class CertificateSigningRequest:
         """Return the CSR as a string."""
         return self.raw
 
-    def to_certificate_request(self) -> CertificateRequest:
+    def to_certificate_request(self) -> "CertificateRequest":
         """Convert to a CertificateRequest object."""
         return CertificateRequest(
             common_name=self.common_name,
@@ -513,6 +490,87 @@ class CertificateSigningRequest:
         digest = hashes.Hash(hashes.SHA256())
         digest.update(self.raw.encode())
         return digest.finalize().hex()
+
+
+@dataclass
+class CertificateRequest:
+    """This class represents a certificate request.
+
+    This class should be used inside the requirer charm to specify the requested
+    attributes for the certificate.
+    """
+
+    common_name: str
+    sans_dns: Optional[List[str]] = None
+    sans_ip: Optional[List[str]] = None
+    sans_oid: Optional[List[str]] = None
+    email_address: Optional[str] = None
+    organization: Optional[str] = None
+    organizational_unit: Optional[str] = None
+    country_name: Optional[str] = None
+    state_or_province_name: Optional[str] = None
+    locality_name: Optional[str] = None
+    is_ca: bool = False
+
+    def is_valid(self) -> bool:
+        """Check whether the certificate request is valid."""
+        if not self.common_name:
+            return False
+        return True
+
+    def generate_csr(  # noqa: C901
+        self,
+        private_key: PrivateKey,
+        add_unique_id_to_subject_name: bool = True,
+    ) -> Optional[CertificateSigningRequest]:
+        """Generate a CSR using private key and subject.
+
+        Args:
+            private_key (PrivateKey): Private key
+            add_unique_id_to_subject_name (bool): Whether a unique ID must be added to the CSR's
+                subject name. Always leave to "True" when the CSR is used to request certificates
+                using the tls-certificates relation.
+
+        Returns:
+            CertificateSigningRequest: CSR
+        """
+        signing_key = serialization.load_pem_private_key(str(private_key).encode(), password=None)
+        subject_name = [x509.NameAttribute(x509.NameOID.COMMON_NAME, self.common_name)]
+        if add_unique_id_to_subject_name:
+            unique_identifier = uuid.uuid4()
+            subject_name.append(
+                x509.NameAttribute(x509.NameOID.X500_UNIQUE_IDENTIFIER, str(unique_identifier))
+            )
+        if self.organization:
+            subject_name.append(
+                x509.NameAttribute(x509.NameOID.ORGANIZATION_NAME, self.organization)
+            )
+        if self.email_address:
+            subject_name.append(x509.NameAttribute(x509.NameOID.EMAIL_ADDRESS, self.email_address))
+        if self.country_name:
+            subject_name.append(x509.NameAttribute(x509.NameOID.COUNTRY_NAME, self.country_name))
+        if self.state_or_province_name:
+            subject_name.append(
+                x509.NameAttribute(
+                    x509.NameOID.STATE_OR_PROVINCE_NAME, self.state_or_province_name
+                )
+            )
+        if self.locality_name:
+            subject_name.append(x509.NameAttribute(x509.NameOID.LOCALITY_NAME, self.locality_name))
+        csr = x509.CertificateSigningRequestBuilder(subject_name=x509.Name(subject_name))
+
+        _sans: List[x509.GeneralName] = []
+        if self.sans_oid:
+            _sans.extend([x509.RegisteredID(x509.ObjectIdentifier(san)) for san in self.sans_oid])
+        if self.sans_ip:
+            _sans.extend([x509.IPAddress(ipaddress.ip_address(san)) for san in self.sans_ip])
+        if self.sans_dns:
+            _sans.extend([x509.DNSName(san) for san in self.sans_dns])
+        if _sans:
+            csr = csr.add_extension(x509.SubjectAlternativeName(set(_sans)), critical=False)
+        signed_certificate = csr.sign(signing_key, hashes.SHA256())  # type: ignore[arg-type]
+        csr_str = signed_certificate.public_bytes(serialization.Encoding.PEM).decode()
+        return CertificateSigningRequest.from_string(csr_str)
 
 
 @dataclass
@@ -703,7 +761,7 @@ def calculate_expiry_notification_time(
 def _generate_private_key(
     key_size: int = 2048,
     public_exponent: int = 65537,
-) -> str:
+) -> PrivateKey:
     """Generate a private key with the RSA algorithm.
 
     Args:
@@ -722,88 +780,7 @@ def _generate_private_key(
         format=serialization.PrivateFormat.TraditionalOpenSSL,
         encryption_algorithm=serialization.NoEncryption(),
     )
-    return key_bytes.decode()
-
-
-def _generate_csr(  # noqa: C901
-    private_key: str,
-    common_name: str,
-    add_unique_id_to_subject_name: bool = True,
-    organization: Optional[str] = None,
-    email_address: Optional[str] = None,
-    country_name: Optional[str] = None,
-    state_or_province_name: Optional[str] = None,
-    locality_name: Optional[str] = None,
-    sans: Optional[List[str]] = None,
-    sans_oid: Optional[List[str]] = None,
-    sans_ip: Optional[List[str]] = None,
-    sans_dns: Optional[List[str]] = None,
-    additional_critical_extensions: Optional[List] = None,
-) -> str:
-    """Generate a CSR using private key and subject.
-
-    Args:
-        private_key (str): Private key
-        common_name (str): CSR Common Name that can be an IP or a
-            Full Qualified Domain Name (FQDN).
-        add_unique_id_to_subject_name (bool): Whether a unique ID must be added to the CSR's
-            subject name. Always leave to "True" when the CSR is used to request certificates
-            using the tls-certificates relation.
-        organization (str): Name of organization.
-        email_address (str): Email address.
-        country_name (str): Country Name.
-        state_or_province_name (str): State or Province Name.
-        locality_name (str): Locality Name.
-        sans (list): Use sans_dns - this will be deprecated in a future release
-            List of DNS subject alternative names (keeping it for now for backward compatibility)
-        sans_oid (list): List of registered ID SANs
-        sans_dns (list): List of DNS subject alternative names (similar to the arg: sans)
-        sans_ip (list): List of IP subject alternative names
-        additional_critical_extensions (list): List of critical additional extension objects.
-            Object must be a x509 ExtensionType.
-
-    Returns:
-        str: CSR
-    """
-    signing_key = serialization.load_pem_private_key(private_key.encode(), password=None)
-    subject_name = [x509.NameAttribute(x509.NameOID.COMMON_NAME, common_name)]
-    if add_unique_id_to_subject_name:
-        unique_identifier = uuid.uuid4()
-        subject_name.append(
-            x509.NameAttribute(x509.NameOID.X500_UNIQUE_IDENTIFIER, str(unique_identifier))
-        )
-    if organization:
-        subject_name.append(x509.NameAttribute(x509.NameOID.ORGANIZATION_NAME, organization))
-    if email_address:
-        subject_name.append(x509.NameAttribute(x509.NameOID.EMAIL_ADDRESS, email_address))
-    if country_name:
-        subject_name.append(x509.NameAttribute(x509.NameOID.COUNTRY_NAME, country_name))
-    if state_or_province_name:
-        subject_name.append(
-            x509.NameAttribute(x509.NameOID.STATE_OR_PROVINCE_NAME, state_or_province_name)
-        )
-    if locality_name:
-        subject_name.append(x509.NameAttribute(x509.NameOID.LOCALITY_NAME, locality_name))
-    csr = x509.CertificateSigningRequestBuilder(subject_name=x509.Name(subject_name))
-
-    _sans: List[x509.GeneralName] = []
-    if sans_oid:
-        _sans.extend([x509.RegisteredID(x509.ObjectIdentifier(san)) for san in sans_oid])
-    if sans_ip:
-        _sans.extend([x509.IPAddress(ipaddress.ip_address(san)) for san in sans_ip])
-    if sans:
-        _sans.extend([x509.DNSName(san) for san in sans])
-    if sans_dns:
-        _sans.extend([x509.DNSName(san) for san in sans_dns])
-    if _sans:
-        csr = csr.add_extension(x509.SubjectAlternativeName(set(_sans)), critical=False)
-
-    if additional_critical_extensions:
-        for extension in additional_critical_extensions:
-            csr = csr.add_extension(extension, critical=True)
-
-    signed_certificate = csr.sign(signing_key, hashes.SHA256())  # type: ignore[arg-type]
-    return signed_certificate.public_bytes(serialization.Encoding.PEM).decode()
+    return PrivateKey(raw=key_bytes.decode())
 
 
 class CertificatesRequirerCharmEvents(CharmEvents):
@@ -959,7 +936,7 @@ class TLSCertificatesRequiresV4(Object):
 
     def _regenerate_private_key(self) -> None:
         secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
-        secret.set_content({"private-key": _generate_private_key()})
+        secret.set_content({"private-key": str(_generate_private_key())})
 
     def _private_key_generated(self) -> bool:
         try:
@@ -1033,13 +1010,15 @@ class TLSCertificatesRequiresV4(Object):
             for certificate in provider_relation_data.certificates
         ]
 
-    def _request_certificate(self, csr: str, is_ca: bool) -> None:
+    def _request_certificate(self, csr: CertificateSigningRequest, is_ca: bool) -> None:
         """Add CSR to relation data."""
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
             logger.debug("No relation: %s", self.relationship_name)
             return
-        new_csr = _CertificateSigningRequest(certificate_signing_request=csr.strip(), ca=is_ca)
+        new_csr = _CertificateSigningRequest(
+            certificate_signing_request=str(csr).strip(), ca=is_ca
+        )
         app_or_unit = self._get_app_or_unit()
         try:
             requirer_relation_data = _RequirerData.load(relation.data[app_or_unit])
@@ -1063,16 +1042,12 @@ class TLSCertificatesRequiresV4(Object):
             return
         for certificate_request in self.certificate_requests:
             if not self._certificate_requested(certificate_request):
-                csr = _generate_csr(
-                    private_key=str(self.private_key),
-                    sans_dns=certificate_request.sans_dns,
-                    common_name=certificate_request.common_name,
-                    organization=certificate_request.organization,
-                    email_address=certificate_request.email_address,
-                    country_name=certificate_request.country_name,
-                    state_or_province_name=certificate_request.state_or_province_name,
-                    locality_name=certificate_request.locality_name,
+                csr = certificate_request.generate_csr(
+                    private_key=self.private_key,
                 )
+                if not csr:
+                    logger.warning("Failed to generate CSR")
+                    continue
                 self._request_certificate(csr=csr, is_ca=certificate_request.is_ca)
 
     def get_assigned_certificate(

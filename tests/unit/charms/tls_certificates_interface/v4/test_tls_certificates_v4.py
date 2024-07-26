@@ -7,7 +7,8 @@ from datetime import datetime, timedelta, timezone
 from ipaddress import IPv6Address
 
 from charms.tls_certificates_interface.v4.tls_certificates import (
-    _generate_csr,
+    CertificateRequest,
+    PrivateKey,
     _generate_private_key,
 )
 from cryptography import x509
@@ -62,71 +63,10 @@ def validate_induced_data_from_pfx_is_equal_to_initial_data(
     assert initial_private_key == induced_private_key
 
 
-def test_given_subject_and_private_key_when__generate_csr_then_csr_is_generated_with_provided_subject():  # noqa: E501
-    subject = "whatever"
-    private_key = generate_private_key_helper()
-
-    csr = _generate_csr(private_key=private_key, common_name=subject)
-
-    csr_object = x509.load_pem_x509_csr(data=csr.encode())
-    subject_list = list(csr_object.subject)
-    assert len(subject_list) == 2
-    assert subject == subject_list[0].value
-    uuid.UUID(str(subject_list[1].value))
-
-
-def test_given_additional_critical_extensions_when_generate_csr_then_extensions_are_added_to_csr():
-    subject = "whatever"
-    private_key = generate_private_key_helper()
-    additional_critical_extension = x509.KeyUsage(
-        digital_signature=False,
-        content_commitment=False,
-        key_encipherment=False,
-        data_encipherment=False,
-        key_agreement=False,
-        key_cert_sign=True,
-        crl_sign=True,
-        encipher_only=False,
-        decipher_only=False,
-    )
-
-    csr = _generate_csr(
-        private_key=private_key,
-        common_name=subject,
-        additional_critical_extensions=[additional_critical_extension],
-    )
-
-    csr_object = x509.load_pem_x509_csr(data=csr.encode())
-    assert csr_object.extensions[0].critical is True
-    assert csr_object.extensions[0].value == additional_critical_extension
-
-
-def test_given_no_private_key_password_when__generate_csr_then_csr_is_generated_and_loadable():
-    private_key = generate_private_key_helper()
-    subject = "whatever subject"
-
-    csr = _generate_csr(private_key=private_key, common_name=subject)
-
-    csr_object = x509.load_pem_x509_csr(data=csr.encode())
-    assert x509.NameAttribute(x509.NameOID.COMMON_NAME, subject) in csr_object.subject
-
-
-def test_given_unique_id_set_to_false_when__generate_csr_then_csr_is_generated_without_unique_id():
-    private_key = generate_private_key_helper()
-    subject = "whatever subject"
-    csr = _generate_csr(
-        private_key=private_key, common_name=subject, add_unique_id_to_subject_name=False
-    )
-
-    csr_object = x509.load_pem_x509_csr(data=csr.encode())
-    subject_list = list(csr_object.subject)
-    assert subject == subject_list[0].value
-
-
 def test_given_no_password_when_generate_private_key_then_key_is_generated_and_loadable():
     private_key = _generate_private_key()
 
-    load_pem_private_key(data=private_key.encode(), password=None)
+    load_pem_private_key(data=str(private_key).encode(), password=None)
 
 
 def test_given_key_size_provided_when_generate_private_key_then_private_key_is_generated():
@@ -134,7 +74,9 @@ def test_given_key_size_provided_when_generate_private_key_then_private_key_is_g
 
     private_key = _generate_private_key(key_size=key_size)
 
-    private_key_object = serialization.load_pem_private_key(private_key.encode(), password=None)
+    private_key_object = serialization.load_pem_private_key(
+        str(private_key).encode(), password=None
+    )
     assert isinstance(private_key_object, rsa.RSAPrivateKeyWithSerialization)
     assert private_key_object.key_size == key_size
 
@@ -216,44 +158,81 @@ def test_given_validity_time_is_too_short_when_calculate_expiry_notification_tim
     assert notification_time == expected_notification_time
 
 
-def test_given_localization_is_specified_when__generate_csr_then_csr_contains_localization():
-    private_key = _generate_private_key()
+class TestCertificateRequest:
+    def test_given_subject_and_private_key_when_generate_csr_then_csr_is_generated_with_provided_subject(  # noqa: E501
+        self,
+    ):
+        subject = "whatever"
+        private_key = PrivateKey(raw=generate_private_key_helper())
 
-    csr = _generate_csr(
-        private_key=private_key,
-        common_name="my.demo.server",
-        sans_dns=["my.demo.server"],
-        sans_ip=[],
-        country_name="CA",
-        state_or_province_name="Quebec",
-        locality_name="Montreal",
-    )
+        certificate_request = CertificateRequest(common_name=subject)
 
-    csr_object = x509.load_pem_x509_csr(csr.encode())
-    assert csr_object.subject.get_attributes_for_oid(x509.NameOID.COUNTRY_NAME)[0].value == "CA"
-    assert (
-        csr_object.subject.get_attributes_for_oid(x509.NameOID.STATE_OR_PROVINCE_NAME)[0].value
-        == "Quebec"
-    )
-    assert (
-        csr_object.subject.get_attributes_for_oid(x509.NameOID.LOCALITY_NAME)[0].value
-        == "Montreal"
-    )
+        csr = certificate_request.generate_csr(private_key=private_key)
 
+        csr_object = x509.load_pem_x509_csr(data=str(csr).encode())
+        subject_list = list(csr_object.subject)
+        assert len(subject_list) == 2
+        assert subject == subject_list[0].value
+        uuid.UUID(str(subject_list[1].value))
 
-def test_given_ipv6_sans_when__generate_csr_then_csr_contains_ipv6_sans():
-    private_key = _generate_private_key()
+    def test_given_unique_id_set_to_false_when_generate_csr_then_csr_is_generated_without_unique_id(  # noqa: E501
+        self,
+    ):
+        private_key = PrivateKey(raw=generate_private_key_helper())
+        subject = "whatever subject"
+        certificate_request = CertificateRequest(common_name=subject)
 
-    csr = _generate_csr(
-        private_key=private_key,
-        common_name="my.demo.server",
-        sans_dns=["my.demo.server"],
-        sans_ip=["2001:db8::1", "2001:db8::2"],
-    )
+        csr = certificate_request.generate_csr(
+            private_key=private_key, add_unique_id_to_subject_name=False
+        )
 
-    csr_object = x509.load_pem_x509_csr(csr.encode())
-    sans = csr_object.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
-    sans_ip = sans.get_values_for_type(x509.IPAddress)
-    assert len(sans_ip) == 2
-    assert IPv6Address("2001:db8::1") in sans_ip
-    assert IPv6Address("2001:db8::2") in sans_ip
+        csr_object = x509.load_pem_x509_csr(data=str(csr).encode())
+        subject_list = list(csr_object.subject)
+        assert subject == subject_list[0].value
+
+    def test_given_localization_is_specified_when__generate_csr_then_csr_contains_localization(
+        self,
+    ):
+        private_key = _generate_private_key()
+
+        certificate_request = CertificateRequest(
+            common_name="my.demo.server",
+            sans_dns=["my.demo.server"],
+            sans_ip=[],
+            country_name="CA",
+            state_or_province_name="Quebec",
+            locality_name="Montreal",
+        )
+
+        csr = certificate_request.generate_csr(private_key=private_key)
+
+        csr_object = x509.load_pem_x509_csr(str(csr).encode())
+        assert (
+            csr_object.subject.get_attributes_for_oid(x509.NameOID.COUNTRY_NAME)[0].value == "CA"
+        )
+        assert (
+            csr_object.subject.get_attributes_for_oid(x509.NameOID.STATE_OR_PROVINCE_NAME)[0].value
+            == "Quebec"
+        )
+        assert (
+            csr_object.subject.get_attributes_for_oid(x509.NameOID.LOCALITY_NAME)[0].value
+            == "Montreal"
+        )
+
+    def test_given_ipv6_sans_when__generate_csr_then_csr_contains_ipv6_sans(self):
+        private_key = _generate_private_key()
+
+        certificate_request = CertificateRequest(
+            common_name="my.demo.server",
+            sans_dns=["my.demo.server"],
+            sans_ip=["2001:db8::1", "2001:db8::2"],
+        )
+
+        csr = certificate_request.generate_csr(private_key=private_key)
+
+        csr_object = x509.load_pem_x509_csr(str(csr).encode())
+        sans = csr_object.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+        sans_ip = sans.get_values_for_type(x509.IPAddress)
+        assert len(sans_ip) == 2
+        assert IPv6Address("2001:db8::1") in sans_ip
+        assert IPv6Address("2001:db8::2") in sans_ip
