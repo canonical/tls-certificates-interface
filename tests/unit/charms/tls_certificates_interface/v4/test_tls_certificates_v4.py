@@ -7,8 +7,8 @@ from datetime import datetime, timedelta, timezone
 from ipaddress import IPv6Address
 
 from charms.tls_certificates_interface.v4.tls_certificates import (
-    generate_csr,
-    generate_private_key,
+    _generate_csr,
+    _generate_private_key,
 )
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
@@ -62,11 +62,11 @@ def validate_induced_data_from_pfx_is_equal_to_initial_data(
     assert initial_private_key == induced_private_key
 
 
-def test_given_subject_and_private_key_when_generate_csr_then_csr_is_generated_with_provided_subject():  # noqa: E501
+def test_given_subject_and_private_key_when__generate_csr_then_csr_is_generated_with_provided_subject():  # noqa: E501
     subject = "whatever"
     private_key = generate_private_key_helper()
 
-    csr = generate_csr(private_key=private_key, common_name=subject)
+    csr = _generate_csr(private_key=private_key, common_name=subject)
 
     csr_object = x509.load_pem_x509_csr(data=csr.encode())
     subject_list = list(csr_object.subject)
@@ -90,7 +90,7 @@ def test_given_additional_critical_extensions_when_generate_csr_then_extensions_
         decipher_only=False,
     )
 
-    csr = generate_csr(
+    csr = _generate_csr(
         private_key=private_key,
         common_name=subject,
         additional_critical_extensions=[additional_critical_extension],
@@ -101,20 +101,20 @@ def test_given_additional_critical_extensions_when_generate_csr_then_extensions_
     assert csr_object.extensions[0].value == additional_critical_extension
 
 
-def test_given_no_private_key_password_when_generate_csr_then_csr_is_generated_and_loadable():
+def test_given_no_private_key_password_when__generate_csr_then_csr_is_generated_and_loadable():
     private_key = generate_private_key_helper()
     subject = "whatever subject"
 
-    csr = generate_csr(private_key=private_key, common_name=subject)
+    csr = _generate_csr(private_key=private_key, common_name=subject)
 
     csr_object = x509.load_pem_x509_csr(data=csr.encode())
     assert x509.NameAttribute(x509.NameOID.COMMON_NAME, subject) in csr_object.subject
 
 
-def test_given_unique_id_set_to_false_when_generate_csr_then_csr_is_generated_without_unique_id():
+def test_given_unique_id_set_to_false_when__generate_csr_then_csr_is_generated_without_unique_id():
     private_key = generate_private_key_helper()
     subject = "whatever subject"
-    csr = generate_csr(
+    csr = _generate_csr(
         private_key=private_key, common_name=subject, add_unique_id_to_subject_name=False
     )
 
@@ -124,7 +124,7 @@ def test_given_unique_id_set_to_false_when_generate_csr_then_csr_is_generated_wi
 
 
 def test_given_no_password_when_generate_private_key_then_key_is_generated_and_loadable():
-    private_key = generate_private_key()
+    private_key = _generate_private_key()
 
     load_pem_private_key(data=private_key.encode(), password=None)
 
@@ -132,7 +132,7 @@ def test_given_no_password_when_generate_private_key_then_key_is_generated_and_l
 def test_given_key_size_provided_when_generate_private_key_then_private_key_is_generated():
     key_size = 1234
 
-    private_key = generate_private_key(key_size=key_size)
+    private_key = _generate_private_key(key_size=key_size)
 
     private_key_object = serialization.load_pem_private_key(private_key.encode(), password=None)
     assert isinstance(private_key_object, rsa.RSAPrivateKeyWithSerialization)
@@ -216,10 +216,10 @@ def test_given_validity_time_is_too_short_when_calculate_expiry_notification_tim
     assert notification_time == expected_notification_time
 
 
-def test_given_localization_is_specified_when_generate_csr_then_csr_contains_localization():
-    private_key = generate_private_key()
+def test_given_localization_is_specified_when__generate_csr_then_csr_contains_localization():
+    private_key = _generate_private_key()
 
-    csr = generate_csr(
+    csr = _generate_csr(
         private_key=private_key,
         common_name="my.demo.server",
         sans_dns=["my.demo.server"],
@@ -241,10 +241,10 @@ def test_given_localization_is_specified_when_generate_csr_then_csr_contains_loc
     )
 
 
-def test_given_ipv6_sans_when_generate_csr_then_csr_contains_ipv6_sans():
-    private_key = generate_private_key()
+def test_given_ipv6_sans_when__generate_csr_then_csr_contains_ipv6_sans():
+    private_key = _generate_private_key()
 
-    csr = generate_csr(
+    csr = _generate_csr(
         private_key=private_key,
         common_name="my.demo.server",
         sans_dns=["my.demo.server"],

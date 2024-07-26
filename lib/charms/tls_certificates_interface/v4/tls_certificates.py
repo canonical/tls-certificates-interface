@@ -43,64 +43,112 @@ In the following example, the requiring charm requests a certificate using attri
 from the Juju configuration options.
 
 ```python
+Library for the tls-certificates integration.
+
+This library contains the Requires and Provides classes for handling the tls-certificates
+interface.
+
+Pre-requisites:
+  - Juju >= 3.0
+
+## Getting Started
+From a charm directory, fetch the library using `charmcraft`:
+
+```shell
+charmcraft fetch-lib charms.tls_certificates_interface.v4.tls_certificates
+```
+
+Add the following libraries to the charm's `requirements.txt` file:
+- cryptography >= 42.0.0
+- pydantic >= 2.0.0
+
+Add the following section to the charm's `charmcraft.yaml` file:
+```yaml
+parts:
+  charm:
+    build-packages:
+      - libffi-dev
+      - libssl-dev
+      - rustc
+      - cargo
+```
+
+### Requirer charm
+The requirer charm is the charm requiring certificates from another charm that provides them.
+
+#### Example
+
+In the following example, the requiring charm requests a certificate using attributes
+from the Juju configuration options.
+
+```python
 from typing import List, Optional, cast
 
-from charms.tls_certificates_interface.v4.tls_certificates import (
+from ops.charm import ActionEvent, CharmBase
+from ops.main import main
+
+from lib.charms.tls_certificates_interface.v4.tls_certificates import (
+    CertificateAvailableEvent,
     CertificateRequest,
     Mode,
     TLSCertificatesRequiresV4,
 )
-from ops.charm import ActionEvent, CharmBase, CollectStatusEvent
-from ops.main import main
-from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 
 
 class TLSCertificatesRequirer(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
-        certificate_request = self._get_certificate_request()
+        certificate_requests = self._get_certificate_requests()
         self.certificates = TLSCertificatesRequiresV4(
             charm=self,
             relationship_name="certificates",
-            certificate_requests=[certificate_request],
+            certificate_requests=certificate_requests,
             mode=Mode.UNIT,
             refresh_events=[self.on.config_changed],
         )
+        self.framework.observe(
+            self.certificates.on.certificate_available, self._on_certificate_available
+        )
+        self.framework.observe(
+            self.on.regenerate_private_key_action, self._on_regenerate_private_key_action
+        )
         self.framework.observe(self.on.get_certificate_action, self._on_get_certificate_action)
+
+    def _get_certificate_requests(self) -> List[CertificateRequest]:
+        if not self._get_config_common_name():
+            return []
+        return [
+            CertificateRequest(
+                common_name=self._get_config_common_name(),
+                sans_dns=self._get_config_sans_dns(),
+                organization=self._get_config_organization_name(),
+                organizational_unit=self._get_config_organization_unit_name(),
+                email_address=self._get_config_email_address(),
+                country_name=self._get_config_country_name(),
+                state_or_province_name=self._get_config_state_or_province_name(),
+                locality_name=self._get_config_locality_name(),
+            )
+        ]
+
+    def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
+        print("Certificate available")
+
+    def _on_regenerate_private_key_action(self, event: ActionEvent) -> None:
+        self.certificates.regenerate_private_key()
 
     def _on_get_certificate_action(self, event: ActionEvent) -> None:
         certificate, _ = self.certificates.get_assigned_certificate(
-            certificate_request=self._get_certificate_request()
+            certificate_request=self._get_certificate_requests()[0]
         )
         if not certificate:
             event.fail("Certificate not available")
             return
         event.set_results(
             {
-                "certificate": certificate.certificate,
-                "ca": certificate.ca,
-                "chain": certificate.chain,
+                "certificate": str(certificate.certificate),
+                "ca": str(certificate.ca),
+                "csr": str(certificate.certificate_signing_request),
             }
-        )
-
-    def _relation_created(self, relation_name: str) -> bool:
-        try:
-            if self.model.get_relation(relation_name):
-                return True
-            return False
-        except KeyError:
-            return False
-
-    def _get_certificate_request(self) -> CertificateRequest:
-        return CertificateRequest(
-            common_name=self._get_config_common_name(),
-            sans_dns=self._get_config_sans_dns(),
-            organization=self._get_config_organization_name(),
-            organizational_unit=self._get_config_organization_unit_name(),
-            email_address=self._get_config_email_address(),
-            country_name=self._get_config_country_name(),
-            state_or_province_name=self._get_config_state_or_province_name(),
-            locality_name=self._get_config_locality_name(),
         )
 
     def _get_config_common_name(self) -> str:
@@ -258,7 +306,7 @@ class DatabagModel(BaseModel):
         return databag
 
 
-class Certificate(BaseModel):
+class _Certificate(BaseModel):
     """Certificate model."""
 
     ca: str
@@ -268,40 +316,55 @@ class Certificate(BaseModel):
     recommended_expiry_notification_time: Optional[int] = None
     revoked: Optional[bool] = None
 
+    def to_provider_certificate(self) -> "ProviderCertificate":
+        """Convert to a ProviderCertificate."""
+        certificate = Certificate.from_string(self.certificate)
+        if not certificate:
+            raise DataValidationError("Invalid certificate")
+        certificate_signing_request = CertificateSigningRequest.from_string(
+            self.certificate_signing_request
+        )
+        if not certificate_signing_request:
+            raise DataValidationError("Invalid certificate signing request")
+        ca = Certificate.from_string(self.ca)
+        if not ca:
+            raise DataValidationError("Invalid CA certificate")
+        chain = []
+        if self.chain:
+            for chain_cert in self.chain:
+                chain_certificate = Certificate.from_string(chain_cert)
+                if chain_certificate:
+                    chain.append(chain_certificate)
+        return ProviderCertificate(
+            certificate=certificate,
+            certificate_signing_request=certificate_signing_request,
+            ca=ca,
+            chain=chain,
+            recommended_expiry_notification_time=self.recommended_expiry_notification_time,
+            revoked=self.revoked,
+        )
 
-class CertificateSigningRequest(BaseModel):
+
+class _CertificateSigningRequest(BaseModel):
     """Certificate signing request model."""
 
     certificate_signing_request: str
     ca: Optional[bool]
 
 
-class ProviderApplicationData(DatabagModel):
+class _ProviderApplicationData(DatabagModel):
     """Provider application data model."""
 
-    certificates: List[Certificate]
+    certificates: List[_Certificate]
 
 
-class RequirerData(DatabagModel):
+class _RequirerData(DatabagModel):
     """Requirer data model.
 
     The same model is used for the unit and application data.
     """
 
-    certificate_signing_requests: List[CertificateSigningRequest]
-
-
-class ProviderSchema(BaseModel):
-    """Provider schema for TLS Certificates."""
-
-    app: ProviderApplicationData
-
-
-class RequirerSchema(BaseModel):
-    """Requirer schema for TLS Certificates."""
-
-    app: RequirerData
-    unit: RequirerData
+    certificate_signing_requests: List[_CertificateSigningRequest]
 
 
 class Mode(Enum):
@@ -339,9 +402,67 @@ class CertificateRequest:
             return False
         return True
 
+
+@dataclass
+class PrivateKey:
+    """This class represents a private key."""
+
+    raw: str
+
+    def __str__(self):
+        """Return the private key as a string."""
+        return self.raw
+
     @staticmethod
-    def from_string(csr: str) -> Optional["CertificateRequest"]:
-        """Create a CertificateRequest object from a CSR."""
+    def from_string(private_key: str) -> "PrivateKey":
+        """Create a PrivateKey object from a private key."""
+        return PrivateKey(raw=private_key)
+
+
+@dataclass
+class CertificateSigningRequest:
+    """This class represents a certificate signing request."""
+
+    raw: str
+    common_name: str
+    sans_dns: Optional[List[str]] = None
+    sans_ip: Optional[List[str]] = None
+    sans_oid: Optional[List[str]] = None
+    email_address: Optional[str] = None
+    organization: Optional[str] = None
+    organizational_unit: Optional[str] = None
+    country_name: Optional[str] = None
+    state_or_province_name: Optional[str] = None
+    locality_name: Optional[str] = None
+    is_ca: bool = False
+
+    def __eq__(self, other: object) -> bool:
+        """Check if two CertificateSigningRequest objects are equal."""
+        if not isinstance(other, CertificateSigningRequest):
+            return NotImplemented
+        return self.raw.strip() == other.raw.strip()
+
+    def __str__(self) -> str:
+        """Return the CSR as a string."""
+        return self.raw
+
+    def to_certificate_request(self) -> CertificateRequest:
+        """Convert to a CertificateRequest object."""
+        return CertificateRequest(
+            common_name=self.common_name,
+            country_name=self.country_name,
+            state_or_province_name=self.state_or_province_name,
+            locality_name=self.locality_name,
+            organization=self.organization,
+            email_address=self.email_address,
+            sans_dns=self.sans_dns,
+            sans_ip=self.sans_ip,
+            sans_oid=self.sans_oid,
+        )
+
+    @staticmethod
+    def from_string(csr: str) -> Optional["CertificateSigningRequest"]:
+        """Create a CertificateSigningRequest object from a CSR."""
         try:
             csr_object = x509.load_pem_x509_csr(csr.encode())
         except ValueError as e:
@@ -377,7 +498,8 @@ class CertificateRequest:
             sans_dns = []
             sans_ip = []
             sans_oid = []
-        return CertificateRequest(
+        return CertificateSigningRequest(
+            raw=csr,
             common_name=str(common_name[0].value),
             country_name=str(country_name[0].value) if country_name else None,
             state_or_province_name=str(state_or_province_name[0].value)
@@ -391,11 +513,52 @@ class CertificateRequest:
             sans_oid=sans_oid if sans_oid else None,
         )
 
+    def matches_private_key(self, key: PrivateKey) -> bool:
+        """Check if a CSR matches a private key.
+
+        This function only works with RSA keys.
+
+        Args:
+            key (str): Private key as a string
+        Returns:
+            bool: True/False depending on whether the CSR matches the private key.
+        """
+        try:
+            csr_object = x509.load_pem_x509_csr(self.raw.encode("utf-8"))
+            key_object = serialization.load_pem_private_key(
+                data=key.raw.encode("utf-8"), password=None
+            )
+            key_object_public_key = key_object.public_key()
+            csr_object_public_key = csr_object.public_key()
+            if not isinstance(key_object_public_key, rsa.RSAPublicKey):
+                logger.warning("Key is not an RSA key")
+                return False
+            if not isinstance(csr_object_public_key, rsa.RSAPublicKey):
+                logger.warning("CSR is not an RSA key")
+                return False
+            if (
+                csr_object_public_key.public_numbers().n
+                != key_object_public_key.public_numbers().n
+            ):
+                logger.warning("Public key numbers between CSR and key do not match")
+                return False
+        except ValueError:
+            logger.warning("Could not load certificate or CSR.")
+            return False
+        return True
+
+    def get_sha256_hex(self) -> str:
+        """Calculate the hash of the provided data and return the hexadecimal representation."""
+        digest = hashes.Hash(hashes.SHA256())
+        digest.update(self.raw.encode())
+        return digest.finalize().hex()
+
 
 @dataclass
-class ProviderCertificate:
-    """This class represents a certificate provided by the TLS provider."""
+class Certificate:
+    """This class represents a certificate."""
 
+    raw: str
     common_name: str
     sans_dns: Optional[List[str]] = None
     sans_ip: Optional[List[str]] = None
@@ -409,9 +572,13 @@ class ProviderCertificate:
     expiry_time: Optional[datetime] = None
     validity_start_time: Optional[datetime] = None
 
+    def __str__(self) -> str:
+        """Return the certificate as a string."""
+        return self.raw
+
     @staticmethod
-    def from_string(certificate: str) -> Optional["ProviderCertificate"]:
-        """Create a ProviderCertificate object from a certificate."""
+    def from_string(certificate: str) -> Optional["Certificate"]:
+        """Create a Certificate object from a certificate."""
         try:
             certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
         except ValueError as e:
@@ -453,7 +620,8 @@ class ProviderCertificate:
         expiry_time = certificate_object.not_valid_after_utc
         validity_start_time = certificate_object.not_valid_before_utc
 
-        return ProviderCertificate(
+        return Certificate(
+            raw=certificate,
             common_name=str(common_name[0].value),
             country_name=str(country_name[0].value) if country_name else None,
             state_or_province_name=str(state_or_province_name[0].value)
@@ -468,6 +636,18 @@ class ProviderCertificate:
             expiry_time=expiry_time,
             validity_start_time=validity_start_time,
         )
+
+
+@dataclass
+class ProviderCertificate:
+    """This class represents a certificate provided by the TLS provider."""
+
+    certificate: Certificate
+    certificate_signing_request: CertificateSigningRequest
+    ca: Certificate
+    chain: List[Certificate]
+    recommended_expiry_notification_time: Optional[int] = None
+    revoked: Optional[bool] = None
 
 
 class CertificateAvailableEvent(EventBase):
@@ -559,7 +739,7 @@ def calculate_expiry_notification_time(
     return expiry_time - timedelta(hours=calculated_hours)
 
 
-def generate_private_key(
+def _generate_private_key(
     key_size: int = 2048,
     public_exponent: int = 65537,
 ) -> str:
@@ -584,7 +764,7 @@ def generate_private_key(
     return key_bytes.decode()
 
 
-def generate_csr(  # noqa: C901
+def _generate_csr(  # noqa: C901
     private_key: str,
     common_name: str,
     add_unique_id_to_subject_name: bool = True,
@@ -665,44 +845,6 @@ def generate_csr(  # noqa: C901
     return signed_certificate.public_bytes(serialization.Encoding.PEM).decode()
 
 
-def get_sha256_hex(data: str) -> str:
-    """Calculate the hash of the provided data and return the hexadecimal representation."""
-    digest = hashes.Hash(hashes.SHA256())
-    digest.update(data.encode())
-    return digest.finalize().hex()
-
-
-def csr_matches_private_key(csr: str, key: str) -> bool:
-    """Check if a CSR matches a private key.
-
-    This function only works with RSA keys.
-
-    Args:
-        csr (str): Certificate Signing Request as a string
-        key (str): Private key as a string
-    Returns:
-        bool: True/False depending on whether the CSR matches the private key.
-    """
-    try:
-        csr_object = x509.load_pem_x509_csr(csr.encode("utf-8"))
-        key_object = serialization.load_pem_private_key(data=key.encode("utf-8"), password=None)
-        key_object_public_key = key_object.public_key()
-        csr_object_public_key = csr_object.public_key()
-        if not isinstance(key_object_public_key, rsa.RSAPublicKey):
-            logger.warning("Key is not an RSA key")
-            return False
-        if not isinstance(csr_object_public_key, rsa.RSAPublicKey):
-            logger.warning("CSR is not an RSA key")
-            return False
-        if csr_object_public_key.public_numbers().n != key_object_public_key.public_numbers().n:
-            logger.warning("Public key numbers between CSR and key do not match")
-            return False
-    except ValueError:
-        logger.warning("Could not load certificate or CSR.")
-        return False
-    return True
-
-
 class CertificatesRequirerCharmEvents(CharmEvents):
     """List of events that the TLS Certificates requirer charm can leverage."""
 
@@ -776,16 +918,20 @@ class TLSCertificatesRequiresV4(Object):
         """
         if not event.secret.label or not event.secret.label.startswith(f"{LIBID}-certificate"):
             return
-        csr = event.secret.get_content(refresh=True)["csr"]
+        csr_str = event.secret.get_content(refresh=True)["csr"]
+        csr = CertificateSigningRequest.from_string(csr_str)
+        if not csr:
+            logger.warning("Failed to load CSR from secret")
+            return
         self._renew_certificate_request(csr)
         event.secret.remove_all_revisions()
 
-    def _renew_certificate_request(self, csr: str):
+    def _renew_certificate_request(self, csr: CertificateSigningRequest):
         """Remove existing CSR from relation data and create a new one."""
         self._remove_requirer_csr_from_relation_data(csr)
         self._send_certificate_requests()
 
-    def _remove_requirer_csr_from_relation_data(self, csr: str) -> None:
+    def _remove_requirer_csr_from_relation_data(self, csr: CertificateSigningRequest) -> None:
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
             logger.debug("No relation: %s", self.relationship_name)
@@ -795,16 +941,16 @@ class TLSCertificatesRequiresV4(Object):
             return
         app_or_unit = self._get_app_or_unit()
         try:
-            requirer_relation_data = RequirerData.load(relation.data[app_or_unit])
+            requirer_relation_data = _RequirerData.load(relation.data[app_or_unit])
         except DataValidationError:
             logger.warning("Invalid relation data - Skipping removal of CSR")
             return
         new_relation_data = copy.deepcopy(requirer_relation_data.certificate_signing_requests)
         for requirer_csr in new_relation_data:
-            if requirer_csr.certificate_signing_request.strip() == csr.strip():
+            if requirer_csr.certificate_signing_request.strip() == str(csr).strip():
                 new_relation_data.remove(requirer_csr)
         try:
-            RequirerData(certificate_signing_requests=new_relation_data).dump(
+            _RequirerData(certificate_signing_requests=new_relation_data).dump(
                 relation.data[app_or_unit]
             )
             logger.info("Removed CSR from relation data")
@@ -820,20 +966,20 @@ class TLSCertificatesRequiresV4(Object):
         raise TLSCertificatesError("Invalid mode")
 
     @property
-    def private_key(self) -> str | None:
+    def private_key(self) -> PrivateKey | None:
         """Return the private key."""
         if not self._private_key_generated():
             return None
         secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
         private_key = secret.get_content(refresh=True)["private-key"]
-        return private_key
+        return PrivateKey.from_string(private_key)
 
     def _generate_private_key(self) -> None:
         if self._private_key_generated():
             return
-        private_key = generate_private_key()
+        private_key = _generate_private_key()
         self.charm.unit.add_secret(
-            content={"private-key": private_key},
+            content={"private-key": str(private_key)},
             label=self._get_private_key_secret_label(),
         )
         logger.info("Private key generated")
@@ -852,7 +998,7 @@ class TLSCertificatesRequiresV4(Object):
 
     def _regenerate_private_key(self) -> None:
         secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
-        secret.set_content({"private-key": generate_private_key()})
+        secret.set_content({"private-key": _generate_private_key()})
 
     def _private_key_generated(self) -> bool:
         try:
@@ -861,9 +1007,9 @@ class TLSCertificatesRequiresV4(Object):
             return False
         return True
 
-    def _csr_matches_request_attributes(self, csr: str) -> bool:
+    def _csr_matches_request_attributes(self, csr: CertificateSigningRequest) -> bool:
         for certificate_request in self.certificate_requests:
-            if CertificateRequest.from_string(csr=csr) == certificate_request:
+            if csr.to_certificate_request() == certificate_request:
                 return True
         return False
 
@@ -873,17 +1019,16 @@ class TLSCertificatesRequiresV4(Object):
         csr = self._certificate_requested_for_attributes(certificate_request)
         if not csr:
             return False
-        if not csr_matches_private_key(csr=csr, key=self.private_key):
+        if not csr.matches_private_key(key=self.private_key):
             return False
         return True
 
     def _certificate_requested_for_attributes(
         self, certificate_request: CertificateRequest
-    ) -> Optional[str]:
+    ) -> Optional[CertificateSigningRequest]:
         for requirer_csr in self.get_csrs_from_requirer_relation_data():
-            csr_str = requirer_csr.certificate_signing_request
-            if CertificateRequest.from_string(csr_str) == certificate_request:
-                return csr_str
+            if requirer_csr.to_certificate_request() == certificate_request:
+                return requirer_csr
         return None
 
     def get_csrs_from_requirer_relation_data(self) -> List[CertificateSigningRequest]:
@@ -894,14 +1039,22 @@ class TLSCertificatesRequiresV4(Object):
             return []
         app_or_unit = self._get_app_or_unit()
         try:
-            requirer_relation_data = RequirerData.load(relation.data[app_or_unit])
+            requirer_relation_data = _RequirerData.load(relation.data[app_or_unit])
         except DataValidationError:
             logger.warning("Invalid relation data")
             return []
-        return requirer_relation_data.certificate_signing_requests
+        requests = []
+        for csr in requirer_relation_data.certificate_signing_requests:
+            request = CertificateSigningRequest.from_string(csr.certificate_signing_request)
+            if request:
+                requests.append(request)
+        return requests
 
-    def get_provider_certificates(self) -> List[Certificate]:
+    def get_provider_certificates(self) -> List[ProviderCertificate]:
         """Return list of certificates from the provider's relation data."""
+        return self._load_provider_certificates()
+
+    def _load_provider_certificates(self) -> List[ProviderCertificate]:
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
             logger.debug("No relation: %s", self.relationship_name)
@@ -910,11 +1063,14 @@ class TLSCertificatesRequiresV4(Object):
             logger.debug("No remote app in relation: %s", self.relationship_name)
             return []
         try:
-            provider_relation_data = ProviderApplicationData.load(relation.data[relation.app])
+            provider_relation_data = _ProviderApplicationData.load(relation.data[relation.app])
         except DataValidationError:
             logger.warning("Invalid relation data")
             return []
-        return provider_relation_data.certificates
+        return [
+            certificate.to_provider_certificate()
+            for certificate in provider_relation_data.certificates
+        ]
 
     def _request_certificate(self, csr: str, is_ca: bool) -> None:
         """Add CSR to relation data."""
@@ -922,18 +1078,18 @@ class TLSCertificatesRequiresV4(Object):
         if not relation:
             logger.debug("No relation: %s", self.relationship_name)
             return
-        new_csr = CertificateSigningRequest(certificate_signing_request=csr.strip(), ca=is_ca)
+        new_csr = _CertificateSigningRequest(certificate_signing_request=csr.strip(), ca=is_ca)
         app_or_unit = self._get_app_or_unit()
         try:
-            requirer_relation_data = RequirerData.load(relation.data[app_or_unit])
+            requirer_relation_data = _RequirerData.load(relation.data[app_or_unit])
         except DataValidationError:
-            requirer_relation_data = RequirerData(
+            requirer_relation_data = _RequirerData(
                 certificate_signing_requests=[],
             )
         new_relation_data = copy.deepcopy(requirer_relation_data.certificate_signing_requests)
         new_relation_data.append(new_csr)
         try:
-            RequirerData(certificate_signing_requests=new_relation_data).dump(
+            _RequirerData(certificate_signing_requests=new_relation_data).dump(
                 relation.data[app_or_unit]
             )
             logger.info("Certificate signing request added to relation data.")
@@ -946,8 +1102,8 @@ class TLSCertificatesRequiresV4(Object):
             return
         for certificate_request in self.certificate_requests:
             if not self._certificate_requested(certificate_request):
-                csr = generate_csr(
-                    private_key=self.private_key,
+                csr = _generate_csr(
+                    private_key=str(self.private_key),
                     sans_dns=certificate_request.sans_dns,
                     common_name=certificate_request.common_name,
                     organization=certificate_request.organization,
@@ -960,34 +1116,28 @@ class TLSCertificatesRequiresV4(Object):
 
     def get_assigned_certificate(
         self, certificate_request: CertificateRequest
-    ) -> Tuple[Certificate | None, str | None]:
+    ) -> Tuple[ProviderCertificate | None, PrivateKey | None]:
         """Get the certificate that was assigned to the given certificate request."""
         for requirer_csr in self.get_csrs_from_requirer_relation_data():
-            if (
-                CertificateRequest.from_string(csr=requirer_csr.certificate_signing_request)
-                == certificate_request
-            ):
-                return self._find_certificate_in_relation_data(
-                    requirer_csr.certificate_signing_request
-                ), self.private_key
+            if certificate_request == requirer_csr.to_certificate_request():
+                return self._find_certificate_in_relation_data(requirer_csr), self.private_key
         return None, None
 
-    def get_assigned_certificates(self) -> Tuple[List[Certificate], str | None]:
+    def get_assigned_certificates(self) -> Tuple[List[ProviderCertificate], PrivateKey | None]:
         """Get a list of certificates that were assigned to this or app."""
         assigned_certificates = []
         for requirer_csr in self.get_csrs_from_requirer_relation_data():
-            if cert := self._find_certificate_in_relation_data(
-                requirer_csr.certificate_signing_request
-            ):
+            if cert := self._find_certificate_in_relation_data(requirer_csr):
                 assigned_certificates.append(cert)
         return assigned_certificates, self.private_key
 
-    def _find_certificate_in_relation_data(self, csr: str) -> Optional[Certificate]:
+    def _find_certificate_in_relation_data(
+        self, csr: CertificateSigningRequest
+    ) -> Optional[ProviderCertificate]:
         """Return the certificate that match the given CSR."""
         for provider_certificate in self.get_provider_certificates():
-            if provider_certificate.certificate_signing_request.strip() != csr.strip():
-                continue
-            return provider_certificate
+            if provider_certificate.certificate_signing_request == csr:
+                return provider_certificate
         return None
 
     def _find_available_certificates(self):
@@ -997,15 +1147,14 @@ class TLSCertificatesRequiresV4(Object):
         If a certificate is found, it will be set as a secret and an event will be emitted.
         If a certificate is revoked, the secret will be removed and an event will be emitted.
         """
-        requirer_csrs = [
-            certificate_creation_request.certificate_signing_request
-            for certificate_creation_request in self.get_csrs_from_requirer_relation_data()
-        ]
+        requirer_csrs = self.get_csrs_from_requirer_relation_data()
         provider_certificates = self.get_provider_certificates()
-        for certificate in provider_certificates:
-            if certificate.certificate_signing_request in requirer_csrs:
-                secret_label = self._get_csr_secret_label(certificate.certificate_signing_request)
-                if certificate.revoked:
+        for provider_certificate in provider_certificates:
+            if provider_certificate.certificate_signing_request in requirer_csrs:
+                secret_label = self._get_csr_secret_label(
+                    provider_certificate.certificate_signing_request
+                )
+                if provider_certificate.revoked:
                     with suppress(SecretNotFoundError):
                         logger.debug(
                             "Removing secret with label %s",
@@ -1015,7 +1164,7 @@ class TLSCertificatesRequiresV4(Object):
                         secret.remove_all_revisions()
                 else:
                     if not self._csr_matches_request_attributes(
-                        certificate.certificate_signing_request
+                        provider_certificate.certificate_signing_request
                     ):
                         logger.debug("Certificate requested for different attributes - Skipping")
                         continue
@@ -1024,28 +1173,30 @@ class TLSCertificatesRequiresV4(Object):
                         secret = self.model.get_secret(label=secret_label)
                         secret.set_content(
                             content={
-                                "certificate": certificate.certificate,
-                                "csr": certificate.certificate_signing_request,
+                                "certificate": str(provider_certificate.certificate),
+                                "csr": str(provider_certificate.certificate_signing_request),
                             }
                         )
                         secret.set_info(
-                            expire=self._get_next_secret_expiry_time(certificate),
+                            expire=self._get_next_secret_expiry_time(provider_certificate),
                         )
                     except SecretNotFoundError:
                         logger.debug("Creating new secret with label %s", secret_label)
                         secret = self.charm.unit.add_secret(
                             content={
-                                "certificate": certificate.certificate,
-                                "csr": certificate.certificate_signing_request,
+                                "certificate": str(provider_certificate.certificate),
+                                "csr": str(provider_certificate.certificate_signing_request),
                             },
                             label=secret_label,
-                            expire=self._get_next_secret_expiry_time(certificate),
+                            expire=self._get_next_secret_expiry_time(provider_certificate),
                         )
                     self.on.certificate_available.emit(
-                        certificate_signing_request=certificate.certificate_signing_request,
-                        certificate=certificate.certificate,
-                        ca=certificate.ca,
-                        chain=certificate.chain,
+                        certificate_signing_request=str(
+                            provider_certificate.certificate_signing_request
+                        ),
+                        certificate=str(provider_certificate.certificate),
+                        ca=str(provider_certificate.ca),
+                        chain=str(provider_certificate.chain),
                     )
 
     def _cleanup_certificate_requests(self):
@@ -1057,18 +1208,14 @@ class TLSCertificatesRequiresV4(Object):
         - The CSR public key does not match the private key.
         """
         for requirer_csr in self.get_csrs_from_requirer_relation_data():
-            if not self._csr_matches_request_attributes(requirer_csr.certificate_signing_request):
-                self._remove_requirer_csr_from_relation_data(
-                    requirer_csr.certificate_signing_request
-                )
-            elif self.private_key and not csr_matches_private_key(
-                requirer_csr.certificate_signing_request, self.private_key
-            ):
-                self._remove_requirer_csr_from_relation_data(
-                    requirer_csr.certificate_signing_request
-                )
+            if not self._csr_matches_request_attributes(requirer_csr):
+                self._remove_requirer_csr_from_relation_data(requirer_csr)
+            elif self.private_key and not requirer_csr.matches_private_key(self.private_key):
+                self._remove_requirer_csr_from_relation_data(requirer_csr)
 
-    def _get_next_secret_expiry_time(self, certificate: Certificate) -> Optional[datetime]:
+    def _get_next_secret_expiry_time(
+        self, provider_certificate: ProviderCertificate
+    ) -> Optional[datetime]:
         """Return the expiry time or expiry notification time.
 
         Extracts the expiry time from the provided certificate, calculates the
@@ -1076,33 +1223,29 @@ class TLSCertificatesRequiresV4(Object):
         the future.
 
         Args:
-            certificate: Certificate object
+            provider_certificate: ProviderCertificate object
 
         Returns:
             Optional[datetime]: None if the certificate expiry time cannot be read,
                                 next expiry time otherwise.
         """
-        cert = ProviderCertificate.from_string(certificate.certificate)
-        if not cert:
-            logger.warning("Could not load certificate")
-            return None
-        if not cert.expiry_time:
+        if not provider_certificate.certificate.expiry_time:
             logger.warning("Certificate has no expiry time")
             return None
-        if not cert.validity_start_time:
+        if not provider_certificate.certificate.validity_start_time:
             logger.warning("Certificate has no validity start time")
             return None
         expiry_notification_time = calculate_expiry_notification_time(
-            validity_start_time=cert.validity_start_time,
-            expiry_time=cert.expiry_time,
-            provider_recommended_notification_time=certificate.recommended_expiry_notification_time,
+            validity_start_time=provider_certificate.certificate.validity_start_time,
+            expiry_time=provider_certificate.certificate.expiry_time,
+            provider_recommended_notification_time=provider_certificate.recommended_expiry_notification_time,
         )
         if not expiry_notification_time:
             logger.warning("Could not calculate expiry notification time")
             return None
         return _get_closest_future_time(
             expiry_notification_time,
-            cert.expiry_time,
+            provider_certificate.certificate.expiry_time,
         )
 
     def _tls_relation_created(self) -> bool:
@@ -1119,8 +1262,8 @@ class TLSCertificatesRequiresV4(Object):
         else:
             raise TLSCertificatesError("Invalid mode. Must be Mode.UNIT or Mode.APP.")
 
-    def _get_csr_secret_label(self, csr: str) -> str:
-        csr_in_sha256_hex = get_sha256_hex(csr)
+    def _get_csr_secret_label(self, csr: CertificateSigningRequest) -> str:
+        csr_in_sha256_hex = csr.get_sha256_hex()
         if self.mode == Mode.UNIT:
             return f"{LIBID}-certificate-{self._get_unit_number()}-{csr_in_sha256_hex}"
         elif self.mode == Mode.APP:
