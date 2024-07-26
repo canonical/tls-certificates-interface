@@ -10,45 +10,6 @@ This library contains the Requires and Provides classes for handling the tls-cer
 interface.
 
 Pre-requisites:
-  - Juju >= 3.1.8
-
-## Getting Started
-From a charm directory, fetch the library using `charmcraft`:
-
-```shell
-charmcraft fetch-lib charms.tls_certificates_interface.v4.tls_certificates
-```
-
-Add the following libraries to the charm's `requirements.txt` file:
-- cryptography >= 42.0.0
-- pydantic >= 2.0.0
-
-Add the following section to the charm's `charmcraft.yaml` file:
-```yaml
-parts:
-  charm:
-    build-packages:
-      - libffi-dev
-      - libssl-dev
-      - rustc
-      - cargo
-```
-
-### Requirer charm
-The requirer charm is the charm requiring certificates from another charm that provides them.
-
-#### Example
-
-In the following example, the requiring charm requests a certificate using attributes
-from the Juju configuration options.
-
-```python
-Library for the tls-certificates integration.
-
-This library contains the Requires and Provides classes for handling the tls-certificates
-interface.
-
-Pre-requisites:
   - Juju >= 3.0
 
 ## Getting Started
@@ -95,7 +56,7 @@ from lib.charms.tls_certificates_interface.v4.tls_certificates import (
 )
 
 
-class TLSCertificatesRequirer(CharmBase):
+class DummyTLSCertificatesRequirerCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
         certificate_requests = self._get_certificate_requests()
@@ -178,13 +139,13 @@ class TLSCertificatesRequirer(CharmBase):
 
 
 if __name__ == "__main__":
-    main(TLSCertificatesRequirer)
+    main(DummyTLSCertificatesRequirerCharm)
 ```
 
 You can integrate both charms by running:
 
 ```bash
-juju integrate <tls-certificates provider> <tls-certificates requirer>
+juju integrate <tls-certificates provider charm> <tls-certificates requirer charm>
 ```
 """  # noqa: D214, D405, D411, D416
 
