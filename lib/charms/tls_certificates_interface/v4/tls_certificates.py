@@ -341,7 +341,7 @@ class Mode(Enum):
     APP = 2
 
 
-@dataclass
+@dataclass(frozen=True)
 class PrivateKey:
     """This class represents a private key."""
 
@@ -357,7 +357,7 @@ class PrivateKey:
         return PrivateKey(raw=private_key)
 
 
-@dataclass
+@dataclass(frozen=True)
 class CertificateSigningRequest:
     """This class represents a certificate signing request."""
 
@@ -388,14 +388,16 @@ class CertificateSigningRequest:
         """Convert to a CertificateRequest object."""
         return CertificateRequest(
             common_name=self.common_name,
-            country_name=self.country_name,
-            state_or_province_name=self.state_or_province_name,
-            locality_name=self.locality_name,
-            organization=self.organization,
-            email_address=self.email_address,
             sans_dns=self.sans_dns,
             sans_ip=self.sans_ip,
             sans_oid=self.sans_oid,
+            email_address=self.email_address,
+            organization=self.organization,
+            organizational_unit=self.organizational_unit,
+            country_name=self.country_name,
+            state_or_province_name=self.state_or_province_name,
+            locality_name=self.locality_name,
+            is_ca=self.is_ca,
         )
 
     @staticmethod
@@ -492,7 +494,7 @@ class CertificateSigningRequest:
         return digest.finalize().hex()
 
 
-@dataclass
+@dataclass(frozen=True)
 class CertificateRequest:
     """This class represents a certificate request.
 
@@ -573,7 +575,7 @@ class CertificateRequest:
         return CertificateSigningRequest.from_string(csr_str)
 
 
-@dataclass
+@dataclass(frozen=True)
 class Certificate:
     """This class represents a certificate."""
 
@@ -657,7 +659,7 @@ class Certificate:
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class ProviderCertificate:
     """This class represents a certificate provided by the TLS provider."""
 
