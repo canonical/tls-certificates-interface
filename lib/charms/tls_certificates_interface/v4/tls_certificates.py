@@ -1267,7 +1267,7 @@ class TLSCertificatesProvidesV4(Object):
 
     def _revoke_certificates_for_which_no_csr_exists(self) -> None:
         provider_certificates = self._get_provider_certificates()
-        requirer_csrs = self.get_requirer_csrs()
+        requirer_csrs = self.get_certificate_requests()
         for provider_certificate in provider_certificates:
             for requirer_csr in requirer_csrs:
                 if (
@@ -1291,7 +1291,7 @@ class TLSCertificatesProvidesV4(Object):
             else self.model.relations.get(self.relationship_name, [])
         )
 
-    def get_requirer_csrs(self, relation_id: Optional[int] = None) -> List[RequirerCSR]:
+    def get_certificate_requests(self, relation_id: Optional[int] = None) -> List[RequirerCSR]:
         """Load certificate requests from the relation data."""
         relations = self._get_tls_relations(relation_id)
         requirer_csrs: List[RequirerCSR] = []
@@ -1429,6 +1429,9 @@ class TLSCertificatesProvidesV4(Object):
         Returns:
             List: List of ProviderCertificate objects
         """
+        if not self.model.unit.is_leader():
+            logger.warning("Unit is not a leader - will not read relation data")
+            return []
         provider_certificates = self._get_provider_certificates(relation_id=relation_id)
         return [certificate for certificate in provider_certificates if not certificate.revoked]
 
@@ -1457,7 +1460,7 @@ class TLSCertificatesProvidesV4(Object):
         Returns:
             list: List of RequirerCSR objects.
         """
-        requirer_csrs = self.get_requirer_csrs(relation_id=relation_id)
+        requirer_csrs = self.get_certificate_requests(relation_id=relation_id)
         outstanding_csrs: List[RequirerCSR] = []
         for relation_csr in requirer_csrs:
             if not self._certificate_issued_for_csr(
