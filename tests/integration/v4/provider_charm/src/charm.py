@@ -33,7 +33,7 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
         self.framework.observe(self.on.install, self._configure)
         self.framework.observe(self.on.update_status, self._configure)
         self.framework.observe(
-            self.certificates.on.certificate_creation_request,
+            self.on.certificates_relation_changed,
             self._configure,
         )
 
