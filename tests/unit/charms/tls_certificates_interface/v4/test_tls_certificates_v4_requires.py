@@ -131,7 +131,7 @@ class TestTLSCertificatesRequiresV4:
                     "certificate_signing_requests": json.dumps(
                         [
                             {
-                                "certificate_signing_request": csr.strip(),
+                                "certificate_signing_request": csr,
                                 "ca": False,
                             }
                         ]
@@ -166,7 +166,7 @@ class TestTLSCertificatesRequiresV4:
                 "certificate_signing_requests": json.dumps(
                     [
                         {
-                            "certificate_signing_request": csr.strip(),
+                            "certificate_signing_request": csr,
                             "ca": False,
                         }
                     ]
@@ -176,9 +176,9 @@ class TestTLSCertificatesRequiresV4:
                 "certificates": json.dumps(
                     [
                         {
-                            "certificate": certificate.strip(),
-                            "certificate_signing_request": csr.strip(),
-                            "ca": provider_ca_certificate.strip(),
+                            "certificate": certificate,
+                            "certificate_signing_request": csr,
+                            "ca": provider_ca_certificate,
                         }
                     ]
                 ),
@@ -203,7 +203,7 @@ class TestTLSCertificatesRequiresV4:
         assert len(self.ctx.emitted_events) == 2
         assert isinstance(self.ctx.emitted_events[1], CertificateAvailableEvent)
         assert self.ctx.emitted_events[1].certificate == Certificate.from_string(
-            certificate.strip()
+            certificate
         )
         assert self.ctx.emitted_events[1].ca == Certificate.from_string(provider_ca_certificate)
         assert self.ctx.emitted_events[
@@ -236,8 +236,8 @@ class TestTLSCertificatesRequiresV4:
                 "certificates": json.dumps(
                     [
                         {
-                            "certificate": certificate.strip(),
-                            "ca": provider_ca_certificate.strip(),
+                            "certificate": certificate,
+                            "ca": provider_ca_certificate,
                         }
                     ]
                 ),
@@ -269,7 +269,7 @@ class TestTLSCertificatesRequiresV4:
                 "certificate_signing_requests": json.dumps(
                     [
                         {
-                            "certificate_signing_request": csr.strip(),
+                            "certificate_signing_request": csr,
                             "ca": False,
                         }
                     ]
@@ -312,7 +312,7 @@ class TestTLSCertificatesRequiresV4:
                 "certificate_signing_requests": json.dumps(
                     [
                         {
-                            "certificate_signing_request": csr.strip(),
+                            "certificate_signing_request": csr,
                             "ca": False,
                         }
                     ]
@@ -354,7 +354,7 @@ class TestTLSCertificatesRequiresV4:
                     "certificate_signing_requests": json.dumps(
                         [
                             {
-                                "certificate_signing_request": new_csr.strip(),
+                                "certificate_signing_request": new_csr,
                                 "ca": False,
                             }
                         ]
@@ -385,7 +385,7 @@ class TestTLSCertificatesRequiresV4:
                 "certificate_signing_requests": json.dumps(
                     [
                         {
-                            "certificate_signing_request": csr_in_relation_data.strip(),
+                            "certificate_signing_request": csr_in_relation_data,
                             "ca": False,
                         }
                     ]
@@ -419,7 +419,7 @@ class TestTLSCertificatesRequiresV4:
                     "certificate_signing_requests": json.dumps(
                         [
                             {
-                                "certificate_signing_request": new_csr.strip(),
+                                "certificate_signing_request": new_csr,
                                 "ca": False,
                             }
                         ]
@@ -454,7 +454,7 @@ class TestTLSCertificatesRequiresV4:
                 "certificate_signing_requests": json.dumps(
                     [
                         {
-                            "certificate_signing_request": csr.strip(),
+                            "certificate_signing_request": csr,
                             "ca": False,
                         }
                     ]
@@ -464,9 +464,9 @@ class TestTLSCertificatesRequiresV4:
                 "certificates": json.dumps(
                     [
                         {
-                            "certificate": certificate.strip(),
-                            "certificate_signing_request": csr.strip(),
-                            "ca": provider_ca_certificate.strip(),
+                            "certificate": certificate,
+                            "certificate_signing_request": csr,
+                            "ca": provider_ca_certificate,
                             "revoked": True,
                         }
                     ]
@@ -485,7 +485,7 @@ class TestTLSCertificatesRequiresV4:
         certificate_secret = Secret(
             id="1",
             revision=0,
-            label=f"{LIBID}-certificate-0-{get_sha256_hex(csr.strip())}",
+            label=f"{LIBID}-certificate-0-{get_sha256_hex(csr)}",
             owner="unit",
             contents={
                 0: {
@@ -510,7 +510,7 @@ class TestTLSCertificatesRequiresV4:
             Secret(
                 id="1",
                 revision=0,
-                label=f"{LIBID}-certificate-0-{get_sha256_hex(csr.strip())}",
+                label=f"{LIBID}-certificate-0-{get_sha256_hex(csr)}",
                 owner="unit",
                 contents={},
             ),
@@ -570,7 +570,7 @@ class TestTLSCertificatesRequiresV4:
                 "certificate_signing_requests": json.dumps(
                     [
                         {
-                            "certificate_signing_request": csr.strip(),
+                            "certificate_signing_request": csr,
                             "ca": False,
                         }
                     ]
@@ -580,9 +580,9 @@ class TestTLSCertificatesRequiresV4:
                 "certificates": json.dumps(
                     [
                         {
-                            "certificate": certificate.strip(),
-                            "certificate_signing_request": csr.strip(),
-                            "ca": provider_ca_certificate.strip(),
+                            "certificate": certificate,
+                            "certificate_signing_request": csr,
+                            "ca": provider_ca_certificate,
                         }
                     ]
                 ),
@@ -598,9 +598,9 @@ class TestTLSCertificatesRequiresV4:
 
         assert action_output.success is True
         assert action_output.results == {
-            "certificate": certificate.strip(),
-            "ca": provider_ca_certificate.strip(),
-            "csr": csr.strip(),
+            "certificate": certificate,
+            "ca": provider_ca_certificate,
+            "csr": csr,
         }
 
     def test_given_certificate_is_provided_when_relation_changed_then_certificate_secret_is_created(  # noqa: E501
@@ -629,7 +629,7 @@ class TestTLSCertificatesRequiresV4:
                 "certificate_signing_requests": json.dumps(
                     [
                         {
-                            "certificate_signing_request": csr.strip(),
+                            "certificate_signing_request": csr,
                             "ca": False,
                         }
                     ]
@@ -639,9 +639,9 @@ class TestTLSCertificatesRequiresV4:
                 "certificates": json.dumps(
                     [
                         {
-                            "certificate": certificate.strip(),
-                            "certificate_signing_request": csr.strip(),
-                            "ca": provider_ca_certificate.strip(),
+                            "certificate": certificate,
+                            "certificate_signing_request": csr,
+                            "ca": provider_ca_certificate,
                         }
                     ]
                 ),
@@ -678,12 +678,12 @@ class TestTLSCertificatesRequiresV4:
         initial_certificate_secret = Secret(
             id="1",
             revision=0,
-            label=f"{LIBID}-certificate-0-{get_sha256_hex(csr.strip())}",
+            label=f"{LIBID}-certificate-0-{get_sha256_hex(csr)}",
             owner="unit",
             contents={
                 0: {
                     "certificate": "initial certificate",
-                    "csr": csr.strip(),
+                    "csr": csr,
                 }
             },
         )
@@ -706,7 +706,7 @@ class TestTLSCertificatesRequiresV4:
                 "certificate_signing_requests": json.dumps(
                     [
                         {
-                            "certificate_signing_request": csr.strip(),
+                            "certificate_signing_request": csr,
                             "ca": False,
                         }
                     ]
@@ -716,9 +716,9 @@ class TestTLSCertificatesRequiresV4:
                 "certificates": json.dumps(
                     [
                         {
-                            "certificate": new_certificate.strip(),
-                            "certificate_signing_request": csr.strip(),
-                            "ca": provider_ca_certificate.strip(),
+                            "certificate": new_certificate,
+                            "certificate_signing_request": csr,
+                            "ca": provider_ca_certificate,
                         }
                     ]
                 ),
@@ -730,7 +730,7 @@ class TestTLSCertificatesRequiresV4:
             revision=0,
             label=f"{LIBID}-private-key-0",
             owner="unit",
-            contents={0: {"private-key": private_key.strip()}},
+            contents={0: {"private-key": private_key}},
         )
 
         state_in = scenario.State(
@@ -746,8 +746,8 @@ class TestTLSCertificatesRequiresV4:
         certificate_secret = self.get_certificate_secret(state_out.secrets)
 
         assert certificate_secret.contents[1] == {
-            "certificate": new_certificate.strip(),
-            "csr": csr.strip(),
+            "certificate": new_certificate,
+            "csr": csr,
         }
 
     @patch(LIB_DIR + ".CertificateRequest.generate_csr")
@@ -759,7 +759,7 @@ class TestTLSCertificatesRequiresV4:
             private_key=private_key,
             common_name="example.com",
         )
-        csr_in_sha256_hex = get_sha256_hex(csr.strip())
+        csr_in_sha256_hex = get_sha256_hex(csr)
         provider_private_key = generate_private_key()
         provider_ca_certificate = generate_ca(
             private_key=provider_private_key,
@@ -809,7 +809,7 @@ class TestTLSCertificatesRequiresV4:
                 "certificate_signing_requests": json.dumps(
                     [
                         {
-                            "certificate_signing_request": csr.strip(),
+                            "certificate_signing_request": csr,
                             "ca": False,
                         }
                     ]
@@ -819,9 +819,9 @@ class TestTLSCertificatesRequiresV4:
                 "certificates": json.dumps(
                     [
                         {
-                            "certificate": certificate.strip(),
-                            "certificate_signing_request": csr.strip(),
-                            "ca": provider_ca_certificate.strip(),
+                            "certificate": certificate,
+                            "certificate_signing_request": csr,
+                            "ca": provider_ca_certificate,
                         }
                     ]
                 ),
@@ -849,7 +849,7 @@ class TestTLSCertificatesRequiresV4:
                     "certificate_signing_requests": json.dumps(
                         [
                             {
-                                "certificate_signing_request": new_csr.strip(),
+                                "certificate_signing_request": new_csr,
                                 "ca": False,
                             }
                         ]
@@ -859,9 +859,9 @@ class TestTLSCertificatesRequiresV4:
                     "certificates": json.dumps(
                         [
                             {
-                                "certificate": certificate.strip(),
-                                "certificate_signing_request": csr.strip(),
-                                "ca": provider_ca_certificate.strip(),
+                                "certificate": certificate,
+                                "certificate_signing_request": csr,
+                                "ca": provider_ca_certificate,
                             }
                         ]
                     ),
