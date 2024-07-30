@@ -878,7 +878,11 @@ class TLSCertificatesRequiresV4(Object):
         """
         if not event.secret.label or not event.secret.label.startswith(f"{LIBID}-certificate"):
             return
-        csr_str = event.secret.get_content(refresh=True)["csr"]
+        try:
+            csr_str = event.secret.get_content(refresh=True)["csr"]
+        except ModelError:
+            logger.error("Failed to get CSR from secret - Skipping renewal")
+            return
         csr = CertificateSigningRequest.from_string(csr_str)
         self._renew_certificate_request(csr)
         event.secret.remove_all_revisions()
@@ -1289,7 +1293,7 @@ class TLSCertificatesProvidesV4(Object):
         try:
             requirer_relation_data = _RequirerData.load(relation.data[unit_or_app])
         except DataValidationError:
-            logger.warning("Invalid relation data")
+            logger.debug("Invalid requirer relation data for %s", unit_or_app.name)
             return []
         return [
             RequirerCSR(
@@ -1324,7 +1328,7 @@ class TLSCertificatesProvidesV4(Object):
         try:
             provider_relation_data = _ProviderApplicationData.load(relation.data[self.charm.app])
         except DataValidationError:
-            logger.warning("Invalid relation data")
+            logger.debug("Invalid provider relation data")
             return []
         return copy.deepcopy(provider_relation_data.certificates)
 
