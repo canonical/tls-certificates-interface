@@ -2,4 +2,4 @@ cryptography
 jsonschema
 ops
 pydantic
-rpds-py==0.19.1
+rpds-py==0.18.0
