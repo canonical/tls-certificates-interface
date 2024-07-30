@@ -280,28 +280,15 @@ class _Certificate(BaseModel):
 
     def to_provider_certificate(self) -> "ProviderCertificate":
         """Convert to a ProviderCertificate."""
-        certificate = Certificate.from_string(self.certificate)
-        if not certificate:
-            raise DataValidationError("Invalid certificate")
-        certificate_signing_request = CertificateSigningRequest.from_string(
-            self.certificate_signing_request
-        )
-        if not certificate_signing_request:
-            raise DataValidationError("Invalid certificate signing request")
-        ca = Certificate.from_string(self.ca)
-        if not ca:
-            raise DataValidationError("Invalid CA certificate")
-        chain = []
-        if self.chain:
-            for chain_cert in self.chain:
-                chain_certificate = Certificate.from_string(chain_cert)
-                if chain_certificate:
-                    chain.append(chain_certificate)
         return ProviderCertificate(
-            certificate=certificate,
-            certificate_signing_request=certificate_signing_request,
-            ca=ca,
-            chain=chain,
+            certificate=Certificate.from_string(self.certificate),
+            certificate_signing_request=CertificateSigningRequest.from_string(
+                self.certificate_signing_request
+            ),
+            ca=Certificate.from_string(self.ca),
+            chain=[Certificate.from_string(certificate) for certificate in self.chain]
+            if self.chain
+            else [],
             recommended_expiry_notification_time=self.recommended_expiry_notification_time,
             revoked=self.revoked,
         )
@@ -381,13 +368,13 @@ class Certificate:
         return self.raw
 
     @staticmethod
-    def from_string(certificate: str) -> Optional["Certificate"]:
+    def from_string(certificate: str) -> "Certificate":
         """Create a Certificate object from a certificate."""
         try:
             certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
         except ValueError as e:
             logger.error("Could not load certificate: %s", e)
-            return None
+            raise TLSCertificatesError("Could not load certificate")
         common_name = certificate_object.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
         country_name = certificate_object.subject.get_attributes_for_oid(NameOID.COUNTRY_NAME)
         state_or_province_name = certificate_object.subject.get_attributes_for_oid(
@@ -486,13 +473,13 @@ class CertificateSigningRequest:
         )
 
     @staticmethod
-    def from_string(csr: str) -> Optional["CertificateSigningRequest"]:
+    def from_string(csr: str) -> "CertificateSigningRequest":
         """Create a CertificateSigningRequest object from a CSR."""
         try:
             csr_object = x509.load_pem_x509_csr(csr.encode())
         except ValueError as e:
             logger.error("Could not load CSR: %s", e)
-            return None
+            raise TLSCertificatesError("Could not load CSR")
         common_name = csr_object.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
         country_name = csr_object.subject.get_attributes_for_oid(NameOID.COUNTRY_NAME)
         state_or_province_name = csr_object.subject.get_attributes_for_oid(
@@ -630,7 +617,7 @@ class CertificateRequest:
         self,
         private_key: PrivateKey,
         add_unique_id_to_subject_name: bool = True,
-    ) -> Optional[CertificateSigningRequest]:
+    ) -> CertificateSigningRequest:
         """Generate a CSR using private key and subject.
 
         Args:
@@ -893,9 +880,6 @@ class TLSCertificatesRequiresV4(Object):
             return
         csr_str = event.secret.get_content(refresh=True)["csr"]
         csr = CertificateSigningRequest.from_string(csr_str)
-        if not csr:
-            logger.warning("Failed to load CSR from secret")
-            return
         self._renew_certificate_request(csr)
         event.secret.remove_all_revisions()
 
@@ -1016,12 +1000,10 @@ class TLSCertificatesRequiresV4(Object):
         except DataValidationError:
             logger.warning("Invalid relation data")
             return []
-        requests = []
-        for csr in requirer_relation_data.certificate_signing_requests:
-            request = CertificateSigningRequest.from_string(csr.certificate_signing_request)
-            if request:
-                requests.append(request)
-        return requests
+        return [
+            CertificateSigningRequest.from_string(csr.certificate_signing_request)
+            for csr in requirer_relation_data.certificate_signing_requests
+        ]
 
     def get_provider_certificates(self) -> List[ProviderCertificate]:
         """Return list of certificates from the provider's relation data."""
@@ -1309,18 +1291,15 @@ class TLSCertificatesProvidesV4(Object):
         except DataValidationError:
             logger.warning("Invalid relation data")
             return []
-        requirer_csrs: List[RequirerCSR] = []
-        for csr in requirer_relation_data.certificate_signing_requests:
-            csr_object = CertificateSigningRequest.from_string(csr.certificate_signing_request)
-            if not csr_object:
-                continue
-            requirer_csrs.append(
-                RequirerCSR(
-                    relation_id=relation.id,
-                    certificate_signing_request=csr_object,
-                )
+        return [
+            RequirerCSR(
+                relation_id=relation.id,
+                certificate_signing_request=CertificateSigningRequest.from_string(
+                    csr.certificate_signing_request
+                ),
             )
-        return requirer_csrs
+            for csr in requirer_relation_data.certificate_signing_requests
+        ]
 
     def _add_provider_certificate(
         self,

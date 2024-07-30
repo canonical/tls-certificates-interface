@@ -10,8 +10,7 @@ from certificates import Certificate
 
 logger = logging.getLogger(__name__)
 
-LIB_DIR_V3 = "lib/charms/tls_certificates_interface/v3/tls_certificates.py"
-LIB_DIR_V4 = "lib/charms/tls_certificates_interface/v4/tls_certificates.py"
+LIB_DIR = "lib/charms/tls_certificates_interface/v4/tls_certificates.py"
 REQUIRER_CHARM_DIR = "tests/integration/v4/requirer_charm"
 PROVIDER_CHARM_DIR = "tests/integration/v4/provider_charm"
 TLS_CERTIFICATES_PROVIDER_APP_NAME = "tls-certificates-provider"
@@ -19,8 +18,8 @@ TLS_CERTIFICATES_REQUIRER_APP_NAME = "tls-certificates-requirer"
 
 
 def copy_lib_content() -> None:
-    shutil.copyfile(src=LIB_DIR_V4, dst=f"{REQUIRER_CHARM_DIR}/{LIB_DIR_V4}")
-    shutil.copyfile(src=LIB_DIR_V3, dst=f"{PROVIDER_CHARM_DIR}/{LIB_DIR_V3}")
+    shutil.copyfile(src=LIB_DIR, dst=f"{REQUIRER_CHARM_DIR}/{LIB_DIR}")
+    shutil.copyfile(src=LIB_DIR, dst=f"{PROVIDER_CHARM_DIR}/{LIB_DIR}")
 
 
 class TestIntegration:

@@ -202,9 +202,7 @@ class TestTLSCertificatesRequiresV4:
 
         assert len(self.ctx.emitted_events) == 2
         assert isinstance(self.ctx.emitted_events[1], CertificateAvailableEvent)
-        assert self.ctx.emitted_events[1].certificate == Certificate.from_string(
-            certificate
-        )
+        assert self.ctx.emitted_events[1].certificate == Certificate.from_string(certificate)
         assert self.ctx.emitted_events[1].ca == Certificate.from_string(provider_ca_certificate)
         assert self.ctx.emitted_events[
             1

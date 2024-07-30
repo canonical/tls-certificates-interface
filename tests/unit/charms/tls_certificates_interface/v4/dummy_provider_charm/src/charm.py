@@ -108,29 +108,17 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
     def _on_set_certificate_action(self, event: ActionEvent) -> None:
         ca_chain_str = event.params.get("ca-chain", None)
         ca_chain_list = parse_ca_chain(base64.b64decode(ca_chain_str).decode())
-        ca_chain = [Certificate.from_string(ca_certificate) for ca_certificate in ca_chain_list]
-        ca_chain = [ca_cert for ca_cert in ca_chain if ca_cert]
         csr_str = base64.b64decode(event.params["certificate-signing-request"]).decode("utf-8")
-        csr = CertificateSigningRequest.from_string(csr_str)
-        if not csr:
-            event.fail("Invalid CSR")
-            return
         certificate_str = base64.b64decode(event.params["certificate"]).decode("utf-8")
-        certificate = Certificate.from_string(certificate_str)
-        if not certificate:
-            event.fail("Invalid certificate")
-            return
         ca_str = base64.b64decode(event.params["ca-certificate"]).decode("utf-8")
-        ca = Certificate.from_string(ca_str)
-        if not ca:
-            event.fail("Invalid CA certificate")
-            return
         self.certificates.set_relation_certificate(
             provider_certificate=ProviderCertificate(
-                certificate=certificate,
-                certificate_signing_request=csr,
-                ca=ca,
-                chain=[ca_cert for ca_cert in ca_chain if ca_cert],
+                certificate=Certificate.from_string(certificate_str),
+                certificate_signing_request=CertificateSigningRequest.from_string(csr_str),
+                ca=Certificate.from_string(ca_str),
+                chain=[
+                    Certificate.from_string(ca_certificate) for ca_certificate in ca_chain_list
+                ],
             ),
             relation_id=event.params["relation-id"],
         )

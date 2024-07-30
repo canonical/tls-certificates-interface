@@ -50,8 +50,8 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         event.set_results(
             {
                 "certificate": str(certificate.certificate),
-                "ca":  str(certificate.ca),
-                "chain":  str(certificate.chain),
+                "ca": str(certificate.ca),
+                "chain": str(certificate.chain),
             }
         )
 
