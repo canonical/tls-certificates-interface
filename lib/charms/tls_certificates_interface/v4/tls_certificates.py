@@ -1322,7 +1322,7 @@ class TLSCertificatesProvidesV4(Object):
             )
         return requirer_csrs
 
-    def _add_certificate(
+    def _add_provider_certificate(
         self,
         relation: Relation,
         provider_certificate: ProviderCertificate,
@@ -1334,14 +1334,14 @@ class TLSCertificatesProvidesV4(Object):
             chain=[str(certificate) for certificate in provider_certificate.chain],
             recommended_expiry_notification_time=provider_certificate.recommended_expiry_notification_time,
         )
-        provider_certificates = self._load_certificates(relation)
+        provider_certificates = self._load_provider_certificates(relation)
         if new_certificate in provider_certificates:
             logger.info("Certificate already in relation data - Doing nothing")
             return
         provider_certificates.append(new_certificate)
-        self._dump_certificates(relation=relation, certificates=provider_certificates)
+        self._dump_provider_certificates(relation=relation, certificates=provider_certificates)
 
-    def _load_certificates(self, relation: Relation) -> List[_Certificate]:
+    def _load_provider_certificates(self, relation: Relation) -> List[_Certificate]:
         try:
             provider_relation_data = _ProviderApplicationData.load(relation.data[self.charm.app])
         except DataValidationError:
@@ -1349,7 +1349,7 @@ class TLSCertificatesProvidesV4(Object):
             return []
         return copy.deepcopy(provider_relation_data.certificates)
 
-    def _dump_certificates(self, relation: Relation, certificates: List[_Certificate]):
+    def _dump_provider_certificates(self, relation: Relation, certificates: List[_Certificate]):
         try:
             _ProviderApplicationData(certificates=certificates).dump(relation.data[self.model.app])
             logger.info("Certificate relation data updated")
@@ -1363,7 +1363,7 @@ class TLSCertificatesProvidesV4(Object):
         certificate_signing_request: Optional[CertificateSigningRequest] = None,
     ) -> None:
         """Remove certificate based on certificate or certificate signing request."""
-        provider_certificates = self._load_certificates(relation)
+        provider_certificates = self._load_provider_certificates(relation)
         for provider_certificate in provider_certificates:
             if certificate and provider_certificate.certificate == str(certificate):
                 provider_certificates.remove(provider_certificate)
@@ -1373,7 +1373,7 @@ class TLSCertificatesProvidesV4(Object):
                 == str(certificate_signing_request)
             ):
                 provider_certificates.remove(provider_certificate)
-        self._dump_certificates(relation=relation, certificates=provider_certificates)
+        self._dump_provider_certificates(relation=relation, certificates=provider_certificates)
 
     def revoke_all_certificates(self) -> None:
         """Revoke all certificates of this provider.
@@ -1385,10 +1385,10 @@ class TLSCertificatesProvidesV4(Object):
             return
         relations = self._get_tls_relations()
         for relation in relations:
-            provider_certificates = self._load_certificates(relation)
+            provider_certificates = self._load_provider_certificates(relation)
             for certificate in provider_certificates:
                 certificate.revoked = True
-            self._dump_certificates(relation=relation, certificates=provider_certificates)
+            self._dump_provider_certificates(relation=relation, certificates=provider_certificates)
 
     def set_relation_certificate(
         self,
@@ -1416,7 +1416,7 @@ class TLSCertificatesProvidesV4(Object):
             relation=certificates_relation,
             certificate_signing_request=provider_certificate.certificate_signing_request,
         )
-        self._add_certificate(
+        self._add_provider_certificate(
             relation=certificates_relation,
             provider_certificate=provider_certificate,
         )
@@ -1442,14 +1442,7 @@ class TLSCertificatesProvidesV4(Object):
             if not relation.app:
                 logger.warning("Relation %s does not have an application", relation.id)
                 continue
-            try:
-                provider_relation_data = _ProviderApplicationData.load(
-                    relation.data[self.charm.app]
-                )
-            except DataValidationError:
-                logger.warning("Invalid relation data - Skipping certificate retrieval")
-                continue
-            for certificate in provider_relation_data.certificates:
+            for certificate in self._load_provider_certificates(relation):
                 certificates.append(certificate.to_provider_certificate())
         return certificates
 
