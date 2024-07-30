@@ -354,7 +354,7 @@ class PrivateKey:
     @staticmethod
     def from_string(private_key: str) -> "PrivateKey":
         """Create a PrivateKey object from a private key."""
-        return PrivateKey(raw=private_key)
+        return PrivateKey(raw=private_key.strip())
 
 
 @dataclass(frozen=True)
@@ -439,7 +439,7 @@ class CertificateSigningRequest:
             sans_ip = []
             sans_oid = []
         return CertificateSigningRequest(
-            raw=csr,
+            raw=csr.strip(),
             common_name=str(common_name[0].value),
             country_name=str(country_name[0].value) if country_name else None,
             state_or_province_name=str(state_or_province_name[0].value)
@@ -642,7 +642,7 @@ class Certificate:
         validity_start_time = certificate_object.not_valid_before_utc
 
         return Certificate(
-            raw=certificate,
+            raw=certificate.strip(),
             common_name=str(common_name[0].value),
             country_name=str(country_name[0].value) if country_name else None,
             state_or_province_name=str(state_or_province_name[0].value)
@@ -677,10 +677,10 @@ class CertificateAvailableEvent(EventBase):
     def __init__(
         self,
         handle: Handle,
-        certificate: str,
-        certificate_signing_request: str,
-        ca: str,
-        chain: List[str],
+        certificate: Certificate,
+        certificate_signing_request: CertificateSigningRequest,
+        ca: Certificate,
+        chain: List[Certificate],
     ):
         super().__init__(handle)
         self.certificate = certificate
@@ -691,22 +691,25 @@ class CertificateAvailableEvent(EventBase):
     def snapshot(self) -> dict:
         """Return snapshot."""
         return {
-            "certificate": self.certificate,
-            "certificate_signing_request": self.certificate_signing_request,
-            "ca": self.ca,
-            "chain": self.chain,
+            "certificate": str(self.certificate),
+            "certificate_signing_request": str(self.certificate_signing_request),
+            "ca": str(self.ca),
+            "chain": json.dumps([str(certificate) for certificate in self.chain]),
         }
 
     def restore(self, snapshot: dict):
         """Restore snapshot."""
-        self.certificate = snapshot["certificate"]
-        self.certificate_signing_request = snapshot["certificate_signing_request"]
-        self.ca = snapshot["ca"]
-        self.chain = snapshot["chain"]
+        self.certificate = Certificate.from_string(snapshot["certificate"])
+        self.certificate_signing_request = CertificateSigningRequest.from_string(
+            snapshot["certificate_signing_request"]
+        )
+        self.ca = Certificate.from_string(snapshot["ca"])
+        chain_strs = json.loads(snapshot["chain"])
+        self.chain = [Certificate.from_string(chain_str) for chain_str in chain_strs]
 
     def chain_as_pem(self) -> str:
         """Return full certificate chain as a PEM string."""
-        return "\n\n".join(reversed(self.chain))
+        return "\n\n".join([str(cert) for cert in self.chain])
 
 
 def _get_closest_future_time(
@@ -782,7 +785,7 @@ def _generate_private_key(
         format=serialization.PrivateFormat.TraditionalOpenSSL,
         encryption_algorithm=serialization.NoEncryption(),
     )
-    return PrivateKey(raw=key_bytes.decode())
+    return PrivateKey.from_string(key_bytes.decode())
 
 
 class CertificatesRequirerCharmEvents(CharmEvents):
@@ -1129,12 +1132,10 @@ class TLSCertificatesRequiresV4(Object):
                             expire=self._get_next_secret_expiry_time(provider_certificate),
                         )
                     self.on.certificate_available.emit(
-                        certificate_signing_request=str(
-                            provider_certificate.certificate_signing_request
-                        ),
-                        certificate=str(provider_certificate.certificate),
-                        ca=str(provider_certificate.ca),
-                        chain=str(provider_certificate.chain),
+                        certificate_signing_request=provider_certificate.certificate_signing_request,
+                        certificate=provider_certificate.certificate,
+                        ca=provider_certificate.ca,
+                        chain=provider_certificate.chain,
                     )
 
     def _cleanup_certificate_requests(self):

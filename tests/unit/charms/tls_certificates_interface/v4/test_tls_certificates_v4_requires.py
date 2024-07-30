@@ -12,7 +12,11 @@ import yaml
 from cryptography.hazmat.primitives import hashes
 from scenario.state import Secret
 
-from lib.charms.tls_certificates_interface.v4.tls_certificates import CertificateAvailableEvent
+from lib.charms.tls_certificates_interface.v4.tls_certificates import (
+    Certificate,
+    CertificateAvailableEvent,
+    CertificateSigningRequest,
+)
 from tests.unit.charms.tls_certificates_interface.v4.certificates import (
     generate_ca,
     generate_certificate,
@@ -197,9 +201,13 @@ class TestTLSCertificatesRequiresV4:
 
         assert len(self.ctx.emitted_events) == 2
         assert isinstance(self.ctx.emitted_events[1], CertificateAvailableEvent)
-        assert self.ctx.emitted_events[1].certificate == certificate.strip()
-        assert self.ctx.emitted_events[1].ca == provider_ca_certificate.strip()
-        assert self.ctx.emitted_events[1].certificate_signing_request == csr.strip()
+        assert self.ctx.emitted_events[1].certificate == Certificate.from_string(
+            certificate.strip()
+        )
+        assert self.ctx.emitted_events[1].ca == Certificate.from_string(provider_ca_certificate)
+        assert self.ctx.emitted_events[
+            1
+        ].certificate_signing_request == CertificateSigningRequest.from_string(csr)
 
     def test_given_no_request_and_certificate_in_provider_relation_data_when_relation_changed_then_certificate_available_event_is_not_emitted(  # noqa: E501
         self,

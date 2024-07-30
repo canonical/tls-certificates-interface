@@ -50,7 +50,10 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         ]
 
     def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
-        print("Certificate available")
+        if not event.certificate:
+            print("Certificate not available")
+            return
+        print("Certificate available for common name:", event.certificate.common_name)
 
     def _on_regenerate_private_key_action(self, event: ActionEvent) -> None:
         self.certificates.regenerate_private_key()
