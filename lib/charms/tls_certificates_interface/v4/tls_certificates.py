@@ -692,8 +692,6 @@ class ProviderCertificate:
                 "ca": str(self.ca),
                 "chain": [str(cert) for cert in self.chain],
                 "revoked": self.revoked,
-                "expiry_time": self.certificate.expiry_time.isoformat(),
-                "validity_start_time": self.certificate.validity_start_time.isoformat(),
             }
         )
 
