@@ -576,16 +576,7 @@ class CertificateSigningRequest:
         """
         csr_object = x509.load_pem_x509_csr(self.raw.encode("utf-8"))
         cert_object = x509.load_pem_x509_certificate(certificate.raw.encode("utf-8"))
-
-        if csr_object.public_key().public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo,
-        ) != cert_object.public_key().public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo,
-        ):
-            return False
-        return True
+        return csr_object.public_key() == cert_object.public_key()
 
     def get_sha256_hex(self) -> str:
         """Calculate the hash of the provided data and return the hexadecimal representation."""
