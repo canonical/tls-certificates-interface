@@ -256,7 +256,7 @@ class TestTLSCertificatesProvidesV4:
         assert action_output.success is True
         assert action_output.results == {"csrs": []}
 
-    def test_given_unfilfilled_certificate_request_when_get_outstanding_certificate_requests_then_csr_is_returned(  # noqa: E501
+    def test_given_unfulfilled_certificate_request_when_get_outstanding_certificate_requests_then_csr_is_returned(  # noqa: E501
         self,
     ):
         requirer_private_key = generate_private_key()
