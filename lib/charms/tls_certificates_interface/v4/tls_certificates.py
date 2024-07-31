@@ -679,6 +679,24 @@ class ProviderCertificate:
     recommended_expiry_notification_time: Optional[int] = None
     revoked: Optional[bool] = None
 
+    def to_json(self) -> str:
+        """Return the object as a JSON string.
+
+        Returns:
+            str: JSON representation of the object
+        """
+        return json.dumps(
+            {
+                "csr": str(self.certificate_signing_request),
+                "certificate": str(self.certificate),
+                "ca": str(self.ca),
+                "chain": [str(cert) for cert in self.chain],
+                "revoked": self.revoked,
+                "expiry_time": self.certificate.expiry_time.isoformat(),
+                "validity_start_time": self.certificate.validity_start_time.isoformat(),
+            }
+        )
+
 
 @dataclass(frozen=True)
 class RequirerCSR:
