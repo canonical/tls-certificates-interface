@@ -351,9 +351,9 @@ class Certificate:
 
     raw: str
     common_name: str
-    sans_dns: Optional[List[str]] = None
-    sans_ip: Optional[List[str]] = None
-    sans_oid: Optional[List[str]] = None
+    sans_dns: Optional[Tuple[str, ...]] = None
+    sans_ip: Optional[Tuple[str, ...]] = None
+    sans_oid: Optional[Tuple[str, ...]] = None
     email_address: Optional[str] = None
     organization: Optional[str] = None
     organizational_unit: Optional[str] = None
@@ -389,25 +389,26 @@ class Certificate:
             sans = certificate_object.extensions.get_extension_for_class(
                 x509.SubjectAlternativeName
             ).value
-            sans_dns = [
+            sans_dns = tuple(
                 str(san)
                 for san in sans.get_values_for_type(x509.DNSName)
                 if isinstance(san, x509.DNSName)
-            ]
-            sans_ip = [
+            )
+            sans_ip = tuple(
                 str(san)
                 for san in sans.get_values_for_type(x509.IPAddress)
                 if isinstance(san, x509.IPAddress)
-            ]
-            sans_oid = [
+            )
+            sans_oid = tuple(
                 str(san)
                 for san in sans.get_values_for_type(x509.RegisteredID)
                 if isinstance(san, x509.RegisteredID)
-            ]
+            )
         except x509.ExtensionNotFound:
-            sans_dns = []
-            sans_ip = []
-            sans_oid = []
+            logger.debug("No SANs found in certificate")
+            sans_dns = None
+            sans_ip = None
+            sans_oid = None
         expiry_time = certificate_object.not_valid_after_utc
         validity_start_time = certificate_object.not_valid_before_utc
 
@@ -422,8 +423,8 @@ class Certificate:
             organization=str(organization_name[0].value) if organization_name else None,
             email_address=str(email_address[0].value) if email_address else None,
             sans_dns=sans_dns,
-            sans_ip=sans_ip if sans_ip else None,
-            sans_oid=sans_oid if sans_oid else None,
+            sans_ip=sans_ip,
+            sans_oid=sans_oid,
             expiry_time=expiry_time,
             validity_start_time=validity_start_time,
         )
@@ -435,9 +436,9 @@ class CertificateSigningRequest:
 
     raw: str
     common_name: str
-    sans_dns: Optional[List[str]] = None
-    sans_ip: Optional[List[str]] = None
-    sans_oid: Optional[List[str]] = None
+    sans_dns: Optional[Tuple[str, ...]] = None
+    sans_ip: Optional[Tuple[str, ...]] = None
+    sans_oid: Optional[Tuple[str, ...]] = None
     email_address: Optional[str] = None
     organization: Optional[str] = None
     organizational_unit: Optional[str] = None
@@ -490,26 +491,32 @@ class CertificateSigningRequest:
         email_address = csr_object.subject.get_attributes_for_oid(NameOID.EMAIL_ADDRESS)
         try:
             sans = csr_object.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
-            sans_dns = [
-                str(san)
-                for san in sans.get_values_for_type(x509.DNSName)
-                if isinstance(san, x509.DNSName)
-            ]
-            sans_ip = [
-                str(san)
-                for san in sans.get_values_for_type(x509.IPAddress)
-                if isinstance(san, x509.IPAddress)
-            ]
-            sans_oid = [
-                str(san)
-                for san in sans.get_values_for_type(x509.RegisteredID)
-                if isinstance(san, x509.RegisteredID)
-            ]
+            sans_dns = tuple(
+                [
+                    str(san)
+                    for san in sans.get_values_for_type(x509.DNSName)
+                    if isinstance(san, x509.DNSName)
+                ]
+            )
+            sans_ip = tuple(
+                [
+                    str(san)
+                    for san in sans.get_values_for_type(x509.IPAddress)
+                    if isinstance(san, x509.IPAddress)
+                ]
+            )
+            sans_oid = tuple(
+                [
+                    str(san)
+                    for san in sans.get_values_for_type(x509.RegisteredID)
+                    if isinstance(san, x509.RegisteredID)
+                ]
+            )
         except x509.ExtensionNotFound:
-            sans = []
-            sans_dns = []
-            sans_ip = []
-            sans_oid = []
+            sans = ()
+            sans_dns = ()
+            sans_ip = ()
+            sans_oid = ()
         return CertificateSigningRequest(
             raw=csr.strip(),
             common_name=str(common_name[0].value),
@@ -596,9 +603,9 @@ class CertificateRequest:
     """
 
     common_name: str
-    sans_dns: Optional[List[str]] = None
-    sans_ip: Optional[List[str]] = None
-    sans_oid: Optional[List[str]] = None
+    sans_dns: Optional[Tuple[str, ...]] = None
+    sans_ip: Optional[Tuple[str, ...]] = None
+    sans_oid: Optional[Tuple[str, ...]] = None
     email_address: Optional[str] = None
     organization: Optional[str] = None
     organizational_unit: Optional[str] = None

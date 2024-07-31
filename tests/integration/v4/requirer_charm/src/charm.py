@@ -2,7 +2,7 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-from typing import List, Optional, cast
+from typing import Optional, Tuple, cast
 
 from charms.tls_certificates_interface.v4.tls_certificates import (
     CertificateRequest,
@@ -78,9 +78,9 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
     def _get_config_common_name(self) -> str:
         return cast(str, self.model.config.get("common_name"))
 
-    def _get_config_sans_dns(self) -> List[str]:
+    def _get_config_sans_dns(self) -> Tuple[str, ...]:
         config_sans_dns = cast(str, self.model.config.get("sans_dns", ""))
-        return config_sans_dns.split(",") if config_sans_dns else []
+        return tuple(config_sans_dns.split(",") if config_sans_dns else [])
 
     def _get_config_organization_name(self) -> Optional[str]:
         return cast(str, self.model.config.get("organization_name"))
