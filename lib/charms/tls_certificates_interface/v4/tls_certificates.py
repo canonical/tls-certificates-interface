@@ -492,27 +492,9 @@ class CertificateSigningRequest:
         email_address = csr_object.subject.get_attributes_for_oid(NameOID.EMAIL_ADDRESS)
         try:
             sans = csr_object.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
-            sans_dns = tuple(
-                [
-                    str(san)
-                    for san in sans.get_values_for_type(x509.DNSName)
-                    if isinstance(san, x509.DNSName)
-                ]
-            )
-            sans_ip = tuple(
-                [
-                    str(san)
-                    for san in sans.get_values_for_type(x509.IPAddress)
-                    if isinstance(san, x509.IPAddress)
-                ]
-            )
-            sans_oid = tuple(
-                [
-                    str(san)
-                    for san in sans.get_values_for_type(x509.RegisteredID)
-                    if isinstance(san, x509.RegisteredID)
-                ]
-            )
+            sans_dns = tuple(sans.get_values_for_type(x509.DNSName))
+            sans_ip = tuple([str(san) for san in sans.get_values_for_type(x509.IPAddress)])
+            sans_oid = tuple([str(san) for san in sans.get_values_for_type(x509.RegisteredID)])
         except x509.ExtensionNotFound:
             sans = ()
             sans_dns = ()
@@ -907,6 +889,7 @@ class TLSCertificatesRequiresV4(Object):
         """Remove existing CSR from relation data and create a new one."""
         self._remove_requirer_csr_from_relation_data(csr)
         self._send_certificate_requests()
+        logger.info("Renewed certificate request")
 
     def _remove_requirer_csr_from_relation_data(self, csr: CertificateSigningRequest) -> None:
         relation = self.model.get_relation(self.relationship_name)
@@ -984,7 +967,7 @@ class TLSCertificatesRequiresV4(Object):
             return False
         return True
 
-    def _csr_matches_request_attributes(self, csr: CertificateSigningRequest) -> bool:
+    def _csr_matches_certificate_request(self, csr: CertificateSigningRequest) -> bool:
         for certificate_request in self.certificate_requests:
             if csr.to_certificate_request() == certificate_request:
                 return True
@@ -1136,7 +1119,7 @@ class TLSCertificatesRequiresV4(Object):
                         secret = self.model.get_secret(label=secret_label)
                         secret.remove_all_revisions()
                 else:
-                    if not self._csr_matches_request_attributes(
+                    if not self._csr_matches_certificate_request(
                         provider_certificate.certificate_signing_request
                     ):
                         logger.debug("Certificate requested for different attributes - Skipping")
@@ -1179,10 +1162,18 @@ class TLSCertificatesRequiresV4(Object):
         - The CSR public key does not match the private key.
         """
         for requirer_csr in self.get_csrs_from_requirer_relation_data():
-            if not self._csr_matches_request_attributes(requirer_csr):
+            if not self._csr_matches_certificate_request(requirer_csr):
                 self._remove_requirer_csr_from_relation_data(requirer_csr)
+                logger.info(
+                    "Removed CSR from relation data because \
+                        it did not match any certificate request"
+                )
             elif self.private_key and not requirer_csr.matches_private_key(self.private_key):
                 self._remove_requirer_csr_from_relation_data(requirer_csr)
+                logger.info(
+                    "Removed CSR from relation data because \
+                        it did not match the private key"
+                )
 
     def _get_next_secret_expiry_time(
         self, provider_certificate: ProviderCertificate
@@ -1266,9 +1257,9 @@ class TLSCertificatesProvidesV4(Object):
         """
         if not self.model.unit.is_leader():
             return
-        self._revoke_certificates_for_which_no_csr_exists()
+        self._remove_certificates_for_which_no_csr_exists()
 
-    def _revoke_certificates_for_which_no_csr_exists(self) -> None:
+    def _remove_certificates_for_which_no_csr_exists(self) -> None:
         provider_certificates = self._get_provider_certificates()
         requirer_csrs = [
             request.certificate_signing_request for request in self.get_certificate_requests()
