@@ -340,10 +340,10 @@ class PrivateKey:
         """Return the private key as a string."""
         return self.raw
 
-    @staticmethod
-    def from_string(private_key: str) -> "PrivateKey":
+    @classmethod
+    def from_string(cls, private_key: str) -> "PrivateKey":
         """Create a PrivateKey object from a private key."""
-        return PrivateKey(raw=private_key.strip())
+        return cls(raw=private_key.strip())
 
 
 @dataclass(frozen=True)
@@ -368,8 +368,8 @@ class Certificate:
         """Return the certificate as a string."""
         return self.raw
 
-    @staticmethod
-    def from_string(certificate: str) -> "Certificate":
+    @classmethod
+    def from_string(cls, certificate: str) -> "Certificate":
         """Create a Certificate object from a certificate."""
         try:
             certificate_object = x509.load_pem_x509_certificate(data=certificate.encode())
@@ -413,7 +413,7 @@ class Certificate:
         expiry_time = certificate_object.not_valid_after_utc
         validity_start_time = certificate_object.not_valid_before_utc
 
-        return Certificate(
+        return cls(
             raw=certificate.strip(),
             common_name=str(common_name[0].value),
             country_name=str(country_name[0].value) if country_name else None,
@@ -474,8 +474,8 @@ class CertificateSigningRequest:
             is_ca=self.is_ca,
         )
 
-    @staticmethod
-    def from_string(csr: str) -> "CertificateSigningRequest":
+    @classmethod
+    def from_string(cls, csr: str) -> "CertificateSigningRequest":
         """Create a CertificateSigningRequest object from a CSR."""
         try:
             csr_object = x509.load_pem_x509_csr(csr.encode())
@@ -500,7 +500,7 @@ class CertificateSigningRequest:
             sans_dns = ()
             sans_ip = ()
             sans_oid = ()
-        return CertificateSigningRequest(
+        return cls(
             raw=csr.strip(),
             common_name=str(common_name[0].value),
             country_name=str(country_name[0].value) if country_name else None,
