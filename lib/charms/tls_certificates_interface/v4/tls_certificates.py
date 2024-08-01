@@ -278,9 +278,10 @@ class _Certificate(BaseModel):
     recommended_expiry_notification_time: Optional[int] = None
     revoked: Optional[bool] = None
 
-    def to_provider_certificate(self) -> "ProviderCertificate":
+    def to_provider_certificate(self, relation_id: int) -> "ProviderCertificate":
         """Convert to a ProviderCertificate."""
         return ProviderCertificate(
+            relation_id=relation_id,
             certificate=Certificate.from_string(self.certificate),
             certificate_signing_request=CertificateSigningRequest.from_string(
                 self.certificate_signing_request
@@ -670,6 +671,7 @@ class CertificateRequest:
 class ProviderCertificate:
     """This class represents a certificate provided by the TLS provider."""
 
+    relation_id: int
     certificate: Certificate
     certificate_signing_request: CertificateSigningRequest
     ca: Certificate
@@ -1041,7 +1043,7 @@ class TLSCertificatesRequiresV4(Object):
             logger.warning("Invalid relation data")
             return []
         return [
-            certificate.to_provider_certificate()
+            certificate.to_provider_certificate(relation_id=relation.id)
             for certificate in provider_relation_data.certificates
         ]
 
@@ -1249,6 +1251,7 @@ class TLSCertificatesProvidesV4(Object):
 
     def __init__(self, charm: CharmBase, relationship_name: str):
         super().__init__(charm, relationship_name)
+        self.framework.observe(charm.on[relationship_name].relation_joined, self._configure)
         self.framework.observe(charm.on[relationship_name].relation_changed, self._configure)
         self.framework.observe(charm.on.update_status, self._configure)
         self.charm = charm
@@ -1267,18 +1270,18 @@ class TLSCertificatesProvidesV4(Object):
 
     def _revoke_certificates_for_which_no_csr_exists(self) -> None:
         provider_certificates = self._get_provider_certificates()
-        requirer_csrs = self.get_certificate_requests()
+        requirer_csrs = [
+            request.certificate_signing_request for request in self.get_certificate_requests()
+        ]
         for provider_certificate in provider_certificates:
-            for requirer_csr in requirer_csrs:
-                if (
-                    provider_certificate.certificate_signing_request
-                    == requirer_csr.certificate_signing_request
-                ):
-                    tls_relation = self._get_tls_relations(relation_id=requirer_csr.relation_id)
-                    self._remove_provider_certificate(
-                        certificate=provider_certificate.certificate,
-                        relation=tls_relation[0],
-                    )
+            if provider_certificate.certificate_signing_request not in requirer_csrs:
+                tls_relation = self._get_tls_relations(
+                    relation_id=provider_certificate.relation_id
+                )
+                self._remove_provider_certificate(
+                    certificate=provider_certificate.certificate,
+                    relation=tls_relation[0],
+                )
 
     def _get_tls_relations(self, relation_id: Optional[int] = None) -> List[Relation]:
         return (
@@ -1390,13 +1393,11 @@ class TLSCertificatesProvidesV4(Object):
     def set_relation_certificate(
         self,
         provider_certificate: ProviderCertificate,
-        relation_id: int,
     ) -> None:
         """Add certificates to relation data.
 
         Args:
             provider_certificate (ProviderCertificate): ProviderCertificate object
-            relation_id (int): Juju relation ID
 
         Returns:
             None
@@ -1405,7 +1406,7 @@ class TLSCertificatesProvidesV4(Object):
             logger.warning("Unit is not a leader - will not set relation data")
             return
         certificates_relation = self.model.get_relation(
-            relation_name=self.relationship_name, relation_id=relation_id
+            relation_name=self.relationship_name, relation_id=provider_certificate.relation_id
         )
         if not certificates_relation:
             raise TLSCertificatesError(f"Relation {self.relationship_name} does not exist")
@@ -1443,7 +1444,7 @@ class TLSCertificatesProvidesV4(Object):
                 logger.warning("Relation %s does not have an application", relation.id)
                 continue
             for certificate in self._load_provider_certificates(relation):
-                certificates.append(certificate.to_provider_certificate())
+                certificates.append(certificate.to_provider_certificate(relation_id=relation.id))
         return certificates
 
     def get_outstanding_certificate_requests(

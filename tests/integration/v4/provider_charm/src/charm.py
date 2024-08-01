@@ -74,6 +74,7 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
                 )
                 self.certificates.set_relation_certificate(
                     provider_certificate=ProviderCertificate(
+                        relation_id=relation.id,
                         certificate=Certificate.from_string(certificate.decode()),
                         certificate_signing_request=certificate_request.certificate_signing_request,
                         ca=Certificate.from_string(root_certificate),
@@ -82,7 +83,6 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
                             Certificate.from_string(certificate.decode()),
                         ],
                     ),
-                    relation_id=relation.id,
                 )
                 logger.info("Certificate generated and sent to requirer")
 

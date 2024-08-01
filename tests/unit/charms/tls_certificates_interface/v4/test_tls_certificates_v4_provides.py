@@ -698,3 +698,58 @@ class TestTLSCertificatesProvidesV4:
                 "revoked": True,
             },
         ]
+
+    def test_given_certificates_for_which_no_csr_exists_when_then_certificates_revoked(self):
+        requirer_private_key = generate_private_key()
+        csr_1 = generate_csr(
+            private_key=requirer_private_key,
+            common_name="example1.com",
+        )
+        csr_2 = generate_csr(
+            private_key=requirer_private_key,
+            common_name="example2.org",
+        )
+        provider_private_key = generate_private_key()
+        provider_ca_certificate = generate_ca(
+            private_key=provider_private_key,
+            common_name="example.com",
+        )
+        certificate_1 = generate_certificate(
+            ca_key=provider_private_key,
+            csr=csr_1,
+            ca=provider_ca_certificate,
+        )
+        certificate_2 = generate_certificate(
+            ca_key=provider_private_key,
+            csr=csr_2,
+            ca=provider_ca_certificate,
+        )
+        certificates_relation = scenario.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+            local_app_data={
+                "certificates": json.dumps(
+                    [
+                        {
+                            "certificate": certificate_1,
+                            "certificate_signing_request": csr_1,
+                            "ca": provider_ca_certificate,
+                        },
+                        {
+                            "certificate": certificate_2,
+                            "certificate_signing_request": csr_2,
+                            "ca": provider_ca_certificate,
+                        },
+                    ]
+                ),
+            }
+        )
+        state_in = scenario.State(
+            relations=[certificates_relation],
+            leader=True,
+        )
+
+        state_out = self.ctx.run(certificates_relation.changed_event, state_in)
+
+        assert state_out.relations[0].local_app_data ==  {'certificates': '[]'}

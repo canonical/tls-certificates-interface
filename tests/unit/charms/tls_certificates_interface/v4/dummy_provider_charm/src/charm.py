@@ -113,6 +113,7 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
         ca_str = base64.b64decode(event.params["ca-certificate"]).decode("utf-8")
         self.certificates.set_relation_certificate(
             provider_certificate=ProviderCertificate(
+                relation_id=event.params["relation-id"],
                 certificate=Certificate.from_string(certificate_str),
                 certificate_signing_request=CertificateSigningRequest.from_string(csr_str),
                 ca=Certificate.from_string(ca_str),
@@ -120,7 +121,6 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
                     Certificate.from_string(ca_certificate) for ca_certificate in ca_chain_list
                 ],
             ),
-            relation_id=event.params["relation-id"],
         )
 
     def _on_revoke_all_certificates_action(self, event: ActionEvent) -> None:
