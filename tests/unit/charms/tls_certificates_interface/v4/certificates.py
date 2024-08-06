@@ -33,7 +33,7 @@ def generate_private_key(
         format=serialization.PrivateFormat.TraditionalOpenSSL,
         encryption_algorithm=serialization.NoEncryption(),
     )
-    return key_bytes.decode()
+    return key_bytes.decode().strip()
 
 
 def generate_csr(
@@ -63,7 +63,7 @@ def generate_csr(
             x509.SubjectAlternativeName([x509.DNSName(san) for san in sans]), critical=False
         )
     signed_certificate = csr.sign(signing_key, hashes.SHA256())  # type: ignore[arg-type]
-    return signed_certificate.public_bytes(serialization.Encoding.PEM).decode()
+    return signed_certificate.public_bytes(serialization.Encoding.PEM).decode().strip()
 
 
 def generate_certificate(
@@ -112,7 +112,7 @@ def generate_certificate(
 
     certificate_builder._version = x509.Version.v3
     cert = certificate_builder.sign(private_key, hashes.SHA256())  # type: ignore[arg-type]
-    return cert.public_bytes(serialization.Encoding.PEM).decode()
+    return cert.public_bytes(serialization.Encoding.PEM).decode().strip()
 
 
 def generate_ca(
@@ -166,4 +166,4 @@ def generate_ca(
         )
         .sign(private_key_object, hashes.SHA256())  # type: ignore[arg-type]
     )
-    return cert.public_bytes(serialization.Encoding.PEM).decode()
+    return cert.public_bytes(serialization.Encoding.PEM).decode().strip()

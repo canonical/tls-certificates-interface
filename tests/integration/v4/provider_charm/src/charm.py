@@ -5,8 +5,10 @@
 import logging
 from typing import Optional, Tuple
 
-from charms.tls_certificates_interface.v3.tls_certificates import (
-    TLSCertificatesProvidesV3,
+from charms.tls_certificates_interface.v4.tls_certificates import (
+    Certificate,
+    ProviderCertificate,
+    TLSCertificatesProvidesV4,
 )
 from ops.charm import CharmBase, CollectStatusEvent
 from ops.main import main
@@ -26,12 +28,12 @@ logger = logging.getLogger(__name__)
 class DummyTLSCertificatesProviderCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
-        self.certificates = TLSCertificatesProvidesV3(self, "certificates")
+        self.certificates = TLSCertificatesProvidesV4(self, "certificates")
         self.framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)
         self.framework.observe(self.on.install, self._configure)
         self.framework.observe(self.on.update_status, self._configure)
         self.framework.observe(
-            self.certificates.on.certificate_creation_request,
+            self.on.certificates_relation_changed,
             self._configure,
         )
 
@@ -67,16 +69,20 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
                 certificate = generate_certificate(
                     ca=root_certificate.encode(),
                     ca_key=root_key.encode(),
-                    csr=certificate_request.csr.encode(),
+                    csr=str(certificate_request.certificate_signing_request).encode(),
                     validity=CERTIFICATE_VALIDITY,  # type: ignore
                 )
-
                 self.certificates.set_relation_certificate(
-                    certificate_signing_request=certificate_request.csr,
-                    certificate=certificate.decode(),
-                    ca=root_certificate,
-                    chain=[root_certificate, certificate.decode()],
-                    relation_id=relation.id,
+                    provider_certificate=ProviderCertificate(
+                        relation_id=relation.id,
+                        certificate=Certificate.from_string(certificate.decode()),
+                        certificate_signing_request=certificate_request.certificate_signing_request,
+                        ca=Certificate.from_string(root_certificate),
+                        chain=[
+                            Certificate.from_string(root_certificate),
+                            Certificate.from_string(certificate.decode()),
+                        ],
+                    ),
                 )
                 logger.info("Certificate generated and sent to requirer")
 
