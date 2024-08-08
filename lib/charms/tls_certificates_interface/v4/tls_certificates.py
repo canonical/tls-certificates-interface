@@ -184,7 +184,7 @@ LIBAPI = 4
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 1
+LIBPATCH = 2
 
 PYDEPS = ["cryptography", "pydantic"]
 
@@ -993,6 +993,9 @@ class TLSCertificatesRequiresV4(Object):
 
     def get_csrs_from_requirer_relation_data(self) -> List[CertificateSigningRequest]:
         """Return list of requirer's CSRs from relation data."""
+        if self.mode == Mode.APP and not self.model.unit.is_leader():
+            logger.debug("Not a leader unit - Skipping")
+            return []
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
             logger.debug("No relation: %s", self.relationship_name)
@@ -1032,6 +1035,9 @@ class TLSCertificatesRequiresV4(Object):
 
     def _request_certificate(self, csr: CertificateSigningRequest, is_ca: bool) -> None:
         """Add CSR to relation data."""
+        if self.mode == Mode.APP and not self.model.unit.is_leader():
+            logger.debug("Not a leader unit - Skipping")
+            return
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
             logger.debug("No relation: %s", self.relationship_name)
