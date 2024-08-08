@@ -1016,9 +1016,6 @@ class TLSCertificatesRequiresV4(Object):
         return self._load_provider_certificates()
 
     def _load_provider_certificates(self) -> List[ProviderCertificate]:
-        if self.mode == Mode.APP and not self.model.unit.is_leader():
-            logger.debug("Not a leader unit - Skipping")
-            return []
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
             logger.debug("No relation: %s", self.relationship_name)
