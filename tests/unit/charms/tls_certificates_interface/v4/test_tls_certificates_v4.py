@@ -197,7 +197,7 @@ class TestCertificateRequest:
 
         certificate_request = CertificateRequest(
             common_name="my.demo.server",
-            sans_dns=tuple("my.demo.server"),
+            sans_dns=frozenset(["my.demo.server"]),
             country_name="CA",
             state_or_province_name="Quebec",
             locality_name="Montreal",
@@ -223,8 +223,8 @@ class TestCertificateRequest:
 
         certificate_request = CertificateRequest(
             common_name="my.demo.server",
-            sans_dns=tuple("my.demo.server"),
-            sans_ip=("2001:db8::1", "2001:db8::2"),
+            sans_dns=frozenset(["my.demo.server"]),
+            sans_ip=frozenset(["2001:db8::1", "2001:db8::2"]),
         )
 
         csr = certificate_request.generate_csr(private_key=private_key)
