@@ -1,7 +1,7 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-from typing import List, Optional, Tuple, cast
+from typing import FrozenSet, List, Optional, cast
 
 from ops.charm import ActionEvent, CharmBase
 from ops.main import main
@@ -76,9 +76,9 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
     def _get_config_common_name(self) -> str:
         return cast(str, self.model.config.get("common_name"))
 
-    def _get_config_sans_dns(self) -> Tuple[str, ...]:
+    def _get_config_sans_dns(self) -> FrozenSet[str]:
         config_sans_dns = cast(str, self.model.config.get("sans_dns", ""))
-        return tuple(config_sans_dns.split(",") if config_sans_dns else [])
+        return frozenset(config_sans_dns.split(",") if config_sans_dns else [])
 
     def _get_config_organization_name(self) -> Optional[str]:
         return cast(str, self.model.config.get("organization_name"))
