@@ -412,9 +412,8 @@ class Certificate:
             sans_dns = None
             sans_ip = None
             sans_oid = None
-
-        expiry_time = certificate_object.not_valid_after
-        validity_start_time = certificate_object.not_valid_before
+        expiry_time = certificate_object.not_valid_after_utc
+        validity_start_time = certificate_object.not_valid_before_utc
 
         return cls(
             raw=certificate.strip(),
