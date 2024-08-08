@@ -184,7 +184,7 @@ LIBAPI = 4
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 1
+LIBPATCH = 2
 
 PYDEPS = ["cryptography", "pydantic"]
 
@@ -450,8 +450,6 @@ class CertificateSigningRequest:
 
     def __eq__(self, other: object) -> bool:
         """Check if two CertificateSigningRequest objects are equal."""
-        if not isinstance(other, CertificateSigningRequest):
-            return NotImplemented
         return self.raw.strip() == other.raw.strip()
 
     def __str__(self) -> str:
