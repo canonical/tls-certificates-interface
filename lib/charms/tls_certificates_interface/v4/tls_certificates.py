@@ -184,7 +184,7 @@ LIBAPI = 4
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 3
+LIBPATCH = 4
 
 PYDEPS = ["cryptography", "pydantic"]
 
@@ -1268,7 +1268,7 @@ class TLSCertificatesProvidesV4(Object):
         self._remove_certificates_for_which_no_csr_exists()
 
     def _remove_certificates_for_which_no_csr_exists(self) -> None:
-        provider_certificates = self._get_provider_certificates()
+        provider_certificates = self.get_provider_certificates()
         requirer_csrs = [
             request.certificate_signing_request for request in self.get_certificate_requests()
         ]
@@ -1429,10 +1429,10 @@ class TLSCertificatesProvidesV4(Object):
         if not self.model.unit.is_leader():
             logger.warning("Unit is not a leader - will not read relation data")
             return []
-        provider_certificates = self._get_provider_certificates(relation_id=relation_id)
+        provider_certificates = self.get_provider_certificates(relation_id=relation_id)
         return [certificate for certificate in provider_certificates if not certificate.revoked]
 
-    def _get_provider_certificates(
+    def get_provider_certificates(
         self, relation_id: Optional[int] = None
     ) -> List[ProviderCertificate]:
         """Return a List of issued certificates."""
