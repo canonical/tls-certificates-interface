@@ -161,6 +161,7 @@ from enum import Enum
 from typing import FrozenSet, List, MutableMapping, Optional, Tuple, Union
 
 from cryptography import x509
+from cryptography.hazmat._oid import ExtensionOID
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
@@ -953,6 +954,155 @@ def generate_ca(
     )
     ca_cert_str = cert.public_bytes(serialization.Encoding.PEM).decode().strip()
     return Certificate.from_string(ca_cert_str)
+
+
+def generate_certificate(
+    csr: CertificateSigningRequest,
+    ca: Certificate,
+    ca_private_key: PrivateKey,
+    validity: int,
+    is_ca: bool = False,
+) -> Certificate:
+    """Generate a TLS certificate based on a CSR.
+
+    Args:
+        csr (CertificateSigningRequest): CSR
+        ca (Certificate): CA Certificate
+        ca_private_key (PrivateKey): CA private key
+        validity (int): Certificate validity (in days)
+        is_ca (bool): Whether the certificate is a CA certificate
+
+    Returns:
+        Certificate: Certificate
+    """
+    csr_object = x509.load_pem_x509_csr(str(csr).encode())
+    subject = csr_object.subject
+    ca_pem = x509.load_pem_x509_certificate(str(ca).encode())
+    issuer = ca_pem.issuer
+    private_key = serialization.load_pem_private_key(str(ca_private_key).encode(), password=None)
+
+    certificate_builder = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(csr_object.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.now(timezone.utc))
+        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=validity))
+    )
+    extensions = _get_certificate_request_extensions(
+        authority_key_identifier=ca_pem.extensions.get_extension_for_class(
+            x509.SubjectKeyIdentifier
+        ).value.key_identifier,
+        csr=csr_object,
+        is_ca=is_ca,
+    )
+    for extension in extensions:
+        try:
+            certificate_builder = certificate_builder.add_extension(
+                extval=extension.value,
+                critical=extension.critical,
+            )
+        except ValueError as e:
+            logger.warning("Failed to add extension %s: %s", extension.oid, e)
+
+    cert = certificate_builder.sign(private_key, hashes.SHA256())  # type: ignore[arg-type]
+    cert_bytes = cert.public_bytes(serialization.Encoding.PEM)
+    return Certificate.from_string(cert_bytes.decode().strip())
+
+
+def _get_certificate_request_extensions(
+    authority_key_identifier: bytes,
+    csr: x509.CertificateSigningRequest,
+    is_ca: bool,
+) -> List[x509.Extension]:
+    """Generate a list of certificate extensions from a CSR and other known information.
+
+    Args:
+        authority_key_identifier (bytes): Authority key identifier
+        csr (x509.CertificateSigningRequest): CSR
+        is_ca (bool): Whether the certificate is a CA certificate
+
+    Returns:
+        List[x509.Extension]: List of extensions
+    """
+    cert_extensions_list: List[x509.Extension] = [
+        x509.Extension(
+            oid=ExtensionOID.AUTHORITY_KEY_IDENTIFIER,
+            value=x509.AuthorityKeyIdentifier(
+                key_identifier=authority_key_identifier,
+                authority_cert_issuer=None,
+                authority_cert_serial_number=None,
+            ),
+            critical=False,
+        ),
+        x509.Extension(
+            oid=ExtensionOID.SUBJECT_KEY_IDENTIFIER,
+            value=x509.SubjectKeyIdentifier.from_public_key(csr.public_key()),
+            critical=False,
+        ),
+        x509.Extension(
+            oid=ExtensionOID.BASIC_CONSTRAINTS,
+            critical=True,
+            value=x509.BasicConstraints(ca=is_ca, path_length=None),
+        ),
+    ]
+    sans: List[x509.GeneralName] = []
+    try:
+        loaded_san_ext = csr.extensions.get_extension_for_class(x509.SubjectAlternativeName)
+        sans.extend(
+            [x509.DNSName(name) for name in loaded_san_ext.value.get_values_for_type(x509.DNSName)]
+        )
+        sans.extend(
+            [x509.IPAddress(ip) for ip in loaded_san_ext.value.get_values_for_type(x509.IPAddress)]
+        )
+        sans.extend(
+            [
+                x509.RegisteredID(oid)
+                for oid in loaded_san_ext.value.get_values_for_type(x509.RegisteredID)
+            ]
+        )
+    except x509.ExtensionNotFound:
+        pass
+
+    if sans:
+        cert_extensions_list.append(
+            x509.Extension(
+                oid=ExtensionOID.SUBJECT_ALTERNATIVE_NAME,
+                critical=False,
+                value=x509.SubjectAlternativeName(sans),
+            )
+        )
+
+    if is_ca:
+        cert_extensions_list.append(
+            x509.Extension(
+                ExtensionOID.KEY_USAGE,
+                critical=True,
+                value=x509.KeyUsage(
+                    digital_signature=False,
+                    content_commitment=False,
+                    key_encipherment=False,
+                    data_encipherment=False,
+                    key_agreement=False,
+                    key_cert_sign=True,
+                    crl_sign=True,
+                    encipher_only=False,
+                    decipher_only=False,
+                ),
+            )
+        )
+
+    existing_oids = {ext.oid for ext in cert_extensions_list}
+    for extension in csr.extensions:
+        if extension.oid == ExtensionOID.SUBJECT_ALTERNATIVE_NAME:
+            continue
+        if extension.oid in existing_oids:
+            logger.warning("Extension %s is managed by the TLS provider, ignoring.", extension.oid)
+            continue
+        cert_extensions_list.append(extension)
+
+    return cert_extensions_list
 
 
 class CertificatesRequirerCharmEvents(CharmEvents):
