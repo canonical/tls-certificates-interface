@@ -761,7 +761,7 @@ def generate_private_key(
         public_exponent: Public exponent.
 
     Returns:
-        str: Private Key
+        PrivateKey: Private Key
     """
     private_key = rsa.generate_private_key(
         public_exponent=public_exponent,
