@@ -1284,21 +1284,11 @@ class TLSCertificatesRequiresV4(Object):
         self, certificate_signing_request: CertificateSigningRequest, is_ca: bool
     ) -> bool:
         for certificate_request in self.certificate_requests:
-            logger.warning(
-                "TO DELETE: Relation Data Request: %s",
-                CertificateRequest.from_csr(
-                    certificate_signing_request,
-                    is_ca,
-                ),
-            )
-            logger.warning("TO DELETE: Certificate Request: %s", certificate_request)
             if certificate_request == CertificateRequest.from_csr(
                 certificate_signing_request,
                 is_ca,
             ):
-                logger.warning("TO DELETE: Match found")
                 return True
-        logger.warning("TO DELETE: No match found")
         return False
 
     def _certificate_requested(self, certificate_request: CertificateRequest) -> bool:
