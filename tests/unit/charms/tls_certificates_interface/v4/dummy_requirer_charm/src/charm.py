@@ -76,7 +76,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
     def _get_config_common_name(self) -> str:
         return cast(str, self.model.config.get("common_name"))
 
-    def _get_config_sans_dns(self) -> FrozenSet[str]:
+    def _get_config_sans_dns(self) -> FrozenSet[str] | None:
         config_sans_dns = cast(str, self.model.config.get("sans_dns", ""))
         return frozenset(config_sans_dns.split(",") if config_sans_dns else [])
 

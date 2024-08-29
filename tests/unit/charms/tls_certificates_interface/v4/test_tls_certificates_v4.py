@@ -273,7 +273,8 @@ def test_given_ca_certificate_attributes_when_generate_ca_then_ca_is_generated_c
     assert ca_certificate.sans_oid == frozenset()
 
 
-# Generate Certificate
+# # Generate Certificate
+
 
 def test_given_csr_when_generate_certificate_then_certificate_generated_with_requested_attributes():  # noqa: E501
     private_key = generate_private_key()
@@ -296,9 +297,48 @@ def test_given_csr_when_generate_certificate_then_certificate_generated_with_req
         ca=ca_certificate,
         ca_private_key=ca_private_key,
         validity=200,
+        is_ca=False,
     )
 
     assert certificate.common_name == "example.com"
+    assert certificate.is_ca is False
+    expected_expiry = datetime.now(timezone.utc) + timedelta(days=200)
+    assert certificate.expiry_time
+    assert abs(certificate.expiry_time - expected_expiry) <= timedelta(seconds=1)
+    assert certificate.sans_dns == frozenset(["example.com"])
+    assert certificate.sans_ip == frozenset()
+    assert certificate.sans_oid == frozenset()
+    assert certificate.email_address is None
+    assert certificate.country_name is None
+    assert certificate.locality_name == "wherever"
+
+
+def test_given_csr_for_ca_when_generate_certificate_then_certificate_generated_with_requested_attributes():  # noqa: E501
+    private_key = generate_private_key()
+    csr = generate_csr(
+        private_key=private_key,
+        common_name="example.com",
+        sans_dns=frozenset(["example.com"]),
+        locality_name="wherever",
+    )
+    ca_private_key = generate_private_key()
+    ca_certificate = generate_ca(
+        private_key=ca_private_key,
+        validity=365,
+        common_name="certifier.example.com",
+        sans_dns=frozenset(["certifier.example.com"]),
+    )
+
+    certificate = generate_certificate(
+        csr=csr,
+        ca=ca_certificate,
+        ca_private_key=ca_private_key,
+        validity=200,
+        is_ca=True,
+    )
+
+    assert certificate.common_name == "example.com"
+    assert certificate.is_ca is True
     expected_expiry = datetime.now(timezone.utc) + timedelta(days=200)
     assert certificate.expiry_time
     assert abs(certificate.expiry_time - expected_expiry) <= timedelta(seconds=1)
