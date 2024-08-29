@@ -71,6 +71,7 @@ def generate_certificate(
     ca: str,
     ca_key: str,
     validity: int = 24 * 365,
+    is_ca: bool = False,
 ) -> str:
     """Generate a TLS certificate based on a CSR.
 
@@ -79,6 +80,7 @@ def generate_certificate(
         ca (str): CA Certificate
         ca_key (str): CA private key
         validity (int): Certificate validity (in hours)
+        is_ca (bool): Is the certificate a CA certificate
 
     Returns:
         str: Certificate
@@ -109,6 +111,12 @@ def generate_certificate(
         .not_valid_before(not_valid_before)
         .not_valid_after(not_valid_after)
     )
+
+    if is_ca:
+        certificate_builder = certificate_builder.add_extension(
+            x509.BasicConstraints(ca=True, path_length=None),
+            critical=True,
+        )
 
     certificate_builder._version = x509.Version.v3
     cert = certificate_builder.sign(private_key, hashes.SHA256())  # type: ignore[arg-type]

@@ -42,6 +42,9 @@ config:
     email_address:
       type: string
       description: Certificate email address
+    is_ca:
+      type: boolean
+      description: Is the certificate a CA certificate
 
 actions:
   regenerate-private-key:

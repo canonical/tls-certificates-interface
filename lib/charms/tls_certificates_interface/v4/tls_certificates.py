@@ -417,7 +417,7 @@ class Certificate:
         try:
             is_ca = certificate_object.extensions.get_extension_for_oid(
                 ExtensionOID.BASIC_CONSTRAINTS
-            ).value.ca
+            ).value.ca  # type: ignore[reportAttributeAccessIssue]
         except x509.ExtensionNotFound:
             is_ca = False
 

@@ -46,6 +46,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
                 country_name=self._get_config_country_name(),
                 state_or_province_name=self._get_config_state_or_province_name(),
                 locality_name=self._get_config_locality_name(),
+                is_ca=self._get_config_is_ca(),
             )
         ]
 
@@ -76,7 +77,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
     def _get_config_common_name(self) -> str:
         return cast(str, self.model.config.get("common_name"))
 
-    def _get_config_sans_dns(self) -> FrozenSet[str] | None:
+    def _get_config_sans_dns(self) -> FrozenSet[str]:
         config_sans_dns = cast(str, self.model.config.get("sans_dns", ""))
         return frozenset(config_sans_dns.split(",") if config_sans_dns else [])
 
@@ -97,6 +98,9 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
 
     def _get_config_locality_name(self) -> Optional[str]:
         return cast(str, self.model.config.get("locality_name"))
+
+    def _get_config_is_ca(self) -> bool:
+        return cast(bool, self.model.config.get("is_ca", False))
 
 
 if __name__ == "__main__":
