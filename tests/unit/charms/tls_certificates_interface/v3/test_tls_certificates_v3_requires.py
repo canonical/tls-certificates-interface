@@ -1579,7 +1579,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
 
         assert secret.get_info().expires == expiry_time
 
-    def test_given_secret_not_owned_by_lib_when_secret_expired_then_secret_revisions_are_not_removed(  # noqa: E501
+    def test_given_secret_does_not_have_the_csr_when_secret_expired_then_secret_revisions_are_not_removed(  # noqa: E501
         self,
     ):
         secret_id = self.harness.add_model_secret(
