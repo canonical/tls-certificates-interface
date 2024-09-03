@@ -4,14 +4,14 @@
 import datetime
 import json
 from pathlib import Path
-from typing import List
+from typing import Iterable
 from unittest.mock import patch
 
 import pytest
 import scenario
 import yaml
 from cryptography.hazmat.primitives import hashes
-from scenario.state import Secret
+from scenario import Secret
 
 from lib.charms.tls_certificates_interface.v4.tls_certificates import (
     Certificate,
@@ -46,18 +46,15 @@ def get_sha256_hex(data: str) -> str:
 
 
 class TestTLSCertificatesRequiresV4:
-    def private_key_secret_exists(self, secrets: List[Secret]) -> bool:
+    def private_key_secret_exists(self, secrets: Iterable[Secret]) -> bool:
         return any(secret.label == f"{LIBID}-private-key-0" for secret in secrets)
 
-    def certificate_secret_exists(self, secrets: List[Secret]) -> bool:
+    def certificate_secret_exists(self, secrets: Iterable[Secret]) -> bool:
         return any(
             secret.label.startswith(f"{LIBID}-certificate") for secret in secrets if secret.label
         )
 
-    def get_private_key_secret(self, secrets: List[Secret]) -> Secret:
-        return next(secret for secret in secrets if secret.label == f"{LIBID}-private-key-0")
-
-    def get_certificate_secret(self, secrets: List[Secret]) -> Secret:
+    def get_certificate_secret(self, secrets: Iterable[Secret]) -> Secret:
         return next(
             secret
             for secret in secrets
@@ -82,11 +79,11 @@ class TestTLSCertificatesRequiresV4:
             remote_app_name="certificate-requirer",
         )
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             config={"common_name": "example.com"},
         )
 
-        state_out = self.ctx.run(certificates_relation.created_event, state_in)
+        state_out = self.ctx.run(self.ctx.on.relation_created(certificates_relation), state_in)
 
         assert self.private_key_secret_exists(state_out.secrets)
 
@@ -106,42 +103,42 @@ class TestTLSCertificatesRequiresV4:
             remote_app_name="certificate-requirer",
         )
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             config={
                 "common_name": "example.com",
                 "is_ca": False,
             },
             secrets=[
                 Secret(
-                    id="1",
-                    revision=0,
+                    {"private-key": private_key},
                     label=f"{LIBID}-private-key-0",
                     owner="unit",
-                    contents={0: {"private-key": private_key}},
                 )
             ],
         )
 
-        state_out = self.ctx.run(certificates_relation.changed_event, state_in)
+        state_out = self.ctx.run(self.ctx.on.relation_changed(certificates_relation), state_in)
 
-        assert state_out.relations == [
-            scenario.Relation(
-                relation_id=certificates_relation.relation_id,
-                endpoint="certificates",
-                interface="tls-certificates",
-                remote_app_name="certificate-requirer",
-                local_unit_data={
-                    "certificate_signing_requests": json.dumps(
-                        [
-                            {
-                                "certificate_signing_request": csr,
-                                "ca": False,
-                            }
-                        ]
-                    )
-                },
-            ),
-        ]
+        assert state_out.relations == frozenset(
+            {
+                scenario.Relation(
+                    id=certificates_relation.id,
+                    endpoint="certificates",
+                    interface="tls-certificates",
+                    remote_app_name="certificate-requirer",
+                    local_unit_data={
+                        "certificate_signing_requests": json.dumps(
+                            [
+                                {
+                                    "certificate_signing_request": csr,
+                                    "ca": False,
+                                }
+                            ]
+                        )
+                    },
+                ),
+            }
+        )
 
     @patch(LIB_DIR + ".CertificateRequest.generate_csr")
     def test_given_ca_certificate_requested_when_relation_joined_then_certificate_request_is_added_to_databag(  # noqa: E501
@@ -242,19 +239,17 @@ class TestTLSCertificatesRequiresV4:
         )
 
         private_key_secret = Secret(
-            id="0",
-            revision=0,
+            {"private-key": requirer_private_key},
             label=f"{LIBID}-private-key-0",
             owner="unit",
-            contents={0: {"private-key": requirer_private_key}},
         )
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             config={"common_name": "example.com"},
-            secrets=[private_key_secret],
+            secrets={private_key_secret},
         )
 
-        self.ctx.run(certificates_relation.changed_event, state_in)
+        self.ctx.run(self.ctx.on.relation_changed(certificates_relation), state_in)
 
         assert len(self.ctx.emitted_events) == 2
         assert isinstance(self.ctx.emitted_events[1], CertificateAvailableEvent)
@@ -371,11 +366,11 @@ class TestTLSCertificatesRequiresV4:
         )
 
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             config={"common_name": "example.com"},
         )
 
-        self.ctx.run(certificates_relation.changed_event, state_in)
+        self.ctx.run(self.ctx.on.relation_changed(certificates_relation), state_in)
 
         assert len(self.ctx.emitted_events) == 1
 
@@ -404,21 +399,23 @@ class TestTLSCertificatesRequiresV4:
         )
 
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             config={},  # Note that there is no `common_name` in the config here
         )
 
-        state_out = self.ctx.run(certificates_relation.changed_event, state_in)
+        state_out = self.ctx.run(self.ctx.on.relation_changed(certificates_relation), state_in)
 
-        assert state_out.relations == [
-            scenario.Relation(
-                relation_id=certificates_relation.relation_id,
-                endpoint="certificates",
-                interface="tls-certificates",
-                remote_app_name="certificate-requirer",
-                local_unit_data={"certificate_signing_requests": "[]"},
-            ),
-        ]
+        assert state_out.relations == frozenset(
+            {
+                scenario.Relation(
+                    id=certificates_relation.id,
+                    endpoint="certificates",
+                    interface="tls-certificates",
+                    remote_app_name="certificate-requirer",
+                    local_unit_data={"certificate_signing_requests": "[]"},
+                ),
+            }
+        )
 
     @patch(LIB_DIR + ".CertificateRequest.generate_csr")
     def test_given_private_key_does_not_match_with_certificate_requests_when_relation_changed_then_certificate_request_is_replaced_in_databag(  # noqa: E501
@@ -455,39 +452,39 @@ class TestTLSCertificatesRequiresV4:
         patch_generate_csr.return_value = new_csr
 
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             config={"common_name": "example.com"},
-            secrets=[
+            secrets={
                 Secret(
-                    id="1",
-                    revision=0,
+                    {"private-key": new_private_key},
                     label=f"{LIBID}-private-key-0",
                     owner="unit",
-                    contents={0: {"private-key": new_private_key}},
-                )
-            ],
+                ),
+            },
         )
 
-        state_out = self.ctx.run(certificates_relation.changed_event, state_in)
+        state_out = self.ctx.run(self.ctx.on.relation_changed(certificates_relation), state_in)
 
-        assert state_out.relations == [
-            scenario.Relation(
-                relation_id=certificates_relation.relation_id,
-                endpoint="certificates",
-                interface="tls-certificates",
-                remote_app_name="certificate-requirer",
-                local_unit_data={
-                    "certificate_signing_requests": json.dumps(
-                        [
-                            {
-                                "certificate_signing_request": new_csr,
-                                "ca": False,
-                            }
-                        ]
-                    )
-                },
-            ),
-        ]
+        assert state_out.relations == frozenset(
+            {
+                scenario.Relation(
+                    id=certificates_relation.id,
+                    endpoint="certificates",
+                    interface="tls-certificates",
+                    remote_app_name="certificate-requirer",
+                    local_unit_data={
+                        "certificate_signing_requests": json.dumps(
+                            [
+                                {
+                                    "certificate_signing_request": new_csr,
+                                    "ca": False,
+                                }
+                            ]
+                        )
+                    },
+                ),
+            }
+        )
 
     @patch(LIB_DIR + ".CertificateRequest.generate_csr")
     def test_given_certificate_request_changed_when_relation_changed_then_new_certificate_is_requested(  # noqa: E501
@@ -520,39 +517,39 @@ class TestTLSCertificatesRequiresV4:
         )
 
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             config={"common_name": "new.example.com"},
-            secrets=[
+            secrets={
                 Secret(
-                    id="1",
-                    revision=0,
+                    {"private-key": private_key},
                     label=f"{LIBID}-private-key-0",
                     owner="unit",
-                    contents={0: {"private-key": private_key}},
                 )
-            ],
+            },
         )
 
-        state_out = self.ctx.run(certificates_relation.changed_event, state_in)
+        state_out = self.ctx.run(self.ctx.on.relation_changed(certificates_relation), state_in)
 
-        assert state_out.relations == [
-            scenario.Relation(
-                relation_id=certificates_relation.relation_id,
-                endpoint="certificates",
-                interface="tls-certificates",
-                remote_app_name="certificate-requirer",
-                local_unit_data={
-                    "certificate_signing_requests": json.dumps(
-                        [
-                            {
-                                "certificate_signing_request": new_csr,
-                                "ca": False,
-                            }
-                        ]
-                    )
-                },
-            ),
-        ]
+        assert state_out.relations == frozenset(
+            {
+                scenario.Relation(
+                    id=certificates_relation.id,
+                    endpoint="certificates",
+                    interface="tls-certificates",
+                    remote_app_name="certificate-requirer",
+                    local_unit_data={
+                        "certificate_signing_requests": json.dumps(
+                            [
+                                {
+                                    "certificate_signing_request": new_csr,
+                                    "ca": False,
+                                }
+                            ]
+                        )
+                    },
+                ),
+            }
+        )
 
     def test_given_revoked_certificate_when_relation_changed_then_certificate_secret_is_removed(
         self,
@@ -601,46 +598,35 @@ class TestTLSCertificatesRequiresV4:
         )
 
         private_key_secret = Secret(
-            id="0",
-            revision=0,
+            {"private-key": requirer_private_key},
             label=f"{LIBID}-private-key-0",
             owner="unit",
-            contents={0: {"private-key": requirer_private_key}},
         )
 
         certificate_secret = Secret(
-            id="1",
-            revision=0,
+            {
+                "certificate": certificate,
+                "csr": csr,
+            },
             label=f"{LIBID}-certificate-0-{get_sha256_hex(csr)}",
             owner="unit",
-            contents={
-                0: {
-                    "certificate": certificate,
-                    "csr": csr,
-                }
-            },
         )
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             config={"common_name": "example.com"},
-            secrets=[
+            secrets={
                 private_key_secret,
                 certificate_secret,
-            ],
+            },
         )
 
-        state_out = self.ctx.run(certificates_relation.changed_event, state_in)
+        state_out = self.ctx.run(self.ctx.on.relation_changed(certificates_relation), state_in)
 
-        assert state_out.secrets == [
-            private_key_secret,
-            Secret(
-                id="1",
-                revision=0,
-                label=f"{LIBID}-certificate-0-{get_sha256_hex(csr)}",
-                owner="unit",
-                contents={},
-            ),
-        ]
+        assert state_out.secrets == frozenset(
+            {
+                private_key_secret,
+            }
+        )
 
     def test_given_private_key_generated_when_regenerate_private_key_then_new_private_key_is_generated(  # noqa: E501
         self,
@@ -653,24 +639,22 @@ class TestTLSCertificatesRequiresV4:
         )
 
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             config={"common_name": "example.com"},
-            secrets=[
+            secrets={
                 Secret(
-                    id="1",
-                    revision=0,
+                    {"private-key": initial_private_key},
                     label=f"{LIBID}-private-key-0",
                     owner="unit",
-                    contents={0: {"private-key": initial_private_key}},
                 )
-            ],
+            },
         )
 
-        action_output = self.ctx.run_action("regenerate-private-key", state_in)
+        state_out = self.ctx.run(self.ctx.on.action("regenerate-private-key"), state_in)
 
-        assert action_output.success is True
-        secret = self.get_private_key_secret(action_output.state.secrets)
-        assert secret.contents[1]["private-key"] != initial_private_key
+        secret = state_out.get_secret(label=f"{LIBID}-private-key-0")
+        assert secret.latest_content is not None
+        assert secret.latest_content["private-key"] != initial_private_key
 
     def test_given_certificate_is_provided_when_get_certificate_then_certificate_is_returned(self):
         private_key = generate_private_key()
@@ -716,14 +700,13 @@ class TestTLSCertificatesRequiresV4:
         )
 
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             config={"common_name": "example.com"},
         )
 
-        action_output = self.ctx.run_action("get-certificate", state_in)
+        self.ctx.run(self.ctx.on.action("get-certificate"), state_in)
 
-        assert action_output.success is True
-        assert action_output.results == {
+        assert self.ctx.action_results == {
             "certificate": certificate,
             "ca": provider_ca_certificate,
             "csr": csr,
@@ -775,20 +758,18 @@ class TestTLSCertificatesRequiresV4:
         )
 
         private_key_secret = Secret(
-            id="0",
-            revision=0,
+            {"private-key": private_key},
             label=f"{LIBID}-private-key-0",
             owner="unit",
-            contents={0: {"private-key": private_key}},
         )
 
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             config={"common_name": "example.com"},
-            secrets=[private_key_secret],
+            secrets={private_key_secret},
         )
 
-        state_out = self.ctx.run(certificates_relation.changed_event, state_in)
+        state_out = self.ctx.run(self.ctx.on.relation_changed(certificates_relation), state_in)
 
         assert self.certificate_secret_exists(state_out.secrets)
 
@@ -802,16 +783,12 @@ class TestTLSCertificatesRequiresV4:
         )
 
         initial_certificate_secret = Secret(
-            id="1",
-            revision=0,
+            {
+                "certificate": "initial certificate",
+                "csr": csr,
+            },
             label=f"{LIBID}-certificate-0-{get_sha256_hex(csr)}",
             owner="unit",
-            contents={
-                0: {
-                    "certificate": "initial certificate",
-                    "csr": csr,
-                }
-            },
         )
 
         provider_private_key = generate_private_key()
@@ -852,26 +829,24 @@ class TestTLSCertificatesRequiresV4:
         )
 
         private_key_secret = Secret(
-            id="0",
-            revision=0,
+            {"private-key": private_key},
             label=f"{LIBID}-private-key-0",
             owner="unit",
-            contents={0: {"private-key": private_key}},
         )
 
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             config={"common_name": "example.com"},
-            secrets=[private_key_secret, initial_certificate_secret],
+            secrets={private_key_secret, initial_certificate_secret},
         )
 
-        state_out = self.ctx.run(certificates_relation.changed_event, state_in)
+        state_out = self.ctx.run(self.ctx.on.relation_changed(certificates_relation), state_in)
 
         assert self.certificate_secret_exists(state_out.secrets)
 
         certificate_secret = self.get_certificate_secret(state_out.secrets)
 
-        assert certificate_secret.contents[1] == {
+        assert certificate_secret.latest_content == {
             "certificate": new_certificate,
             "csr": csr,
         }
@@ -906,24 +881,18 @@ class TestTLSCertificatesRequiresV4:
         patch_generate_csr.return_value = new_csr
 
         private_key_secret = Secret(
-            id="0",
-            revision=0,
+            {"private-key": private_key},
             label=f"{LIBID}-private-key-0",
             owner="unit",
-            contents={0: {"private-key": private_key}},
         )
 
         certificate_secret = Secret(
-            id="1",
-            revision=0,
+            {
+                "certificate": certificate,
+                "csr": csr,
+            },
             label=f"{LIBID}-certificate-0-{csr_in_sha256_hex}",
             owner="unit",
-            contents={
-                0: {
-                    "certificate": certificate,
-                    "csr": csr,
-                }
-            },
             expire=datetime.datetime.now() - datetime.timedelta(minutes=1),
         )
 
@@ -956,41 +925,45 @@ class TestTLSCertificatesRequiresV4:
 
         state_in = scenario.State(
             config={"common_name": "example.com"},
-            relations=[certificates_relation],
-            secrets=[
+            relations={certificates_relation},
+            secrets={
                 private_key_secret,
                 certificate_secret,
-            ],
+            },
         )
 
-        state_out = self.ctx.run(certificate_secret.expired_event, state_in)
+        state_out = self.ctx.run(
+            self.ctx.on.secret_expired(certificate_secret, revision=1), state_in
+        )
 
-        assert state_out.relations == [
-            scenario.Relation(
-                relation_id=certificates_relation.relation_id,
-                endpoint="certificates",
-                interface="tls-certificates",
-                remote_app_name="certificate-requirer",
-                local_unit_data={
-                    "certificate_signing_requests": json.dumps(
-                        [
-                            {
-                                "certificate_signing_request": new_csr,
-                                "ca": False,
-                            }
-                        ]
-                    )
-                },
-                remote_app_data={
-                    "certificates": json.dumps(
-                        [
-                            {
-                                "certificate": certificate,
-                                "certificate_signing_request": csr,
-                                "ca": provider_ca_certificate,
-                            }
-                        ]
-                    ),
-                },
-            )
-        ]
+        assert state_out.relations == frozenset(
+            {
+                scenario.Relation(
+                    id=certificates_relation.id,
+                    endpoint="certificates",
+                    interface="tls-certificates",
+                    remote_app_name="certificate-requirer",
+                    local_unit_data={
+                        "certificate_signing_requests": json.dumps(
+                            [
+                                {
+                                    "certificate_signing_request": new_csr,
+                                    "ca": False,
+                                }
+                            ]
+                        )
+                    },
+                    remote_app_data={
+                        "certificates": json.dumps(
+                            [
+                                {
+                                    "certificate": certificate,
+                                    "certificate_signing_request": csr,
+                                    "ca": provider_ca_certificate,
+                                }
+                            ]
+                        ),
+                    },
+                )
+            }
+        )

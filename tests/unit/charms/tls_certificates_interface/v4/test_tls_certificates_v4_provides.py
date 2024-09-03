@@ -44,14 +44,13 @@ class TestTLSCertificatesProvidesV4:
             remote_app_name="certificate-requirer",
         )
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             leader=True,
         )
 
-        action_output = self.ctx.run_action("get-certificate-requests", state_in)
+        self.ctx.run(self.ctx.on.action("get-certificate-requests"), state_in)
 
-        assert action_output.success is True
-        assert action_output.results == {"csrs": []}
+        assert self.ctx.action_results == {"csrs": []}
 
     def test_given_unit_certificate_requests_when_get_requirer_csrs_then_csrs_are_returned(self):
         private_key = generate_private_key()
@@ -86,14 +85,13 @@ class TestTLSCertificatesProvidesV4:
         )
 
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             leader=True,
         )
 
-        action_output = self.ctx.run_action("get-certificate-requests", state_in)
+        self.ctx.run(self.ctx.on.action("get-certificate-requests"), state_in)
 
-        assert action_output.success is True
-        assert action_output.results == {
+        assert self.ctx.action_results == {
             "csrs": [{"csr": csr_1, "is_ca": False}, {"csr": csr_2, "is_ca": False}]
         }
 
@@ -128,14 +126,13 @@ class TestTLSCertificatesProvidesV4:
         )
 
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             leader=True,
         )
 
-        action_output = self.ctx.run_action("get-certificate-requests", state_in)
+        self.ctx.run(self.ctx.on.action("get-certificate-requests"), state_in)
 
-        assert action_output.success is True
-        assert action_output.results == {
+        assert self.ctx.action_results == {
             "csrs": [{"csr": csr_1, "is_ca": False}, {"csr": csr_2, "is_ca": False}]
         }
 
@@ -148,14 +145,13 @@ class TestTLSCertificatesProvidesV4:
             remote_app_name="certificate-requirer",
         )
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             leader=True,
         )
 
-        action_output = self.ctx.run_action("get-issued-certificates", state_in)
+        self.ctx.run(self.ctx.on.action("get-issued-certificates"), state_in)
 
-        assert action_output.success is True
-        assert action_output.results == {"certificates": []}
+        assert self.ctx.action_results == {"certificates": []}
 
     def test_given_all_certificates_are_solicited_when_get_unsolicited_certificates_then_no_certificate_is_returned(  # noqa: E501
         self,
@@ -314,14 +310,13 @@ class TestTLSCertificatesProvidesV4:
             remote_app_name="certificate-requirer",
         )
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             leader=True,
         )
 
-        action_output = self.ctx.run_action("get-outstanding-certificate-requests", state_in)
+        self.ctx.run(self.ctx.on.action("get-outstanding-certificate-requests"), state_in)
 
-        assert action_output.success is True
-        assert action_output.results == {"csrs": []}
+        assert self.ctx.action_results == {"csrs": []}
 
     def test_given_certificate_requests_fulfilled_when_get_outstanding_certificate_requests_then_no_csr_is_returned(  # noqa: E501
         self,
@@ -395,14 +390,13 @@ class TestTLSCertificatesProvidesV4:
         )
 
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             leader=True,
         )
 
-        action_output = self.ctx.run_action("get-outstanding-certificate-requests", state_in)
+        self.ctx.run(self.ctx.on.action("get-outstanding-certificate-requests"), state_in)
 
-        assert action_output.success is True
-        assert action_output.results == {"csrs": []}
+        assert self.ctx.action_results == {"csrs": []}
 
     def test_given_unfulfilled_certificate_request_when_get_outstanding_certificate_requests_then_csr_is_returned(  # noqa: E501
         self,
@@ -466,14 +460,13 @@ class TestTLSCertificatesProvidesV4:
         )
 
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             leader=True,
         )
 
-        action_output = self.ctx.run_action("get-outstanding-certificate-requests", state_in)
+        self.ctx.run(self.ctx.on.action("get-outstanding-certificate-requests"), state_in)
 
-        assert action_output.success is True
-        assert action_output.results == {"csrs": [{"csr": csr_2, "is_ca": False}]}
+        assert self.ctx.action_results == {"csrs": [{"csr": csr_2, "is_ca": False}]}
 
     def test_given_certificates_when_get_issued_certificates_then_certificates_are_returned(self):
         requirer_private_key = generate_private_key()
@@ -523,14 +516,13 @@ class TestTLSCertificatesProvidesV4:
         )
 
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             leader=True,
         )
 
-        action_output = self.ctx.run_action("get-issued-certificates", state_in)
+        self.ctx.run(self.ctx.on.action("get-issued-certificates"), state_in)
 
-        assert action_output.success is True
-        assert action_output.results == {
+        assert self.ctx.action_results == {
             "certificates": [{"certificate": certificate_1}, {"certificate": certificate_2}]
         }
 
@@ -602,23 +594,21 @@ class TestTLSCertificatesProvidesV4:
         )
 
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             leader=True,
         )
-        action = scenario.Action(
-            "set-certificate",
-            params={
-                "certificate": base64.b64encode(certificate_2.encode()).decode(),
-                "certificate-signing-request": base64.b64encode(csr_2.encode()).decode(),
-                "ca-certificate": base64.b64encode(provider_ca_certificate.encode()).decode(),
-                "ca-chain": base64.b64encode(provider_ca_certificate.encode()).decode(),
-                "relation-id": certificates_relation.relation_id,
-            },
-        )
-        action_output = self.ctx.run_action(action, state_in)
+        params = {
+            "certificate": base64.b64encode(certificate_2.encode()).decode(),
+            "certificate-signing-request": base64.b64encode(csr_2.encode()).decode(),
+            "ca-certificate": base64.b64encode(provider_ca_certificate.encode()).decode(),
+            "ca-chain": base64.b64encode(provider_ca_certificate.encode()).decode(),
+            "relation-id": certificates_relation.id,
+        }
+        state_out = self.ctx.run(self.ctx.on.action("set-certificate", params=params), state_in)
 
-        assert action_output.success is True
-        certificates = json.loads(action_output.state.relations[0].local_app_data["certificates"])
+        certificates = json.loads(
+            state_out.get_relation(certificates_relation.id).local_app_data["certificates"]
+        )
         assert certificates == [
             {
                 "certificate": certificate_1,
@@ -714,25 +704,23 @@ class TestTLSCertificatesProvidesV4:
         )
 
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             leader=True,
         )
 
-        action = scenario.Action(
-            "set-certificate",
-            params={
-                "certificate": base64.b64encode(new_certificate_for_csr_1.encode()).decode(),
-                "certificate-signing-request": base64.b64encode(csr_1.encode()).decode(),
-                "ca-certificate": base64.b64encode(provider_ca_certificate.encode()).decode(),
-                "ca-chain": base64.b64encode(provider_ca_certificate.encode()).decode(),
-                "relation-id": certificates_relation.relation_id,
-            },
+        params = {
+            "certificate": base64.b64encode(new_certificate_for_csr_1.encode()).decode(),
+            "certificate-signing-request": base64.b64encode(csr_1.encode()).decode(),
+            "ca-certificate": base64.b64encode(provider_ca_certificate.encode()).decode(),
+            "ca-chain": base64.b64encode(provider_ca_certificate.encode()).decode(),
+            "relation-id": certificates_relation.id,
+        }
+
+        state_out = self.ctx.run(self.ctx.on.action("set-certificate", params=params), state_in)
+
+        certificates = json.loads(
+            state_out.get_relation(certificates_relation.id).local_app_data["certificates"]
         )
-
-        action_output = self.ctx.run_action(action, state_in)
-
-        assert action_output.success is True
-        certificates = json.loads(action_output.state.relations[0].local_app_data["certificates"])
         assert certificates == [
             {
                 "certificate": certificate_2,
@@ -752,11 +740,11 @@ class TestTLSCertificatesProvidesV4:
         requirer_private_key = generate_private_key()
         csr_1 = generate_csr(
             private_key=requirer_private_key,
-            common_name="example1.com",
+            common_name="1.example.com",
         )
         csr_2 = generate_csr(
             private_key=requirer_private_key,
-            common_name="example2.org",
+            common_name="2.example.org",
         )
         provider_private_key = generate_private_key()
         provider_ca_certificate = generate_ca(
@@ -820,15 +808,15 @@ class TestTLSCertificatesProvidesV4:
         )
 
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             leader=True,
         )
 
-        action_output = self.ctx.run_action("revoke-all-certificates", state_in)
+        state_out = self.ctx.run(self.ctx.on.action("revoke-all-certificates"), state_in)
 
-        assert action_output.success is True
-
-        certificates = json.loads(action_output.state.relations[0].local_app_data["certificates"])
+        certificates = json.loads(
+            state_out.get_relation(certificates_relation.id).local_app_data["certificates"]
+        )
 
         assert certificates == [
             {
@@ -896,13 +884,15 @@ class TestTLSCertificatesProvidesV4:
             },
         )
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             leader=True,
         )
 
-        state_out = self.ctx.run(certificates_relation.changed_event, state_in)
+        state_out = self.ctx.run(self.ctx.on.relation_changed(certificates_relation), state_in)
 
-        assert state_out.relations[0].local_app_data == {"certificates": "[]"}
+        assert state_out.get_relation(certificates_relation.id).local_app_data == {
+            "certificates": "[]"
+        }
 
     def test_given_fulfilled_certificate_requests_when_relation_changed_then_certificates_removed(
         self,
@@ -968,10 +958,10 @@ class TestTLSCertificatesProvidesV4:
             },
         )
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             leader=True,
         )
 
-        state_out = self.ctx.run(certificates_relation.changed_event, state_in)
+        state_out = self.ctx.run(self.ctx.on.relation_changed(certificates_relation), state_in)
 
-        assert state_out.relations[0].local_app_data == local_app_data
+        assert state_out.get_relation(certificates_relation.id).local_app_data == local_app_data
