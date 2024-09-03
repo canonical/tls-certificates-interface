@@ -1706,6 +1706,22 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
         with pytest.raises(RuntimeError):
             self.harness.get_secret_revisions(secret_id)
 
+    def test_given_csr_in_secret_label_and_no_matching_certificates_when_secret_expired_then_secret_revisions_are_removed(  # noqa: E501
+        self
+    ):
+        csr = "whatever csr"
+        certificate = "whatever certificate"
+        secret_id = self.harness.add_model_secret(
+            owner=self.harness.charm.unit.name, content={"certificate": certificate}
+        )
+        secret = self.harness.model.get_secret(id=secret_id)
+        secret.set_info(label=f"{LIBID}-{csr}")
+
+        self.harness.trigger_secret_expiration(secret_id, 0)
+
+        with pytest.raises(RuntimeError):
+            self.harness.get_secret_revisions(secret_id)
+
     @patch('cryptography.x509.load_pem_x509_certificate')
     def test_given_certificate_has_expiry_time_and_notification_time_recommended_by_provider_is_valid_when_get_provider_certificates_then_recommended_expiry_notification_time_is_used(  # noqa: E501
         self, patch_load_pem_x509_certificate
