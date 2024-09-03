@@ -273,7 +273,7 @@ def test_given_ca_certificate_attributes_when_generate_ca_then_ca_is_generated_c
     assert ca_certificate.sans_oid == frozenset()
 
 
-# # Generate Certificate
+# Generate Certificate
 
 
 def test_given_csr_when_generate_certificate_then_certificate_generated_with_requested_attributes():  # noqa: E501
