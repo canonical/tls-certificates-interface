@@ -77,7 +77,7 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
             csrs.append(
                 {
                     "csr": str(requirer_csr.certificate_signing_request),
-                    "is_ca": requirer_csr.certificate_signing_request.is_ca,
+                    "is_ca": requirer_csr.is_ca,
                 }
             )
         event.set_results(results={"csrs": csrs})
@@ -89,7 +89,7 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
             certificate_requests.append(
                 {
                     "csr": str(outstanding_certificate_request.certificate_signing_request),
-                    "is_ca": outstanding_certificate_request.certificate_signing_request.is_ca,
+                    "is_ca": outstanding_certificate_request.is_ca,
                 }
             )
         event.set_results(results={"csrs": certificate_requests})
