@@ -10,7 +10,7 @@ cffi==1.16.0
     # via cryptography
 cryptography==43.0.0
     # via -r requirements.in
-ops==2.15.0
+ops==2.16.0
     # via -r requirements.in
 pycparser==2.22
     # via cffi
