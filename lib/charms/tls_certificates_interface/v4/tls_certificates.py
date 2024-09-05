@@ -456,19 +456,20 @@ class CertificateSigningRequest:
     country_name: Optional[str] = None
     state_or_province_name: Optional[str] = None
     locality_name: Optional[str] = None
+    is_ca: bool = False
 
     def __eq__(self, other: object) -> bool:
         """Check if two CertificateSigningRequest objects are equal."""
         if not isinstance(other, CertificateSigningRequest):
             return NotImplemented
-        return self.raw.strip() == other.raw.strip()
+        return (self.raw.strip() == other.raw.strip()) and (self.is_ca == other.is_ca)
 
     def __str__(self) -> str:
         """Return the CSR as a string."""
         return self.raw
 
     @classmethod
-    def from_string(cls, csr: str) -> "CertificateSigningRequest":
+    def from_string(cls, csr: str, is_ca: bool = False) -> "CertificateSigningRequest":
         """Create a CertificateSigningRequest object from a CSR."""
         try:
             csr_object = x509.load_pem_x509_csr(csr.encode())
@@ -506,6 +507,7 @@ class CertificateSigningRequest:
             sans_dns=sans_dns,
             sans_ip=sans_ip,
             sans_oid=sans_oid,
+            is_ca=is_ca,
         )
 
     def matches_private_key(self, key: PrivateKey) -> bool:
@@ -590,6 +592,7 @@ class CertificateRequest:
     def generate_csr(
         self,
         private_key: PrivateKey,
+        is_ca: bool = False,
     ) -> CertificateSigningRequest:
         """Generate a CSR using private key and subject.
 
@@ -611,6 +614,7 @@ class CertificateRequest:
             country_name=self.country_name,
             state_or_province_name=self.state_or_province_name,
             locality_name=self.locality_name,
+            is_ca=is_ca,
         )
 
     @classmethod
@@ -799,6 +803,7 @@ def generate_csr(  # noqa: C901
     locality_name: Optional[str] = None,
     state_or_province_name: Optional[str] = None,
     add_unique_id_to_subject_name: bool = True,
+    is_ca: bool = False,
 ) -> CertificateSigningRequest:
     """Generate a CSR using private key and subject.
 
@@ -857,7 +862,7 @@ def generate_csr(  # noqa: C901
         csr = csr.add_extension(x509.SubjectAlternativeName(set(_sans)), critical=False)
     signed_certificate = csr.sign(signing_key, hashes.SHA256())  # type: ignore[arg-type]
     csr_str = signed_certificate.public_bytes(serialization.Encoding.PEM).decode()
-    return CertificateSigningRequest.from_string(csr_str)
+    return CertificateSigningRequest.from_string(csr_str, is_ca)
 
 
 def generate_ca(
@@ -1155,13 +1160,26 @@ class TLSCertificatesRequiresV4(Object):
                 raise TLSCertificatesError("Invalid certificate request")
         self.charm = charm
         self.relationship_name = relationship_name
-        self.certificate_requests = certificate_requests
+        self.certificate_requests = self._generate_requests(certificate_requests)
         self.mode = mode
         self.framework.observe(charm.on[relationship_name].relation_created, self._configure)
         self.framework.observe(charm.on[relationship_name].relation_changed, self._configure)
         self.framework.observe(charm.on.secret_expired, self._on_secret_expired)
         for event in refresh_events:
             self.framework.observe(event, self._configure)
+
+    def _generate_requests(
+        self, certificate_requests: List[CertificateRequest]
+    ) -> List[CertificateSigningRequest]:
+        """Generate a list of certificate signing requests from a list of certificate requests."""
+        csrs = []
+        for certificate_request in certificate_requests:
+            csr = certificate_request.generate_csr(private_key=self.private_key)
+            if not csr:
+                logger.warning("Failed to generate CSR for %s", certificate_request)
+                continue
+            csrs.append(csr)
+        return csrs
 
     def _configure(self, _: EventBase):
         """Handle TLS Certificates Relation Data.
@@ -1281,17 +1299,15 @@ class TLSCertificatesRequiresV4(Object):
         return True
 
     def _csr_matches_certificate_request(
-        self, certificate_signing_request: CertificateSigningRequest, is_ca: bool
+        self, certificate_signing_request: CertificateSigningRequest
     ) -> bool:
         for certificate_request in self.certificate_requests:
-            if certificate_request == CertificateRequest.from_csr(
-                certificate_signing_request,
-                is_ca,
-            ):
+            if certificate_request == certificate_signing_request:
                 return True
         return False
 
-    def _certificate_requested(self, certificate_request: CertificateRequest) -> bool:
+    # TODO
+    def _certificate_requested(self, certificate_request: CertificateSigningRequest) -> bool:
         if not self.private_key:
             return False
         csr = self._certificate_requested_for_attributes(certificate_request)
@@ -1301,15 +1317,13 @@ class TLSCertificatesRequiresV4(Object):
             return False
         return True
 
+    # TODO
     def _certificate_requested_for_attributes(
         self,
-        certificate_request: CertificateRequest,
+        certificate_request: CertificateSigningRequest,
     ) -> Optional[RequirerCSR]:
         for requirer_csr in self.get_csrs_from_requirer_relation_data():
-            if certificate_request == CertificateRequest.from_csr(
-                requirer_csr.certificate_signing_request,
-                requirer_csr.is_ca,
-            ):
+            if certificate_request == requirer_csr.certificate_signing_request:
                 return requirer_csr
         return None
 
@@ -1396,15 +1410,9 @@ class TLSCertificatesRequiresV4(Object):
         if not self.private_key:
             logger.debug("Private key not generated yet.")
             return
-        for certificate_request in self.certificate_requests:
-            if not self._certificate_requested(certificate_request):
-                csr = certificate_request.generate_csr(
-                    private_key=self.private_key,
-                )
-                if not csr:
-                    logger.warning("Failed to generate CSR")
-                    continue
-                self._request_certificate(csr=csr, is_ca=certificate_request.is_ca)
+        for csr in self.certificate_requests:
+            if not self._certificate_requested(csr):
+                self._request_certificate(csr=csr, is_ca=csr.is_ca)
 
     def get_assigned_certificate(
         self, certificate_request: CertificateRequest
@@ -1464,7 +1472,6 @@ class TLSCertificatesRequiresV4(Object):
                 else:
                     if not self._csr_matches_certificate_request(
                         certificate_signing_request=provider_certificate.certificate_signing_request,
-                        is_ca=provider_certificate.certificate.is_ca,
                     ):
                         logger.debug("Certificate requested for different attributes - Skipping")
                         continue
@@ -1508,7 +1515,6 @@ class TLSCertificatesRequiresV4(Object):
         for requirer_csr in self.get_csrs_from_requirer_relation_data():
             if not self._csr_matches_certificate_request(
                 certificate_signing_request=requirer_csr.certificate_signing_request,
-                is_ca=requirer_csr.is_ca,
             ):
                 self._remove_requirer_csr_from_relation_data(
                     requirer_csr.certificate_signing_request
