@@ -1579,7 +1579,7 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
 
         assert secret.get_info().expires == expiry_time
 
-    def test_given_secret_not_owned_by_lib_when_secret_expired_then_secret_revisions_are_not_removed(  # noqa: E501
+    def test_given_secret_does_not_have_the_csr_when_secret_expired_then_secret_revisions_are_not_removed(  # noqa: E501
         self,
     ):
         secret_id = self.harness.add_model_secret(
@@ -1700,6 +1700,22 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
         csr_sha256_hex = get_sha256_hex(csr)
         secret = self.harness.model.get_secret(label=f"{LIBID}-{csr_sha256_hex}")
         secret_id = secret.get_info().id
+
+        self.harness.trigger_secret_expiration(secret_id, 0)
+
+        with pytest.raises(RuntimeError):
+            self.harness.get_secret_revisions(secret_id)
+
+    def test_given_csr_in_secret_label_and_no_matching_certificates_when_secret_expired_then_secret_revisions_are_removed(  # noqa: E501
+        self
+    ):
+        csr = "whatever csr"
+        certificate = "whatever certificate"
+        secret_id = self.harness.add_model_secret(
+            owner=self.harness.charm.unit.name, content={"certificate": certificate}
+        )
+        secret = self.harness.model.get_secret(id=secret_id)
+        secret.set_info(label=f"{LIBID}-{csr}")
 
         self.harness.trigger_secret_expiration(secret_id, 0)
 
