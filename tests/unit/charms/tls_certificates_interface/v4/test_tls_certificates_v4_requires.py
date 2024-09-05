@@ -107,7 +107,10 @@ class TestTLSCertificatesRequiresV4:
         )
         state_in = scenario.State(
             relations=[certificates_relation],
-            config={"common_name": "example.com"},
+            config={
+                "common_name": "example.com",
+                "is_ca": False,
+            },
             secrets=[
                 Secret(
                     id="1",
@@ -133,6 +136,59 @@ class TestTLSCertificatesRequiresV4:
                             {
                                 "certificate_signing_request": csr,
                                 "ca": False,
+                            }
+                        ]
+                    )
+                },
+            ),
+        ]
+
+    @patch(LIB_DIR + ".CertificateRequest.generate_csr")
+    def test_given_ca_certificate_requested_when_relation_joined_then_certificate_request_is_added_to_databag(  # noqa: E501
+        self, patch_generate_csr
+    ):
+        private_key = generate_private_key()
+        csr = generate_csr(
+            private_key=private_key,
+            common_name="example.com",
+        )
+        patch_generate_csr.return_value = csr
+        certificates_relation = scenario.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+        )
+        state_in = scenario.State(
+            relations=[certificates_relation],
+            config={
+                "common_name": "example.com",
+                "is_ca": True,
+            },
+            secrets=[
+                Secret(
+                    id="1",
+                    revision=0,
+                    label=f"{LIBID}-private-key-0",
+                    owner="unit",
+                    contents={0: {"private-key": private_key}},
+                )
+            ],
+        )
+
+        state_out = self.ctx.run(certificates_relation.changed_event, state_in)
+
+        assert state_out.relations == [
+            scenario.Relation(
+                relation_id=certificates_relation.relation_id,
+                endpoint="certificates",
+                interface="tls-certificates",
+                remote_app_name="certificate-requirer",
+                local_unit_data={
+                    "certificate_signing_requests": json.dumps(
+                        [
+                            {
+                                "certificate_signing_request": csr,
+                                "ca": True,
                             }
                         ]
                     )
@@ -195,6 +251,78 @@ class TestTLSCertificatesRequiresV4:
         state_in = scenario.State(
             relations=[certificates_relation],
             config={"common_name": "example.com"},
+            secrets=[private_key_secret],
+        )
+
+        self.ctx.run(certificates_relation.changed_event, state_in)
+
+        assert len(self.ctx.emitted_events) == 2
+        assert isinstance(self.ctx.emitted_events[1], CertificateAvailableEvent)
+        assert self.ctx.emitted_events[1].certificate == Certificate.from_string(certificate)
+        assert self.ctx.emitted_events[1].ca == Certificate.from_string(provider_ca_certificate)
+        assert self.ctx.emitted_events[
+            1
+        ].certificate_signing_request == CertificateSigningRequest.from_string(csr)
+
+    def test_given_ca_certificate_in_provider_relation_data_when_relation_changed_then_certificate_available_event_is_emitted(  # noqa: E501
+        self,
+    ):
+        requirer_private_key = generate_private_key()
+        csr = generate_csr(
+            private_key=requirer_private_key,
+            common_name="example.com",
+        )
+        provider_private_key = generate_private_key()
+        provider_ca_certificate = generate_ca(
+            private_key=provider_private_key,
+            common_name="example.com",
+        )
+        certificate = generate_certificate(
+            ca_key=provider_private_key,
+            csr=csr,
+            ca=provider_ca_certificate,
+            is_ca=True,
+        )
+        certificates_relation = scenario.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+            local_unit_data={
+                "certificate_signing_requests": json.dumps(
+                    [
+                        {
+                            "certificate_signing_request": csr,
+                            "ca": True,
+                        }
+                    ]
+                )
+            },
+            remote_app_data={
+                "certificates": json.dumps(
+                    [
+                        {
+                            "certificate": certificate,
+                            "certificate_signing_request": csr,
+                            "ca": provider_ca_certificate,
+                        }
+                    ]
+                ),
+            },
+        )
+
+        private_key_secret = Secret(
+            id="0",
+            revision=0,
+            label=f"{LIBID}-private-key-0",
+            owner="unit",
+            contents={0: {"private-key": requirer_private_key}},
+        )
+        state_in = scenario.State(
+            relations=[certificates_relation],
+            config={
+                "common_name": "example.com",
+                "is_ca": True,
+            },
             secrets=[private_key_secret],
         )
 
