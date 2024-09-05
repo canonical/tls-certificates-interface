@@ -1793,6 +1793,22 @@ class TLSCertificatesProvidesV4(Object):
                 certificates.append(certificate.to_provider_certificate(relation_id=relation.id))
         return certificates
 
+    def get_unsolicited_certificates(
+        self, relation_id: Optional[int] = None
+    ) -> List[ProviderCertificate]:
+        """Return provider certificates for which no certificate requests exists.
+
+        Those certificates should be revoked.
+        """
+        unsolicited_certificates: List[ProviderCertificate] = []
+        provider_certificates = self.get_provider_certificates(relation_id=relation_id)
+        requirer_csrs = self.get_certificate_requests(relation_id=relation_id)
+        list_of_csrs = [csr.certificate_signing_request for csr in requirer_csrs]
+        for certificate in provider_certificates:
+            if certificate.certificate_signing_request not in list_of_csrs:
+                unsolicited_certificates.append(certificate)
+        return unsolicited_certificates
+
     def get_outstanding_certificate_requests(
         self, relation_id: Optional[int] = None
     ) -> List[RequirerCSR]:

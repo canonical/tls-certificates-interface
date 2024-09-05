@@ -41,8 +41,7 @@ def generate_private_key(
 
 
 def generate_ec_private_key(
-        curve: ec.EllipticCurve = ec.SECP256K1(),
-        password: Optional[bytes] = None
+    curve: ec.EllipticCurve = ec.SECP256K1(), password: Optional[bytes] = None
 ) -> bytes:
     """Generate a elliptic curve private key.
 
@@ -53,9 +52,7 @@ def generate_ec_private_key(
     Returns:
         bytes: Private Key
     """
-    private_key = ec.generate_private_key(
-        curve=curve
-    )
+    private_key = ec.generate_private_key(curve=curve)
     key_bytes = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,

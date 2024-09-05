@@ -1053,7 +1053,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 chain=["whatever cert 1", "whatever cert 2"],
                 ca="whatever ca",
                 revoked=False,
-                expiry_time=expiry_time
+                expiry_time=expiry_time,
             ),
             ProviderCertificate(
                 relation_id=relation_id_requirer_2,
@@ -1063,7 +1063,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 chain=["whatever cert 1", "whatever cert 2"],
                 ca="whatever ca",
                 revoked=False,
-                expiry_time=expiry_time
+                expiry_time=expiry_time,
             ),
         ]
         certificates = self.harness.charm.certificates.get_issued_certificates()
@@ -1402,6 +1402,95 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             relation_id=application_1_relation_id
         )
         self.assertEqual(actual_csrs_info, expected_csrs_info)
+
+    def test_given_all_certificates_are_solicited_when_get_unsolicited_certificates_then_no_certificate_is_returned(  # noqa: E501
+        self,
+    ):
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
+        self.harness.set_leader(is_leader=True)
+        certificate = EXAMPLE_CERT
+        local_app_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "certificate": certificate,
+                        "certificate_signing_request": "csr_1",
+                        "ca": "provider_ca_certificate",
+                        "chain": ["whatever cert 1", "whatever cert 2"],
+                    },
+                ]
+            ),
+        }
+        remote_unit_data = {
+            "certificate_signing_requests": json.dumps(
+                [
+                    {
+                        "certificate_signing_request": "csr_1",
+                        "ca": "false",
+                    },
+                ]
+            )
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id, app_or_unit=self.remote_unit_name, key_values=remote_unit_data
+        )
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.app.name,
+            key_values=local_app_data,
+        )
+
+        unsolicited_certificates = self.harness.charm.certificates.get_unsolicited_certificates()
+
+        self.assertEqual(unsolicited_certificates, [])
+
+    def test_given_unsolicited_certificates_when_get_unsolicited_certificates_then_certificates_are_returned(  # noqa: E501
+        self,
+    ):
+        self.harness.disable_hooks()
+        relation_id = self.create_certificates_relation_with_1_remote_unit()
+        self.harness.set_leader(is_leader=True)
+        certificate = EXAMPLE_CERT
+        local_app_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "certificate": certificate,
+                        "certificate_signing_request": "csr_1",
+                        "ca": "provider_ca_certificate",
+                        "chain": ["whatever cert 1", "whatever cert 2"],
+                    },
+                ]
+            ),
+        }
+        remote_unit_data = {
+            "certificate_signing_requests": json.dumps(
+                [
+                    {
+                        "certificate_signing_request": "csr_2",
+                        "ca": "false",
+                    },
+                ]
+            )
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_unit_name,
+            key_values=remote_unit_data,
+        )
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.app.name,
+            key_values=local_app_data,
+        )
+
+        unsolicited_certificates = self.harness.charm.certificates.get_unsolicited_certificates()
+
+        assert len(unsolicited_certificates) == 1
+        assert unsolicited_certificates[0].certificate == certificate
+        assert unsolicited_certificates[0].ca == "provider_ca_certificate"
+        assert unsolicited_certificates[0].chain == ["whatever cert 1", "whatever cert 2"]
+        assert unsolicited_certificates[0].csr == "csr_1"
 
     def test_given_csrs_with_certs_issued_when_get_outstanding_certificate_requests_then_the_info_of_those_csrs_not_returned(  # noqa: E501
         self,

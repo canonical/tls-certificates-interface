@@ -51,6 +51,10 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
             self.on.get_certificate_requests_action, self._on_get_certificate_rquests_action
         )
         self.framework.observe(
+            self.on.get_unsolicited_certificates_action,
+            self._on_get_unsolicited_certificates_action,
+        )
+        self.framework.observe(
             self.on.get_outstanding_certificate_requests_action,
             self._on_get_outstanding_certificate_requests_action,
         )
@@ -81,6 +85,17 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
                 }
             )
         event.set_results(results={"csrs": csrs})
+
+    def _on_get_unsolicited_certificates_action(self, event: ActionEvent) -> None:
+        unsolicited_certificates = self.certificates.get_unsolicited_certificates()
+        certificates = []
+        for unsolicited_certificate in unsolicited_certificates:
+            certificates.append(
+                {
+                    "certificate": str(unsolicited_certificate.certificate),
+                }
+            )
+        event.set_results(results={"certificates": certificates})
 
     def _on_get_outstanding_certificate_requests_action(self, event: ActionEvent) -> None:
         outstanding_certificate_requests = self.certificates.get_outstanding_certificate_requests()

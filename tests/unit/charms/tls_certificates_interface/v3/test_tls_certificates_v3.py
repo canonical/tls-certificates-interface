@@ -321,9 +321,7 @@ def test_given_alt_names_when_generate_certificate_then_alt_names_are_correctly_
     )
 
     certificate_object = x509.load_pem_x509_certificate(certificate)
-    alt_names = certificate_object.extensions.get_extension_for_class(
-        x509.SubjectAlternativeName
-    )
+    alt_names = certificate_object.extensions.get_extension_for_class(x509.SubjectAlternativeName)
     alt_name_strings = [alt_name.value for alt_name in alt_names.value]
     assert len(alt_name_strings) == 2
     assert alt_name_1 in alt_name_strings
@@ -351,9 +349,7 @@ def test_given_sans_in_csr_and_alt_names_when_generate_certificate_then_alt_name
     certificate = generate_certificate(csr=csr, ca=ca, ca_key=ca_key, alt_names=src_alt_names)
 
     cert = x509.load_pem_x509_certificate(certificate)
-    result_all_sans = cert.extensions.get_extension_for_class(
-        x509.SubjectAlternativeName
-    )
+    result_all_sans = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
     result_sans_dns = sorted(result_all_sans.value.get_values_for_type(x509.DNSName))
 
     assert result_sans_dns == sorted(src_sans_dns + src_alt_names)
@@ -667,8 +663,8 @@ def test_given_provider_recommended_notification_time_when_calculate_expiry_noti
     validity_start_time = expiry_time - timedelta(hours=validity_start_time_in_hours)
     provider_recommended_notification_time = 24
     requirer_recommended_notification_time = 48
-    expected_notification_time = (
-        expiry_time - timedelta(hours=provider_recommended_notification_time)
+    expected_notification_time = expiry_time - timedelta(
+        hours=provider_recommended_notification_time
     )
     notification_time = calculate_expiry_notification_time(
         expiry_time=expiry_time,
@@ -685,8 +681,8 @@ def test_given_negative_provider_recommended_notification_time_when_calculate_ex
     validity_start_time = expiry_time - timedelta(hours=validity_start_time_in_hours)
     negative_provider_recommended_notification_time = 24
     requirer_recommended_notification_time = 48
-    expected_notification_time = (
-        expiry_time - timedelta(hours=abs(negative_provider_recommended_notification_time))
+    expected_notification_time = expiry_time - timedelta(
+        hours=abs(negative_provider_recommended_notification_time)
     )
     notification_time = calculate_expiry_notification_time(
         expiry_time=expiry_time,
@@ -703,8 +699,8 @@ def test_given_provider_recommended_notification_time_is_too_early_when_calculat
     validity_start_time = expiry_time - timedelta(hours=validity_start_time_in_hours)
     provider_recommended_notification_time = 241
     requirer_recommended_notification_time = 24
-    expected_notification_time = (
-        expiry_time - timedelta(hours=requirer_recommended_notification_time)
+    expected_notification_time = expiry_time - timedelta(
+        hours=requirer_recommended_notification_time
     )
     notification_time = calculate_expiry_notification_time(
         expiry_time=expiry_time,
@@ -721,8 +717,8 @@ def test_given_provider_recommended_notification_time_is_none_when_calcualte_exp
     validity_start_time = expiry_time - timedelta(hours=validity_start_time_in_hours)
     provider_recommended_notification_time = None
     requirer_recommended_notification_time = 24
-    expected_notification_time = (
-        expiry_time - timedelta(hours=requirer_recommended_notification_time)
+    expected_notification_time = expiry_time - timedelta(
+        hours=requirer_recommended_notification_time
     )
     notification_time = calculate_expiry_notification_time(
         expiry_time=expiry_time,
@@ -828,12 +824,14 @@ def test_given_localization_is_specified_when_generate_csr_then_csr_contains_loc
 
     csr_object = x509.load_pem_x509_csr(csr)
     assert csr_object.subject.get_attributes_for_oid(x509.NameOID.COUNTRY_NAME)[0].value == "CA"
-    assert csr_object.subject.get_attributes_for_oid(
-        x509.NameOID.STATE_OR_PROVINCE_NAME
-        )[0].value == "Quebec"
-    assert csr_object.subject.get_attributes_for_oid(
-        x509.NameOID.LOCALITY_NAME
-        )[0].value == "Montreal"
+    assert (
+        csr_object.subject.get_attributes_for_oid(x509.NameOID.STATE_OR_PROVINCE_NAME)[0].value
+        == "Quebec"
+    )
+    assert (
+        csr_object.subject.get_attributes_for_oid(x509.NameOID.LOCALITY_NAME)[0].value
+        == "Montreal"
+    )
 
 
 def test_given_ipv6_sans_when_generate_csr_then_csr_contains_ipv6_sans():
