@@ -15,6 +15,8 @@ provides:
 actions:
   get-certificate-requests:
     description: Get the certificate requests from the requirers
+  get-unsolicited-certificates:
+    description: Get the unsolicited certificates from the requirers
   get-outstanding-certificate-requests:
     description: Get the outstanding certificate requests from the requirers
   get-issued-certificates:

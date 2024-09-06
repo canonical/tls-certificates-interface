@@ -157,6 +157,154 @@ class TestTLSCertificatesProvidesV4:
         assert action_output.success is True
         assert action_output.results == {"certificates": []}
 
+    def test_given_all_certificates_are_solicited_when_get_unsolicited_certificates_then_no_certificate_is_returned(  # noqa: E501
+        self,
+    ):
+        requirer_private_key = generate_private_key()
+        csr_1 = generate_csr(
+            private_key=requirer_private_key,
+            common_name="example1.com",
+        )
+        csr_2 = generate_csr(
+            private_key=requirer_private_key,
+            common_name="example2.org",
+        )
+        provider_private_key = generate_private_key()
+        provider_ca_certificate = generate_ca(
+            private_key=provider_private_key,
+            common_name="example.com",
+        )
+        certificate_1 = generate_certificate(
+            ca_key=provider_private_key,
+            csr=csr_1,
+            ca=provider_ca_certificate,
+        )
+        certificate_2 = generate_certificate(
+            ca_key=provider_private_key,
+            csr=csr_2,
+            ca=provider_ca_certificate,
+        )
+        certificates_relation = scenario.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+            local_app_data={
+                "certificates": json.dumps(
+                    [
+                        {
+                            "certificate": certificate_1,
+                            "certificate_signing_request": csr_1,
+                            "ca": provider_ca_certificate,
+                        },
+                        {
+                            "certificate": certificate_2,
+                            "certificate_signing_request": csr_2,
+                            "ca": provider_ca_certificate,
+                        },
+                    ]
+                ),
+            },
+            remote_app_data={
+                "certificate_signing_requests": json.dumps(
+                    [
+                        {
+                            "certificate_signing_request": csr_1,
+                            "ca": "false",
+                        }
+                    ]
+                ),
+            },
+            remote_units_data={
+                0: {
+                    "certificate_signing_requests": json.dumps(
+                        [
+                            {
+                                "certificate_signing_request": csr_2,
+                                "ca": "false",
+                            },
+                        ]
+                    )
+                }
+            },
+        )
+        state_in = scenario.State(
+            relations=[certificates_relation],
+            leader=True,
+        )
+
+        action_output = self.ctx.run_action("get-unsolicited-certificates", state_in)
+
+        assert action_output.success is True
+        assert action_output.results == {"certificates": []}
+
+    def test_given_unsolicited_certificates_when_get_unsolicited_certificates_then_certificates_are_returned(  # noqa: E501
+        self,
+    ):
+        requirer_private_key = generate_private_key()
+        csr_1 = generate_csr(
+            private_key=requirer_private_key,
+            common_name="example1.com",
+        )
+        csr_2 = generate_csr(
+            private_key=requirer_private_key,
+            common_name="example2.org",
+        )
+        provider_private_key = generate_private_key()
+        provider_ca_certificate = generate_ca(
+            private_key=provider_private_key,
+            common_name="example.com",
+        )
+        certificate_1 = generate_certificate(
+            ca_key=provider_private_key,
+            csr=csr_1,
+            ca=provider_ca_certificate,
+        )
+        certificate_2 = generate_certificate(
+            ca_key=provider_private_key,
+            csr=csr_2,
+            ca=provider_ca_certificate,
+        )
+        certificates_relation = scenario.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+            local_app_data={
+                "certificates": json.dumps(
+                    [
+                        {
+                            "certificate": certificate_1,
+                            "certificate_signing_request": csr_1,
+                            "ca": provider_ca_certificate,
+                        },
+                        {
+                            "certificate": certificate_2,
+                            "certificate_signing_request": csr_2,
+                            "ca": provider_ca_certificate,
+                        },
+                    ]
+                ),
+            },
+            remote_app_data={
+                "certificate_signing_requests": json.dumps(
+                    [
+                        {
+                            "certificate_signing_request": csr_1,
+                            "ca": "false",
+                        }
+                    ]
+                ),
+            },
+        )
+        state_in = scenario.State(
+            relations=[certificates_relation],
+            leader=True,
+        )
+
+        action_output = self.ctx.run_action("get-unsolicited-certificates", state_in)
+
+        assert action_output.success is True
+        assert action_output.results == {"certificates": [{"certificate": certificate_2}]}
+
     def test_given_no_request_when_get_outstanding_certificate_requests_then_no_csr_is_returned(
         self,
     ):
