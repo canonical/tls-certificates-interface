@@ -228,10 +228,9 @@ class TestTLSCertificatesProvidesV4:
             leader=True,
         )
 
-        action_output = self.ctx.run_action("get-unsolicited-certificates", state_in)
+        self.ctx.run(self.ctx.on.action("get-unsolicited-certificates"), state_in)
 
-        assert action_output.success is True
-        assert action_output.results == {"certificates": []}
+        assert self.ctx.action_results == {"certificates": []}
 
     def test_given_unsolicited_certificates_when_get_unsolicited_certificates_then_certificates_are_returned(  # noqa: E501
         self,
@@ -296,10 +295,9 @@ class TestTLSCertificatesProvidesV4:
             leader=True,
         )
 
-        action_output = self.ctx.run_action("get-unsolicited-certificates", state_in)
+        self.ctx.run(self.ctx.on.action("get-unsolicited-certificates"), state_in)
 
-        assert action_output.success is True
-        assert action_output.results == {"certificates": [{"certificate": certificate_2}]}
+        assert self.ctx.action_results == {"certificates": [{"certificate": certificate_2}]}
 
     def test_given_no_request_when_get_outstanding_certificate_requests_then_no_csr_is_returned(
         self,

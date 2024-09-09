@@ -156,27 +156,25 @@ class TestTLSCertificatesRequiresV4:
             remote_app_name="certificate-requirer",
         )
         state_in = scenario.State(
-            relations=[certificates_relation],
+            relations={certificates_relation},
             config={
                 "common_name": "example.com",
                 "is_ca": True,
             },
-            secrets=[
+            secrets={
                 Secret(
-                    id="1",
-                    revision=0,
+                    {"private-key": private_key},
                     label=f"{LIBID}-private-key-0",
                     owner="unit",
-                    contents={0: {"private-key": private_key}},
                 )
-            ],
+            },
         )
 
-        state_out = self.ctx.run(certificates_relation.changed_event, state_in)
+        state_out = self.ctx.run(self.ctx.on.relation_changed(certificates_relation), state_in)
 
-        assert state_out.relations == [
+        assert state_out.relations == frozenset({
             scenario.Relation(
-                relation_id=certificates_relation.relation_id,
+                id=certificates_relation.id,
                 endpoint="certificates",
                 interface="tls-certificates",
                 remote_app_name="certificate-requirer",
@@ -191,7 +189,7 @@ class TestTLSCertificatesRequiresV4:
                     )
                 },
             ),
-        ]
+        })
 
     def test_given_certificate_in_provider_relation_data_when_relation_changed_then_certificate_available_event_is_emitted(  # noqa: E501
         self,
@@ -306,11 +304,9 @@ class TestTLSCertificatesRequiresV4:
         )
 
         private_key_secret = Secret(
-            id="0",
-            revision=0,
+            {"private-key": requirer_private_key},
             label=f"{LIBID}-private-key-0",
             owner="unit",
-            contents={0: {"private-key": requirer_private_key}},
         )
         state_in = scenario.State(
             relations=[certificates_relation],
@@ -318,10 +314,10 @@ class TestTLSCertificatesRequiresV4:
                 "common_name": "example.com",
                 "is_ca": True,
             },
-            secrets=[private_key_secret],
+            secrets={private_key_secret},
         )
 
-        self.ctx.run(certificates_relation.changed_event, state_in)
+        self.ctx.run(self.ctx.on.relation_changed(certificates_relation), state_in)
 
         assert len(self.ctx.emitted_events) == 2
         assert isinstance(self.ctx.emitted_events[1], CertificateAvailableEvent)
