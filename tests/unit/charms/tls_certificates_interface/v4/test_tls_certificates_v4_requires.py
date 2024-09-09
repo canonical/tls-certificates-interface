@@ -172,24 +172,26 @@ class TestTLSCertificatesRequiresV4:
 
         state_out = self.ctx.run(self.ctx.on.relation_changed(certificates_relation), state_in)
 
-        assert state_out.relations == frozenset({
-            scenario.Relation(
-                id=certificates_relation.id,
-                endpoint="certificates",
-                interface="tls-certificates",
-                remote_app_name="certificate-requirer",
-                local_unit_data={
-                    "certificate_signing_requests": json.dumps(
-                        [
-                            {
-                                "certificate_signing_request": csr,
-                                "ca": True,
-                            }
-                        ]
-                    )
-                },
-            ),
-        })
+        assert state_out.relations == frozenset(
+            {
+                scenario.Relation(
+                    id=certificates_relation.id,
+                    endpoint="certificates",
+                    interface="tls-certificates",
+                    remote_app_name="certificate-requirer",
+                    local_unit_data={
+                        "certificate_signing_requests": json.dumps(
+                            [
+                                {
+                                    "certificate_signing_request": csr,
+                                    "ca": True,
+                                }
+                            ]
+                        )
+                    },
+                ),
+            }
+        )
 
     def test_given_certificate_in_provider_relation_data_when_relation_changed_then_certificate_available_event_is_emitted(  # noqa: E501
         self,
@@ -866,7 +868,7 @@ class TestTLSCertificatesRequiresV4:
             ca_key=provider_private_key,
             csr=csr,
             ca=provider_ca_certificate,
-            validity=1,
+            validity=datetime.timedelta(hours=1),
         )
 
         new_csr = generate_csr(
