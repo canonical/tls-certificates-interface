@@ -185,7 +185,7 @@ LIBAPI = 4
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 6
+LIBPATCH = 7
 
 PYDEPS = ["cryptography", "pydantic"]
 
@@ -862,7 +862,7 @@ def generate_csr(  # noqa: C901
 
 def generate_ca(
     private_key: PrivateKey,
-    validity: int,
+    validity: timedelta,
     common_name: str,
     sans_dns: Optional[FrozenSet[str]] = frozenset(),
     sans_ip: Optional[FrozenSet[str]] = frozenset(),
@@ -878,7 +878,7 @@ def generate_ca(
 
     Args:
         private_key (PrivateKey): Private key
-        validity (int): Certificate validity time (in days)
+        validity (timedelta): Certificate validity time
         common_name (str): Common Name that can be an IP or a Full Qualified Domain Name (FQDN).
         sans_dns (FrozenSet[str]): DNS Subject Alternative Names
         sans_ip (FrozenSet[str]): IP Subject Alternative Names
@@ -945,7 +945,7 @@ def generate_ca(
         .public_key(private_key_object.public_key())
         .serial_number(x509.random_serial_number())
         .not_valid_before(datetime.now(timezone.utc))
-        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=validity))
+        .not_valid_after(datetime.now(timezone.utc) + validity)
         .add_extension(x509.SubjectAlternativeName(set(_sans)), critical=False)
         .add_extension(x509.SubjectKeyIdentifier(digest=subject_identifier), critical=False)
         .add_extension(
@@ -971,7 +971,7 @@ def generate_certificate(
     csr: CertificateSigningRequest,
     ca: Certificate,
     ca_private_key: PrivateKey,
-    validity: int,
+    validity: timedelta,
     is_ca: bool = False,
 ) -> Certificate:
     """Generate a TLS certificate based on a CSR.
@@ -980,7 +980,7 @@ def generate_certificate(
         csr (CertificateSigningRequest): CSR
         ca (Certificate): CA Certificate
         ca_private_key (PrivateKey): CA private key
-        validity (int): Certificate validity (in days)
+        validity (timedelta): Certificate validity time
         is_ca (bool): Whether the certificate is a CA certificate
 
     Returns:
@@ -999,7 +999,7 @@ def generate_certificate(
         .public_key(csr_object.public_key())
         .serial_number(x509.random_serial_number())
         .not_valid_before(datetime.now(timezone.utc))
-        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=validity))
+        .not_valid_after(datetime.now(timezone.utc) + validity)
     )
     extensions = _get_certificate_request_extensions(
         authority_key_identifier=ca_pem.extensions.get_extension_for_class(

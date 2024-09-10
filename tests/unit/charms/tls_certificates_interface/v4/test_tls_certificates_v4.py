@@ -246,7 +246,7 @@ def test_given_ca_certificate_attributes_when_generate_ca_then_ca_is_generated_c
 
     ca_certificate = generate_ca(
         private_key=private_key,
-        validity=365,
+        validity=timedelta(days=365),
         common_name="certifier.example.com",
         sans_dns=frozenset(["certifier.example.com"]),
         sans_ip=frozenset(["1.2.3.4"]),
@@ -287,7 +287,7 @@ def test_given_csr_when_generate_certificate_then_certificate_generated_with_req
     ca_private_key = generate_private_key()
     ca_certificate = generate_ca(
         private_key=ca_private_key,
-        validity=365,
+        validity=timedelta(days=365),
         common_name="certifier.example.com",
         sans_dns=frozenset(["certifier.example.com"]),
     )
@@ -296,7 +296,7 @@ def test_given_csr_when_generate_certificate_then_certificate_generated_with_req
         csr=csr,
         ca=ca_certificate,
         ca_private_key=ca_private_key,
-        validity=200,
+        validity=timedelta(days=200),
         is_ca=False,
     )
 
@@ -324,7 +324,7 @@ def test_given_csr_for_ca_when_generate_certificate_then_certificate_generated_w
     ca_private_key = generate_private_key()
     ca_certificate = generate_ca(
         private_key=ca_private_key,
-        validity=365,
+        validity=timedelta(days=365),
         common_name="certifier.example.com",
         sans_dns=frozenset(["certifier.example.com"]),
     )
@@ -333,7 +333,7 @@ def test_given_csr_for_ca_when_generate_certificate_then_certificate_generated_w
         csr=csr,
         ca=ca_certificate,
         ca_private_key=ca_private_key,
-        validity=200,
+        validity=timedelta(days=200),
         is_ca=True,
     )
 

@@ -70,7 +70,7 @@ def generate_certificate(
     csr: str,
     ca: str,
     ca_key: str,
-    validity: int = 24 * 365,
+    validity: timedelta = timedelta(days=365),
     is_ca: bool = False,
 ) -> str:
     """Generate a TLS certificate based on a CSR.
@@ -79,7 +79,7 @@ def generate_certificate(
         csr (str): CSR
         ca (str): CA Certificate
         ca_key (str): CA private key
-        validity (int): Certificate validity (in hours)
+        validity (timedelta): Certificate validity
         is_ca (bool): Is the certificate a CA certificate
 
     Returns:
@@ -96,12 +96,12 @@ def generate_certificate(
         ]
     )
 
-    if validity > 0:
+    if validity > timedelta(0):
         not_valid_before = datetime.now(timezone.utc)
-        not_valid_after = datetime.now(timezone.utc) + timedelta(hours=validity)
+        not_valid_after = datetime.now(timezone.utc) + validity
     else:
-        not_valid_before = datetime.now(timezone.utc) + timedelta(hours=validity)
-        not_valid_after = datetime.now(timezone.utc) - timedelta(seconds=1)
+        not_valid_before = datetime.now(timezone.utc) + validity
+        not_valid_after = datetime.now(timezone.utc) - validity
     certificate_builder = (
         x509.CertificateBuilder()
         .subject_name(subject)
@@ -126,7 +126,7 @@ def generate_certificate(
 def generate_ca(
     private_key: str,
     common_name: str,
-    validity: int = 365,
+    validity: timedelta = timedelta(days=365),
 ) -> str:
     """Generate a CA Certificate.
 
@@ -158,7 +158,7 @@ def generate_ca(
         .public_key(private_key_object.public_key())  # type: ignore[arg-type]
         .serial_number(x509.random_serial_number())
         .not_valid_before(datetime.now(timezone.utc))
-        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=validity))
+        .not_valid_after(datetime.now(timezone.utc) + validity)
         .add_extension(x509.SubjectKeyIdentifier(digest=subject_identifier), critical=False)
         .add_extension(
             x509.AuthorityKeyIdentifier(
