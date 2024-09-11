@@ -47,7 +47,7 @@ LIBAPI = 4
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 7
+LIBPATCH = 8
 
 PYDEPS = ["cryptography", "pydantic"]
 
@@ -592,9 +592,9 @@ def _get_closest_future_time(
 
 
 def calculate_expiry_notification_time(
-    validity_start_time: datetime,
-    expiry_time: datetime,
-    provider_recommended_notification_time: Optional[int],
+    not_valid_before: datetime,
+    not_valid_after: datetime,
+    provider_recommended_notification_time: Optional[int] = None,
 ) -> datetime:
     """Calculate a reasonable time to notify the user about the certificate expiry.
 
@@ -603,8 +603,8 @@ def calculate_expiry_notification_time(
     then dynamically calculated time.
 
     Args:
-        validity_start_time: Certificate validity time
-        expiry_time: Certificate expiry time
+        not_valid_before: Time when the certificate is valid from.
+        not_valid_after: Time when the certificate is valid until.
         provider_recommended_notification_time:
             Time in hours prior to expiry to notify the user.
             Recommended by the provider.
@@ -614,13 +614,16 @@ def calculate_expiry_notification_time(
     """
     if provider_recommended_notification_time is not None:
         provider_recommended_notification_time = abs(provider_recommended_notification_time)
-        provider_recommendation_time_delta = expiry_time - timedelta(
+        provider_recommendation_time_delta = not_valid_after - timedelta(
             hours=provider_recommended_notification_time
         )
-        if validity_start_time < provider_recommendation_time_delta:
+        if not_valid_before < provider_recommendation_time_delta:
             return provider_recommendation_time_delta
-    calculated_hours = (expiry_time - validity_start_time).total_seconds() / (3600 * 3)
-    return expiry_time - timedelta(hours=calculated_hours)
+    # Divide the time between not_valid_after and not_valid_before by 3
+    # For example, if there are 3 days between not_valid_after and not_valid_before,
+    # the notification time will be 1 day before not_valid_after.
+    calculated_time = (not_valid_after - not_valid_before) / 3
+    return not_valid_after - calculated_time
 
 
 def generate_private_key(
@@ -1414,8 +1417,8 @@ class TLSCertificatesRequiresV4(Object):
             logger.warning("Certificate has no validity start time")
             return None
         expiry_notification_time = calculate_expiry_notification_time(
-            validity_start_time=provider_certificate.certificate.validity_start_time,
-            expiry_time=provider_certificate.certificate.expiry_time,
+            not_valid_before=provider_certificate.certificate.validity_start_time,
+            not_valid_after=provider_certificate.certificate.expiry_time,
             provider_recommended_notification_time=provider_certificate.recommended_expiry_notification_time,
         )
         if not expiry_notification_time:
