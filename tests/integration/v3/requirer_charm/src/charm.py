@@ -28,7 +28,9 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
         self.certificates = TLSCertificatesRequiresV3(
-            self, "certificates", expiry_notification_time=0.1  # type: ignore
+            self,
+            "certificates",
+            expiry_notification_time=0.1,  # type: ignore
         )
         self.framework.observe(self.on.install, self._on_install)
         self.framework.observe(
