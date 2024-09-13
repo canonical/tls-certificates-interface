@@ -7,6 +7,7 @@ Warning: This version of the `tls-certificates` library is deprecated.
 Please use the latest version.
 
 """
+
 import logging
 
 from ops.charm import CharmBase

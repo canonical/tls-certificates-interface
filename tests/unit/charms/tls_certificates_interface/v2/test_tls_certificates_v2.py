@@ -310,9 +310,7 @@ def test_given_alt_names_when_generate_certificate_then_alt_names_are_correctly_
     )
 
     certificate_object = x509.load_pem_x509_certificate(certificate)
-    alt_names = certificate_object.extensions.get_extension_for_class(
-        x509.SubjectAlternativeName
-    )
+    alt_names = certificate_object.extensions.get_extension_for_class(x509.SubjectAlternativeName)
     alt_name_strings = [alt_name.value for alt_name in alt_names.value]
     assert len(alt_name_strings) == 2
     assert alt_name_1 in alt_name_strings
@@ -340,9 +338,7 @@ def test_given_sans_in_csr_and_alt_names_when_generate_certificate_then_alt_name
     certificate = generate_certificate(csr=csr, ca=ca, ca_key=ca_key, alt_names=src_alt_names)
 
     cert = x509.load_pem_x509_certificate(certificate)
-    result_all_sans = cert.extensions.get_extension_for_class(
-        x509.SubjectAlternativeName
-    )
+    result_all_sans = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
     result_sans_dns = sorted(result_all_sans.value.get_values_for_type(x509.DNSName))
 
     assert result_sans_dns == sorted(src_sans_dns + src_alt_names)
