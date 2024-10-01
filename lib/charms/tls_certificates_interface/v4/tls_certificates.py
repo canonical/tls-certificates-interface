@@ -1069,12 +1069,12 @@ class TLSCertificatesRequiresV4(Object):
         secret_label = self._get_csr_secret_label(certificate_signing_request)
         try:
             secret = self.model.get_secret(label=secret_label)
-            current_csr = secret.get_content(refresh=True)["csr"]
-            if current_csr != str(certificate_signing_request):
-                logger.info("No matching CSR found - Skipping")
-                return
         except SecretNotFoundError:
-            logger.info("Failed to get CSR from secret - Skipping renewal")
+            logger.warning("No matching secret found - Skipping renewal")
+            return
+        current_csr = secret.get_content(refresh=True).get("csr", "")
+        if current_csr != str(certificate_signing_request):
+            logger.warning("No matching CSR found - Skipping renewal")
             return
         self._renew_certificate_request(certificate_signing_request)
         secret.remove_all_revisions()
