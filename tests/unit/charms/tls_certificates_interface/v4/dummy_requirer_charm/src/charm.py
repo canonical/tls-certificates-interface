@@ -84,9 +84,8 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         if not certificate:
             event.fail("Not certificates available")
             return
-        csr = str(certificate.certificate_signing_request)
         self.certificates.renew_certificate(
-            csr=csr,
+            certificate=certificate,
         )
 
     def _get_config_common_name(self) -> str:
