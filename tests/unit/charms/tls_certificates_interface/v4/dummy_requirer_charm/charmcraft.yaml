@@ -51,3 +51,5 @@ actions:
     description: Regenerate the private key
   get-certificate:
     description: Get the certificate
+  renew-certificates:
+    description: Renew the certificates
