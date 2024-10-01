@@ -1064,10 +1064,7 @@ class TLSCertificatesRequiresV4(Object):
         event.secret.remove_all_revisions()
 
     def renew_certificate(self, certificate: ProviderCertificate) -> None:
-        """Request the renewal of the certificate matching the given certificate request.
-
-        The requirer can ask for the renewal using a CSR or a certificate.
-        """
+        """Request the renewal of the provided certificate."""
         certificate_signing_request = certificate.certificate_signing_request
         secret_label = self._get_csr_secret_label(certificate_signing_request)
         try:
