@@ -965,3 +965,118 @@ class TestTLSCertificatesRequiresV4:
                 )
             }
         )
+
+    @patch(LIB_DIR + ".CertificateRequest.generate_csr")
+    def test_given_certificate_when_renew_certificate_then_new_certificate_is_requested(
+        self, patch_generate_csr
+    ):
+        private_key = generate_private_key()
+        csr = generate_csr(
+            private_key=private_key,
+            common_name="example.com",
+        )
+        csr_in_sha256_hex = get_sha256_hex(csr)
+        provider_private_key = generate_private_key()
+        provider_ca_certificate = generate_ca(
+            private_key=provider_private_key,
+            common_name="example.com",
+        )
+        certificate = generate_certificate(
+            ca_key=provider_private_key,
+            csr=csr,
+            ca=provider_ca_certificate,
+            validity=datetime.timedelta(hours=1),
+        )
+
+        new_csr = generate_csr(
+            private_key=private_key,
+            common_name="example.com",
+        )
+        assert csr != new_csr
+        patch_generate_csr.return_value = new_csr
+
+        private_key_secret = Secret(
+            {"private-key": private_key},
+            label=f"{LIBID}-private-key-0",
+            owner="unit",
+        )
+
+        certificate_secret = Secret(
+            {
+                "certificate": certificate,
+                "csr": csr,
+            },
+            label=f"{LIBID}-certificate-0-{csr_in_sha256_hex}",
+            owner="unit",
+            expire=datetime.datetime.now() - datetime.timedelta(minutes=1),
+        )
+
+        certificates_relation = scenario.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+            local_unit_data={
+                "certificate_signing_requests": json.dumps(
+                    [
+                        {
+                            "certificate_signing_request": csr,
+                            "ca": False,
+                        }
+                    ]
+                )
+            },
+            remote_app_data={
+                "certificates": json.dumps(
+                    [
+                        {
+                            "certificate": certificate,
+                            "certificate_signing_request": csr,
+                            "ca": provider_ca_certificate,
+                        }
+                    ]
+                ),
+            },
+        )
+
+        state_in = scenario.State(
+            config={"common_name": "example.com"},
+            relations={certificates_relation},
+            secrets={
+                private_key_secret,
+                certificate_secret,
+            },
+        )
+
+        state_out = self.ctx.run(self.ctx.on.action("renew-certificates"), state_in)
+
+        assert state_out.relations == frozenset(
+            {
+                scenario.Relation(
+                    id=certificates_relation.id,
+                    endpoint="certificates",
+                    interface="tls-certificates",
+                    remote_app_name="certificate-requirer",
+                    local_unit_data={
+                        "certificate_signing_requests": json.dumps(
+                            [
+                                {
+                                    "certificate_signing_request": new_csr,
+                                    "ca": False,
+                                }
+                            ]
+                        )
+                    },
+                    remote_app_data={
+                        "certificates": json.dumps(
+                            [
+                                {
+                                    "certificate": certificate,
+                                    "certificate_signing_request": csr,
+                                    "ca": provider_ca_certificate,
+                                }
+                            ]
+                        ),
+                    },
+                )
+            }
+        )
