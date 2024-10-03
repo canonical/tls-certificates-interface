@@ -1006,7 +1006,7 @@ class TLSCertificatesRequiresV4(Object):
             charm (CharmBase): The charm instance to relate to.
             relationship_name (str): The name of the relation that provides the certificates.
             certificate_requests (List[CertificateRequestAttributes]):
-                A list of CertificateRequestAttributes with the attributes of the certificate requests.
+                A list with the attributes of the certificate requests.
             mode (Mode): Whether to use unit or app certificates mode. Default is Mode.UNIT.
             refresh_events (List[BoundEvent]): A list of events to trigger a refresh of
               the certificates.

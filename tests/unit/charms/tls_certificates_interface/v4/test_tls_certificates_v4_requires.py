@@ -966,7 +966,7 @@ class TestTLSCertificatesRequiresV4:
             }
         )
 
-    @patch(LIB_DIR + ".CertificateRequest.generate_csr")
+    @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
     def test_given_certificate_when_renew_certificate_then_new_certificate_is_requested(
         self, patch_generate_csr
     ):
