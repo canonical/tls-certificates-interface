@@ -523,7 +523,7 @@ class ProviderCertificate:
 
 
 @dataclass(frozen=True)
-class RequirerRequest:
+class RequirerCertificateRequest:
     """This class represents a certificate signing request requested by a specific TLS requirer."""
 
     relation_id: int
@@ -1186,7 +1186,7 @@ class TLSCertificatesRequiresV4(Object):
     def _certificate_requested_for_attributes(
         self,
         certificate_request: CertificateRequestAttributes,
-    ) -> Optional[RequirerRequest]:
+    ) -> Optional[RequirerCertificateRequest]:
         for requirer_csr in self.get_csrs_from_requirer_relation_data():
             if certificate_request == CertificateRequestAttributes.from_csr(
                 requirer_csr.certificate_signing_request,
@@ -1195,7 +1195,7 @@ class TLSCertificatesRequiresV4(Object):
                 return requirer_csr
         return None
 
-    def get_csrs_from_requirer_relation_data(self) -> List[RequirerRequest]:
+    def get_csrs_from_requirer_relation_data(self) -> List[RequirerCertificateRequest]:
         """Return list of requirer's CSRs from relation data."""
         if self.mode == Mode.APP and not self.model.unit.is_leader():
             logger.debug("Not a leader unit - Skipping")
@@ -1213,7 +1213,7 @@ class TLSCertificatesRequiresV4(Object):
         requirer_csrs = []
         for csr in requirer_relation_data.certificate_signing_requests:
             requirer_csrs.append(
-                RequirerRequest(
+                RequirerCertificateRequest(
                     relation_id=relation.id,
                     certificate_signing_request=CertificateSigningRequest.from_string(
                         csr.certificate_signing_request
@@ -1309,7 +1309,7 @@ class TLSCertificatesRequiresV4(Object):
         return assigned_certificates, self.private_key
 
     def _find_certificate_in_relation_data(
-        self, csr: RequirerRequest
+        self, csr: RequirerCertificateRequest
     ) -> Optional[ProviderCertificate]:
         """Return the certificate that match the given CSR."""
         for provider_certificate in self.get_provider_certificates():
@@ -1521,10 +1521,12 @@ class TLSCertificatesProvidesV4(Object):
             else self.model.relations.get(self.relationship_name, [])
         )
 
-    def get_certificate_requests(self, relation_id: Optional[int] = None) -> List[RequirerRequest]:
+    def get_certificate_requests(
+        self, relation_id: Optional[int] = None
+    ) -> List[RequirerCertificateRequest]:
         """Load certificate requests from the relation data."""
         relations = self._get_tls_relations(relation_id)
-        requirer_csrs: List[RequirerRequest] = []
+        requirer_csrs: List[RequirerCertificateRequest] = []
         for relation in relations:
             for unit in relation.units:
                 requirer_csrs.extend(self._load_requirer_databag(relation, unit))
@@ -1533,14 +1535,14 @@ class TLSCertificatesProvidesV4(Object):
 
     def _load_requirer_databag(
         self, relation: Relation, unit_or_app: Union[Application, Unit]
-    ) -> List[RequirerRequest]:
+    ) -> List[RequirerCertificateRequest]:
         try:
             requirer_relation_data = _RequirerData.load(relation.data[unit_or_app])
         except DataValidationError:
             logger.debug("Invalid requirer relation data for %s", unit_or_app.name)
             return []
         return [
-            RequirerRequest(
+            RequirerCertificateRequest(
                 relation_id=relation.id,
                 certificate_signing_request=CertificateSigningRequest.from_string(
                     csr.certificate_signing_request
@@ -1693,17 +1695,17 @@ class TLSCertificatesProvidesV4(Object):
 
     def get_outstanding_certificate_requests(
         self, relation_id: Optional[int] = None
-    ) -> List[RequirerRequest]:
+    ) -> List[RequirerCertificateRequest]:
         """Return CSR's for which no certificate has been issued.
 
         Args:
             relation_id (int): Relation id
 
         Returns:
-            list: List of RequirerRequest objects.
+            list: List of RequirerCertificateRequest objects.
         """
         requirer_csrs = self.get_certificate_requests(relation_id=relation_id)
-        outstanding_csrs: List[RequirerRequest] = []
+        outstanding_csrs: List[RequirerCertificateRequest] = []
         for relation_csr in requirer_csrs:
             if not self._certificate_issued_for_csr(
                 csr=relation_csr.certificate_signing_request,
