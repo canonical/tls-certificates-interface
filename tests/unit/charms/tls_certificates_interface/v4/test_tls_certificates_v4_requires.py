@@ -87,7 +87,7 @@ class TestTLSCertificatesRequiresV4:
 
         assert self.private_key_secret_exists(state_out.secrets)
 
-    @patch(LIB_DIR + ".CertificateRequest.generate_csr")
+    @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
     def test_given_certificate_requested_when_relation_joined_then_certificate_request_is_added_to_databag(  # noqa: E501
         self, patch_generate_csr
     ):
@@ -140,7 +140,7 @@ class TestTLSCertificatesRequiresV4:
             }
         )
 
-    @patch(LIB_DIR + ".CertificateRequest.generate_csr")
+    @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
     def test_given_ca_certificate_requested_when_relation_joined_then_certificate_request_is_added_to_databag(  # noqa: E501
         self, patch_generate_csr
     ):
@@ -415,7 +415,7 @@ class TestTLSCertificatesRequiresV4:
             }
         )
 
-    @patch(LIB_DIR + ".CertificateRequest.generate_csr")
+    @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
     def test_given_private_key_does_not_match_with_certificate_requests_when_relation_changed_then_certificate_request_is_replaced_in_databag(  # noqa: E501
         self, patch_generate_csr
     ):
@@ -484,7 +484,7 @@ class TestTLSCertificatesRequiresV4:
             }
         )
 
-    @patch(LIB_DIR + ".CertificateRequest.generate_csr")
+    @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
     def test_given_certificate_request_changed_when_relation_changed_then_new_certificate_is_requested(  # noqa: E501
         self, patch_generate_csr
     ):
@@ -849,7 +849,7 @@ class TestTLSCertificatesRequiresV4:
             "csr": csr,
         }
 
-    @patch(LIB_DIR + ".CertificateRequest.generate_csr")
+    @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
     def test_given_certificate_when_certificate_secret_expires_then_new_certificate_is_requested(  # noqa: E501
         self, patch_generate_csr
     ):
@@ -966,7 +966,7 @@ class TestTLSCertificatesRequiresV4:
             }
         )
 
-    @patch(LIB_DIR + ".CertificateRequest.generate_csr")
+    @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
     def test_given_certificate_when_renew_certificate_then_new_certificate_is_requested(
         self, patch_generate_csr
     ):

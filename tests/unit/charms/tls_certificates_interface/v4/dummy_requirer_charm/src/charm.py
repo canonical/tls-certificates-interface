@@ -8,7 +8,7 @@ from ops.main import main
 
 from lib.charms.tls_certificates_interface.v4.tls_certificates import (
     CertificateAvailableEvent,
-    CertificateRequest,
+    CertificateRequestAttributes,
     Mode,
     TLSCertificatesRequiresV4,
 )
@@ -36,11 +36,11 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
             self.on.renew_certificates_action, self._on_renew_certificates_action
         )
 
-    def _get_certificate_requests(self) -> List[CertificateRequest]:
+    def _get_certificate_requests(self) -> List[CertificateRequestAttributes]:
         if not self._get_config_common_name():
             return []
         return [
-            CertificateRequest(
+            CertificateRequestAttributes(
                 common_name=self._get_config_common_name(),
                 sans_dns=self._get_config_sans_dns(),
                 organization=self._get_config_organization_name(),

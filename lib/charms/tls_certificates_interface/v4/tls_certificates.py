@@ -47,7 +47,7 @@ LIBAPI = 4
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 9
+LIBPATCH = 10
 
 PYDEPS = ["cryptography", "pydantic"]
 
@@ -424,8 +424,8 @@ class CertificateSigningRequest:
 
 
 @dataclass(frozen=True)
-class CertificateRequest:
-    """This class represents a certificate request.
+class CertificateRequestAttributes:
+    """A representation of the certificate request attributes.
 
     This class should be used inside the requirer charm to specify the requested
     attributes for the certificate.
@@ -477,7 +477,7 @@ class CertificateRequest:
 
     @classmethod
     def from_csr(cls, csr: CertificateSigningRequest, is_ca: bool):
-        """Create a CertificateRequest object from a CSR."""
+        """Create a CertificateRequestAttributes object from a CSR."""
         return cls(
             common_name=csr.common_name,
             sans_dns=csr.sans_dns,
@@ -523,8 +523,8 @@ class ProviderCertificate:
 
 
 @dataclass(frozen=True)
-class RequirerCSR:
-    """This class represents a certificate signing request requested by the TLS requirer."""
+class RequirerCertificateRequest:
+    """This class represents a certificate signing request requested by a specific TLS requirer."""
 
     relation_id: int
     certificate_signing_request: CertificateSigningRequest
@@ -996,7 +996,7 @@ class TLSCertificatesRequiresV4(Object):
         self,
         charm: CharmBase,
         relationship_name: str,
-        certificate_requests: List[CertificateRequest],
+        certificate_requests: List[CertificateRequestAttributes],
         mode: Mode = Mode.UNIT,
         refresh_events: List[BoundEvent] = [],
     ):
@@ -1005,7 +1005,8 @@ class TLSCertificatesRequiresV4(Object):
         Args:
             charm (CharmBase): The charm instance to relate to.
             relationship_name (str): The name of the relation that provides the certificates.
-            certificate_requests (List[CertificateRequest]): A list of certificate requests.
+            certificate_requests (List[CertificateRequestAttributes]):
+                A list with the attributes of the certificate requests.
             mode (Mode): Whether to use unit or app certificates mode. Default is Mode.UNIT.
             refresh_events (List[BoundEvent]): A list of events to trigger a refresh of
               the certificates.
@@ -1165,14 +1166,14 @@ class TLSCertificatesRequiresV4(Object):
         self, certificate_signing_request: CertificateSigningRequest, is_ca: bool
     ) -> bool:
         for certificate_request in self.certificate_requests:
-            if certificate_request == CertificateRequest.from_csr(
+            if certificate_request == CertificateRequestAttributes.from_csr(
                 certificate_signing_request,
                 is_ca,
             ):
                 return True
         return False
 
-    def _certificate_requested(self, certificate_request: CertificateRequest) -> bool:
+    def _certificate_requested(self, certificate_request: CertificateRequestAttributes) -> bool:
         if not self.private_key:
             return False
         csr = self._certificate_requested_for_attributes(certificate_request)
@@ -1184,17 +1185,17 @@ class TLSCertificatesRequiresV4(Object):
 
     def _certificate_requested_for_attributes(
         self,
-        certificate_request: CertificateRequest,
-    ) -> Optional[RequirerCSR]:
+        certificate_request: CertificateRequestAttributes,
+    ) -> Optional[RequirerCertificateRequest]:
         for requirer_csr in self.get_csrs_from_requirer_relation_data():
-            if certificate_request == CertificateRequest.from_csr(
+            if certificate_request == CertificateRequestAttributes.from_csr(
                 requirer_csr.certificate_signing_request,
                 requirer_csr.is_ca,
             ):
                 return requirer_csr
         return None
 
-    def get_csrs_from_requirer_relation_data(self) -> List[RequirerCSR]:
+    def get_csrs_from_requirer_relation_data(self) -> List[RequirerCertificateRequest]:
         """Return list of requirer's CSRs from relation data."""
         if self.mode == Mode.APP and not self.model.unit.is_leader():
             logger.debug("Not a leader unit - Skipping")
@@ -1212,7 +1213,7 @@ class TLSCertificatesRequiresV4(Object):
         requirer_csrs = []
         for csr in requirer_relation_data.certificate_signing_requests:
             requirer_csrs.append(
-                RequirerCSR(
+                RequirerCertificateRequest(
                     relation_id=relation.id,
                     certificate_signing_request=CertificateSigningRequest.from_string(
                         csr.certificate_signing_request
@@ -1288,11 +1289,11 @@ class TLSCertificatesRequiresV4(Object):
                 self._request_certificate(csr=csr, is_ca=certificate_request.is_ca)
 
     def get_assigned_certificate(
-        self, certificate_request: CertificateRequest
+        self, certificate_request: CertificateRequestAttributes
     ) -> Tuple[ProviderCertificate | None, PrivateKey | None]:
         """Get the certificate that was assigned to the given certificate request."""
         for requirer_csr in self.get_csrs_from_requirer_relation_data():
-            if certificate_request == CertificateRequest.from_csr(
+            if certificate_request == CertificateRequestAttributes.from_csr(
                 requirer_csr.certificate_signing_request,
                 requirer_csr.is_ca,
             ):
@@ -1308,7 +1309,7 @@ class TLSCertificatesRequiresV4(Object):
         return assigned_certificates, self.private_key
 
     def _find_certificate_in_relation_data(
-        self, csr: RequirerCSR
+        self, csr: RequirerCertificateRequest
     ) -> Optional[ProviderCertificate]:
         """Return the certificate that match the given CSR."""
         for provider_certificate in self.get_provider_certificates():
@@ -1520,10 +1521,12 @@ class TLSCertificatesProvidesV4(Object):
             else self.model.relations.get(self.relationship_name, [])
         )
 
-    def get_certificate_requests(self, relation_id: Optional[int] = None) -> List[RequirerCSR]:
+    def get_certificate_requests(
+        self, relation_id: Optional[int] = None
+    ) -> List[RequirerCertificateRequest]:
         """Load certificate requests from the relation data."""
         relations = self._get_tls_relations(relation_id)
-        requirer_csrs: List[RequirerCSR] = []
+        requirer_csrs: List[RequirerCertificateRequest] = []
         for relation in relations:
             for unit in relation.units:
                 requirer_csrs.extend(self._load_requirer_databag(relation, unit))
@@ -1532,14 +1535,14 @@ class TLSCertificatesProvidesV4(Object):
 
     def _load_requirer_databag(
         self, relation: Relation, unit_or_app: Union[Application, Unit]
-    ) -> List[RequirerCSR]:
+    ) -> List[RequirerCertificateRequest]:
         try:
             requirer_relation_data = _RequirerData.load(relation.data[unit_or_app])
         except DataValidationError:
             logger.debug("Invalid requirer relation data for %s", unit_or_app.name)
             return []
         return [
-            RequirerCSR(
+            RequirerCertificateRequest(
                 relation_id=relation.id,
                 certificate_signing_request=CertificateSigningRequest.from_string(
                     csr.certificate_signing_request
@@ -1692,17 +1695,17 @@ class TLSCertificatesProvidesV4(Object):
 
     def get_outstanding_certificate_requests(
         self, relation_id: Optional[int] = None
-    ) -> List[RequirerCSR]:
+    ) -> List[RequirerCertificateRequest]:
         """Return CSR's for which no certificate has been issued.
 
         Args:
             relation_id (int): Relation id
 
         Returns:
-            list: List of RequirerCSR objects.
+            list: List of RequirerCertificateRequest objects.
         """
         requirer_csrs = self.get_certificate_requests(relation_id=relation_id)
-        outstanding_csrs: List[RequirerCSR] = []
+        outstanding_csrs: List[RequirerCertificateRequest] = []
         for relation_csr in requirer_csrs:
             if not self._certificate_issued_for_csr(
                 csr=relation_csr.certificate_signing_request,

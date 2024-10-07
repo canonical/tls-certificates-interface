@@ -5,7 +5,7 @@
 from typing import FrozenSet, Optional, cast
 
 from charms.tls_certificates_interface.v4.tls_certificates import (
-    CertificateRequest,
+    CertificateRequestAttributes,
     Mode,
     TLSCertificatesRequiresV4,
 )
@@ -63,8 +63,8 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         except KeyError:
             return False
 
-    def _get_certificate_request(self) -> CertificateRequest:
-        return CertificateRequest(
+    def _get_certificate_request(self) -> CertificateRequestAttributes:
+        return CertificateRequestAttributes(
             common_name=self._get_config_common_name(),
             sans_dns=self._get_config_sans_dns(),
             organization=self._get_config_organization_name(),
