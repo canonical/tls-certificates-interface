@@ -1,12 +1,17 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-"""Charm library for managing TLS certificates (V4) - BETA.
+"""Charm library for managing TLS certificates (V4).
 
-> Warning: This is a beta version of the tls-certificates interface library.
-> Use at your own risk.
+This library contains the Requires and Provides classes for handling the tls-certificates
+interface.
 
-Learn how-to use the TLS Certificates interface library by reading the documentation:
+Pre-requisites:
+  - Juju >= 3.0
+  - cryptography >= 43.0.0
+  - pydantic
+
+Learn more on how-to use the TLS Certificates interface library by reading the documentation:
 - https://charmhub.io/tls-certificates-interface/
 
 """  # noqa: D214, D405, D411, D416
@@ -47,7 +52,7 @@ LIBAPI = 4
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 10
+LIBPATCH = 0
 
 PYDEPS = ["cryptography", "pydantic"]
 
@@ -138,7 +143,6 @@ class _Certificate(BaseModel):
     certificate_signing_request: str
     certificate: str
     chain: Optional[List[str]] = None
-    recommended_expiry_notification_time: Optional[int] = None
     revoked: Optional[bool] = None
 
     def to_provider_certificate(self, relation_id: int) -> "ProviderCertificate":
@@ -153,7 +157,6 @@ class _Certificate(BaseModel):
             chain=[Certificate.from_string(certificate) for certificate in self.chain]
             if self.chain
             else [],
-            recommended_expiry_notification_time=self.recommended_expiry_notification_time,
             revoked=self.revoked,
         )
 
@@ -215,6 +218,8 @@ class Certificate:
 
     raw: str
     common_name: str
+    expiry_time: datetime
+    validity_start_time: datetime
     is_ca: bool = False
     sans_dns: Optional[FrozenSet[str]] = frozenset()
     sans_ip: Optional[FrozenSet[str]] = frozenset()
@@ -225,8 +230,6 @@ class Certificate:
     country_name: Optional[str] = None
     state_or_province_name: Optional[str] = None
     locality_name: Optional[str] = None
-    expiry_time: Optional[datetime] = None
-    validity_start_time: Optional[datetime] = None
 
     def __str__(self) -> str:
         """Return the certificate as a string."""
@@ -502,7 +505,6 @@ class ProviderCertificate:
     certificate_signing_request: CertificateSigningRequest
     ca: Certificate
     chain: List[Certificate]
-    recommended_expiry_notification_time: Optional[int] = None
     revoked: Optional[bool] = None
 
     def to_json(self) -> str:
@@ -570,60 +572,6 @@ class CertificateAvailableEvent(EventBase):
     def chain_as_pem(self) -> str:
         """Return full certificate chain as a PEM string."""
         return "\n\n".join([str(cert) for cert in self.chain])
-
-
-def _get_closest_future_time(
-    expiry_notification_time: datetime, expiry_time: datetime
-) -> datetime:
-    """Return expiry_notification_time if not in the past, otherwise return expiry_time.
-
-    Args:
-        expiry_notification_time (datetime): Notification time of impending expiration
-        expiry_time (datetime): Expiration time
-
-    Returns:
-        datetime: expiry_notification_time if not in the past, expiry_time otherwise
-    """
-    return (
-        expiry_notification_time
-        if datetime.now(timezone.utc) < expiry_notification_time
-        else expiry_time
-    )
-
-
-def calculate_expiry_notification_time(
-    not_valid_before: datetime,
-    not_valid_after: datetime,
-    provider_recommended_notification_time: Optional[int] = None,
-) -> datetime:
-    """Calculate a reasonable time to notify the user about the certificate expiry.
-
-    It takes into account the time recommended by the provider.
-    Time recommended by the provider is preferred,
-    then dynamically calculated time.
-
-    Args:
-        not_valid_before: Time when the certificate is valid from.
-        not_valid_after: Time when the certificate is valid until.
-        provider_recommended_notification_time:
-            Time in hours prior to expiry to notify the user.
-            Recommended by the provider.
-
-    Returns:
-        datetime: Time to notify the user about the certificate expiry.
-    """
-    if provider_recommended_notification_time is not None:
-        provider_recommended_notification_time = abs(provider_recommended_notification_time)
-        provider_recommendation_time_delta = not_valid_after - timedelta(
-            hours=provider_recommended_notification_time
-        )
-        if not_valid_before < provider_recommendation_time_delta:
-            return provider_recommendation_time_delta
-    # Divide the time between not_valid_after and not_valid_before by 3
-    # For example, if there are 3 days between not_valid_after and not_valid_before,
-    # the notification time will be 1 day before not_valid_after.
-    calculated_time = (not_valid_after - not_valid_before) / 3
-    return not_valid_after - calculated_time
 
 
 def generate_private_key(
@@ -1360,7 +1308,7 @@ class TLSCertificatesRequiresV4(Object):
                             }
                         )
                         secret.set_info(
-                            expire=self._get_next_secret_expiry_time(provider_certificate),
+                            expire=provider_certificate.certificate.expiry_time,
                         )
                     except SecretNotFoundError:
                         logger.debug("Creating new secret with label %s", secret_label)
@@ -1370,7 +1318,7 @@ class TLSCertificatesRequiresV4(Object):
                                 "csr": str(provider_certificate.certificate_signing_request),
                             },
                             label=secret_label,
-                            expire=self._get_next_secret_expiry_time(provider_certificate),
+                            expire=provider_certificate.certificate.expiry_time,
                         )
                     self.on.certificate_available.emit(
                         certificate_signing_request=provider_certificate.certificate_signing_request,
@@ -1410,41 +1358,6 @@ class TLSCertificatesRequiresV4(Object):
                 logger.info(
                     "Removed CSR from relation data because it did not match the private key"  # noqa: E501
                 )
-
-    def _get_next_secret_expiry_time(
-        self, provider_certificate: ProviderCertificate
-    ) -> Optional[datetime]:
-        """Return the expiry time or expiry notification time.
-
-        Extracts the expiry time from the provided certificate, calculates the
-        expiry notification time and return the closest of the two, that is in
-        the future.
-
-        Args:
-            provider_certificate: ProviderCertificate object
-
-        Returns:
-            Optional[datetime]: None if the certificate expiry time cannot be read,
-                                next expiry time otherwise.
-        """
-        if not provider_certificate.certificate.expiry_time:
-            logger.warning("Certificate has no expiry time")
-            return None
-        if not provider_certificate.certificate.validity_start_time:
-            logger.warning("Certificate has no validity start time")
-            return None
-        expiry_notification_time = calculate_expiry_notification_time(
-            not_valid_before=provider_certificate.certificate.validity_start_time,
-            not_valid_after=provider_certificate.certificate.expiry_time,
-            provider_recommended_notification_time=provider_certificate.recommended_expiry_notification_time,
-        )
-        if not expiry_notification_time:
-            logger.warning("Could not calculate expiry notification time")
-            return None
-        return _get_closest_future_time(
-            expiry_notification_time,
-            provider_certificate.certificate.expiry_time,
-        )
 
     def _tls_relation_created(self) -> bool:
         relation = self.model.get_relation(self.relationship_name)
@@ -1562,7 +1475,6 @@ class TLSCertificatesProvidesV4(Object):
             certificate_signing_request=str(provider_certificate.certificate_signing_request),
             ca=str(provider_certificate.ca),
             chain=[str(certificate) for certificate in provider_certificate.chain],
-            recommended_expiry_notification_time=provider_certificate.recommended_expiry_notification_time,
         )
         provider_certificates = self._load_provider_certificates(relation)
         if new_certificate in provider_certificates:
