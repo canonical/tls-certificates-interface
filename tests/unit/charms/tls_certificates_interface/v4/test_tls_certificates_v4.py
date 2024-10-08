@@ -18,9 +18,6 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, pkcs12
 
-from lib.charms.tls_certificates_interface.v4.tls_certificates import (
-    calculate_expiry_notification_time,
-)
 from tests.unit.charms.tls_certificates_interface.v4.certificates import (
     generate_private_key as generate_private_key_helper,
 )
@@ -84,86 +81,6 @@ def test_given_key_size_provided_when_generate_private_key_then_private_key_is_g
     )
     assert isinstance(private_key_object, rsa.RSAPrivateKeyWithSerialization)
     assert private_key_object.key_size == key_size
-
-
-# calculate expiry notification time
-
-
-def test_given_provider_recommended_notification_time_when_calculate_expiry_notification_time_then_returns_provider_recommendation():  # noqa: E501
-    not_valid_after = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
-    not_valid_before_in_hours = 240
-    not_valid_before = not_valid_after - timedelta(hours=not_valid_before_in_hours)
-    provider_recommended_notification_time = 24
-    expected_notification_time = not_valid_after - timedelta(
-        hours=provider_recommended_notification_time
-    )
-    notification_time = calculate_expiry_notification_time(
-        not_valid_after=not_valid_after,
-        not_valid_before=not_valid_before,
-        provider_recommended_notification_time=provider_recommended_notification_time,
-    )
-    assert notification_time == expected_notification_time
-
-
-def test_given_negative_provider_recommended_notification_time_when_calculate_expiry_notification_time_then_returns_provider_recommendation():  # noqa: E501
-    not_valid_after = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
-    not_valid_before_in_hours = 240
-    not_valid_before = not_valid_after - timedelta(hours=not_valid_before_in_hours)
-    negative_provider_recommended_notification_time = 24
-    expected_notification_time = not_valid_after - timedelta(
-        hours=abs(negative_provider_recommended_notification_time)
-    )
-    notification_time = calculate_expiry_notification_time(
-        not_valid_after=not_valid_after,
-        not_valid_before=not_valid_before,
-        provider_recommended_notification_time=negative_provider_recommended_notification_time,
-    )
-    assert notification_time == expected_notification_time
-
-
-def test_given_requirer_and_provider_recommendations_are_invalid_when_calculate_expiry_notification_time_then_returns_calculated_notification_time():  # noqa: E501
-    not_valid_after = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
-    not_valid_before_in_hours = 240
-    not_valid_before = not_valid_after - timedelta(hours=not_valid_before_in_hours)
-    provider_recommended_notification_time = None
-    calculated_hours = 80
-    expected_notification_time = not_valid_after - timedelta(hours=calculated_hours)
-    notification_time = calculate_expiry_notification_time(
-        not_valid_after=not_valid_after,
-        not_valid_before=not_valid_before,
-        provider_recommended_notification_time=provider_recommended_notification_time,
-    )
-    assert notification_time == expected_notification_time
-
-
-def test_given_negative_requirer_and_provider_recommendations_are_invalid_when_calculate_expiry_notification_time_then_returns_calculated_notification_time():  # noqa: E501
-    not_valid_after = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
-    not_valid_before_in_hours = 240
-    not_valid_before = not_valid_after - timedelta(hours=not_valid_before_in_hours)
-    provider_recommended_notification_time = None
-    calculated_hours = 80
-    expected_notification_time = not_valid_after - timedelta(hours=calculated_hours)
-    notification_time = calculate_expiry_notification_time(
-        not_valid_after=not_valid_after,
-        not_valid_before=not_valid_before,
-        provider_recommended_notification_time=provider_recommended_notification_time,
-    )
-    assert notification_time == expected_notification_time
-
-
-def test_given_validity_time_is_too_short_when_calculate_expiry_notification_time_then_returns_calculated_notification_time():  # noqa: E501
-    not_valid_after = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
-    not_valid_before_in_hours = 3
-    not_valid_before = not_valid_after - timedelta(hours=not_valid_before_in_hours)
-    provider_recommended_notification_time = 24
-    calculated_hours = 1
-    expected_notification_time = not_valid_after - timedelta(hours=calculated_hours)
-    notification_time = calculate_expiry_notification_time(
-        not_valid_after=not_valid_after,
-        not_valid_before=not_valid_before,
-        provider_recommended_notification_time=provider_recommended_notification_time,
-    )
-    assert notification_time == expected_notification_time
 
 
 # Generate CSR
