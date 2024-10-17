@@ -1907,9 +1907,10 @@ class TLSCertificatesRequiresV3(Object):
                             "Setting secret with label %s", f"{LIBID}-{csr_in_sha256_hex}"
                         )
                         # Juju < 3.6 will create a new revision even if the content is the same
-                        if secret.get_content(
-                            refresh=True
-                        ).get("certificate", "") == certificate.certificate:
+                        if (
+                            secret.get_content(refresh=True).get("certificate", "")
+                            == certificate.certificate
+                        ):
                             logger.debug(
                                 "Secret %s with correct certificate already exists",
                                 f"{LIBID}-{csr_in_sha256_hex}",
