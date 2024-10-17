@@ -942,6 +942,58 @@ class TestTLSCertificatesRequiresV3(unittest.TestCase):
         assert secret.get_info().expires == expiry_time - timedelta(hours=168)
 
     @patch("cryptography.x509.load_pem_x509_certificate")
+    @patch(f"{BASE_CHARM_DIR}._on_certificate_available")
+    def test_given_certificate_secret_exists_and_certificate_unchanged_when_relation_changed_then_certificate_secret_is_not_updated(  # noqa: E501
+        self, patch_on_certificate_available, patch_load_pem_x509_certificate
+    ):
+        relation_id = self.create_certificates_relation()
+        ca_certificate = "whatever certificate"
+        chain = ["certificate 1", "certiicate 2", "certificate 3"]
+        csr = "whatever csr"
+        certificate = "whatever certificate"
+        unit_relation_data = {
+            "certificate_signing_requests": json.dumps([{"certificate_signing_request": csr}])
+        }
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values=unit_relation_data,
+        )
+        remote_app_relation_data = {
+            "certificates": json.dumps(
+                [
+                    {
+                        "ca": ca_certificate,
+                        "chain": chain,
+                        "certificate_signing_request": csr,
+                        "certificate": certificate,
+                    }
+                ]
+            )
+        }
+        secret_id = self.harness.add_model_secret(
+            owner=self.harness.model.unit.name, content={"certificate": certificate}
+        )
+        secret = self.harness.model.get_secret(id=secret_id)
+        secret.set_info(label=f"{LIBID}-{csr}")
+        start_time = datetime.combine(datetime.today(), datetime.min.time(), tzinfo=timezone.utc)
+        expiry_time = start_time + timedelta(days=30)
+        patch_load_pem_x509_certificate.return_value = self.setup_mock_certificate_object(
+            expiry_time=expiry_time,
+            start_time=start_time,
+        )
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.remote_app,
+            key_values=remote_app_relation_data,
+        )
+
+        csr_sha256_hex = get_sha256_hex(csr)
+        secret = self.harness.model.get_secret(label=f"{LIBID}-{csr_sha256_hex}")
+        assert secret.get_content(refresh=True)["certificate"] == certificate
+        assert secret.get_info().revision == 1
+
+    @patch("cryptography.x509.load_pem_x509_certificate")
     def test_given_certificates_available_when_get_assigned_certificates_then_unit_certificates_returned_only(  # noqa: E501
         self, patch_load_pem_x509_certificate
     ):
