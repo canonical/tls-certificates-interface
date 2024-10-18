@@ -318,7 +318,7 @@ LIBAPI = 3
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 21
+LIBPATCH = 22
 
 PYDEPS = ["cryptography", "jsonschema"]
 
@@ -2041,7 +2041,7 @@ class TLSCertificatesRequiresV3(Object):
             return provider_certificate
         return None
 
-    def _get_csr_from_secret(self, secret: Secret) -> str | None:
+    def _get_csr_from_secret(self, secret: Secret) -> Union[str, None]:
         """Extract the CSR from the secret label or content.
 
         This function is a workaround to maintain backwards compatibility
