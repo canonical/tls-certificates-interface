@@ -24,7 +24,7 @@ codespell==2.3.0
     # via -r test-requirements.in
 coverage[toml]==7.6.8
     # via -r test-requirements.in
-cryptography==43.0.3
+cryptography==44.0.0
     # via
     #   -r test-requirements.in
     #   paramiko
@@ -68,7 +68,7 @@ oauthlib==3.2.2
     # via
     #   kubernetes
     #   requests-oauthlib
-ops==2.17.0
+ops==2.17.1
     # via ops-scenario
 ops-scenario==7.0.5
     # via -r test-requirements.in
@@ -116,7 +116,7 @@ pyrfc3339==1.1
     #   macaroonbakery
 pyright==1.1.389
     # via -r test-requirements.in
-pytest==8.3.3
+pytest==8.3.4
     # via
     #   -r test-requirements.in
     #   pytest-asyncio
@@ -148,7 +148,7 @@ requests-oauthlib==2.0.0
     # via kubernetes
 rsa==4.9
     # via google-auth
-ruff==0.8.0
+ruff==0.8.1
     # via -r test-requirements.in
 six==1.16.0
     # via

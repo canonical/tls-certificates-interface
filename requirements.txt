@@ -12,17 +12,17 @@ attrs==23.2.0
     #   referencing
 cffi==1.16.0
     # via cryptography
-cryptography==43.0.3
+cryptography==44.0.0
     # via -r requirements.in
 jsonschema==4.23.0
     # via -r requirements.in
 jsonschema-specifications==2023.12.1
     # via jsonschema
-ops==2.17.0
+ops==2.17.1
     # via -r requirements.in
 pycparser==2.22
     # via cffi
-pydantic==2.10.1
+pydantic==2.10.2
     # via -r requirements.in
 pydantic-core==2.27.1
     # via pydantic
