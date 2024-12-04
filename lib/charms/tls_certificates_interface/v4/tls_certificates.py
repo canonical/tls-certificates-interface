@@ -48,11 +48,11 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 LIBID = "afd8c2bccf834997afce12c2706d2ede"
 
 # Increment this major API version when introducing breaking changes
-LIBAPI = 5
+LIBAPI = 4
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 1
+LIBPATCH = 2
 
 PYDEPS = ["cryptography", "pydantic"]
 
