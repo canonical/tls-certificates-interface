@@ -9,8 +9,8 @@ on:
       - main
 
 concurrency:
-    group: ${{ github.ref == 'refs/heads/main' && format('ignore-main-{0}', github.run_id) || format('{0}-{1}', github.workflow, github.ref_name) }}
-    cancel-in-progress: true
+  group: ${{ github.ref == 'refs/heads/main' && format('ignore-main-{0}', github.run_id) || format('{0}-{1}', github.workflow, github.ref_name) }}
+  cancel-in-progress: true
 
 jobs:
   lint-report:
@@ -42,7 +42,7 @@ jobs:
         run: pip install tox
       - name: Run tests using tox
         run: tox -e unit
-  
+
   build:
     name: Build charm
     runs-on: ubuntu-22.04
@@ -56,7 +56,7 @@ jobs:
       - name: Setup LXD
         uses: canonical/setup-lxd@main
         with:
-          channel: 5.0/stable
+          channel: 5.21/stable
       - name: Install charmcraft
         run: sudo snap install charmcraft --classic
       - name: Build charm
