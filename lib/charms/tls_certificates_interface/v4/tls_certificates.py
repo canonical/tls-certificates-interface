@@ -190,6 +190,9 @@ class Mode(Enum):
         Each unit will have its own private key and certificate.
     APP: Request a certificate for the application.
         The private key and certificate will be shared by all units.
+    APP_AND_UNIT: Request certificates for the application and the unit.
+        Each unit will have its own private key and certificate, but the application
+        will have a shared private key and certificate.
     """
 
     UNIT = 1
