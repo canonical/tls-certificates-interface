@@ -726,8 +726,13 @@ class TestTLSCertificatesRequiresV4:
             label=f"{LIBID}-private-key-0",
             owner="unit",
         )
-        bad_private_key = generate_private_key()
+
         csr = generate_csr(
+            private_key=private_key,
+            common_name="example.com",
+        )
+        bad_private_key = generate_private_key()
+        bad_csr = generate_csr(
             private_key=bad_private_key,
             common_name="example.com",
         )
@@ -736,9 +741,9 @@ class TestTLSCertificatesRequiresV4:
             private_key=provider_private_key,
             common_name="example.com",
         )
-        certificate = generate_certificate(
+        bad_certificate = generate_certificate(
             ca_key=provider_private_key,
-            csr=csr,
+            csr=bad_csr,
             ca=provider_ca_certificate,
         )
         certificates_relation = scenario.Relation(
@@ -759,7 +764,7 @@ class TestTLSCertificatesRequiresV4:
                 "certificates": json.dumps(
                     [
                         {
-                            "certificate": certificate,
+                            "certificate": bad_certificate,
                             "certificate_signing_request": csr,
                             "ca": provider_ca_certificate,
                         }
