@@ -7,12 +7,12 @@ from pathlib import Path
 from typing import Iterable
 from unittest.mock import patch
 
+import ops
 import pytest
 import scenario
 import yaml
 from cryptography.hazmat.primitives import hashes
 from scenario import Secret
-import ops
 
 from lib.charms.tls_certificates_interface.v4.tls_certificates import (
     Certificate,
@@ -774,7 +774,7 @@ class TestTLSCertificatesRequiresV4:
             secrets={private_key_secret},
         )
 
-        with pytest.raises(ops._private.harness.ActionFailed):
+        with pytest.raises(ops._private.harness.ActionFailed):  # type: ignore[reportAttributeAccessIssue]
             self.ctx.run(self.ctx.on.action("get-certificate"), state_in)
 
     def test_given_certificate_is_provided_when_relation_changed_then_certificate_secret_is_created(  # noqa: E501
