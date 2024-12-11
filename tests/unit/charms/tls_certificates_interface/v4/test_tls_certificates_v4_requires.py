@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Iterable
 from unittest.mock import patch
 
+import ops
 import pytest
 import scenario
 import yaml
@@ -656,6 +657,11 @@ class TestTLSCertificatesRequiresV4:
 
     def test_given_certificate_is_provided_when_get_certificate_then_certificate_is_returned(self):
         private_key = generate_private_key()
+        private_key_secret = Secret(
+            {"private-key": private_key},
+            label=f"{LIBID}-private-key-0",
+            owner="unit",
+        )
         csr = generate_csr(
             private_key=private_key,
             common_name="example.com",
@@ -700,6 +706,7 @@ class TestTLSCertificatesRequiresV4:
         state_in = scenario.State(
             relations={certificates_relation},
             config={"common_name": "example.com"},
+            secrets={private_key_secret},
         )
 
         self.ctx.run(self.ctx.on.action("get-certificate"), state_in)
@@ -709,6 +716,71 @@ class TestTLSCertificatesRequiresV4:
             "ca": provider_ca_certificate,
             "csr": csr,
         }
+
+    def test_given_provided_certificate_does_not_match_private_key_when_get_certificate_then_certificate_is_not_returned(  # noqa: E501
+        self,
+    ):
+        private_key = generate_private_key()
+        private_key_secret = Secret(
+            {"private-key": private_key},
+            label=f"{LIBID}-private-key-0",
+            owner="unit",
+        )
+
+        csr = generate_csr(
+            private_key=private_key,
+            common_name="example.com",
+        )
+        bad_private_key = generate_private_key()
+        bad_csr = generate_csr(
+            private_key=bad_private_key,
+            common_name="example.com",
+        )
+        provider_private_key = generate_private_key()
+        provider_ca_certificate = generate_ca(
+            private_key=provider_private_key,
+            common_name="example.com",
+        )
+        bad_certificate = generate_certificate(
+            ca_key=provider_private_key,
+            csr=bad_csr,
+            ca=provider_ca_certificate,
+        )
+        certificates_relation = scenario.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+            local_unit_data={
+                "certificate_signing_requests": json.dumps(
+                    [
+                        {
+                            "certificate_signing_request": csr,
+                            "ca": False,
+                        }
+                    ]
+                )
+            },
+            remote_app_data={
+                "certificates": json.dumps(
+                    [
+                        {
+                            "certificate": bad_certificate,
+                            "certificate_signing_request": csr,
+                            "ca": provider_ca_certificate,
+                        }
+                    ]
+                ),
+            },
+        )
+
+        state_in = scenario.State(
+            relations={certificates_relation},
+            config={"common_name": "example.com"},
+            secrets={private_key_secret},
+        )
+
+        with pytest.raises(ops._private.harness.ActionFailed):  # type: ignore[reportAttributeAccessIssue]
+            self.ctx.run(self.ctx.on.action("get-certificate"), state_in)
 
     def test_given_certificate_is_provided_when_relation_changed_then_certificate_secret_is_created(  # noqa: E501
         self,
