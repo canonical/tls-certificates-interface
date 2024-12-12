@@ -169,7 +169,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         self._store_certificate(event.certificate)
         self._store_ca_certificate(event.ca)
         self._store_ca_chain(event.chain)
-        logger.info(f"New certificate is stored: {event.certificate}")
+        logger.info("New certificate is stored: %s", event.certificate)
         self.unit.status = ActiveStatus()
 
     def _on_get_certificate_action(self, event: ActionEvent) -> None:
