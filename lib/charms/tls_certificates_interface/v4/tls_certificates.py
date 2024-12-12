@@ -52,7 +52,7 @@ LIBAPI = 4
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 2
+LIBPATCH = 3
 
 PYDEPS = ["cryptography", "pydantic"]
 
@@ -1105,7 +1105,7 @@ class TLSCertificatesRequiresV4(Object):
         raise TLSCertificatesError("Invalid mode")
 
     @property
-    def private_key(self) -> PrivateKey | None:
+    def private_key(self) -> Optional[PrivateKey]:
         """Return the private key."""
         if not self._private_key_generated():
             return None
@@ -1274,7 +1274,7 @@ class TLSCertificatesRequiresV4(Object):
 
     def get_assigned_certificate(
         self, certificate_request: CertificateRequestAttributes
-    ) -> Tuple[ProviderCertificate | None, PrivateKey | None]:
+    ) -> Tuple[Optional[ProviderCertificate], Optional[PrivateKey]]:
         """Get the certificate that was assigned to the given certificate request."""
         for requirer_csr in self.get_csrs_from_requirer_relation_data():
             if certificate_request == CertificateRequestAttributes.from_csr(
@@ -1284,7 +1284,9 @@ class TLSCertificatesRequiresV4(Object):
                 return self._find_certificate_in_relation_data(requirer_csr), self.private_key
         return None, None
 
-    def get_assigned_certificates(self) -> Tuple[List[ProviderCertificate], PrivateKey | None]:
+    def get_assigned_certificates(
+        self,
+    ) -> Tuple[List[ProviderCertificate], Optional[PrivateKey]]:
         """Get a list of certificates that were assigned to this or app."""
         assigned_certificates = []
         for requirer_csr in self.get_csrs_from_requirer_relation_data():
