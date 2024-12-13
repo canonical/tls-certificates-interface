@@ -4,7 +4,7 @@
 
 import json
 import logging
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from charms.tls_certificates_interface.v3.tls_certificates import (
     CertificateAvailableEvent,
@@ -14,6 +14,7 @@ from charms.tls_certificates_interface.v3.tls_certificates import (
     generate_csr,
     generate_private_key,
 )
+from ops import EventBase
 from ops.charm import ActionEvent, CharmBase, InstallEvent
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
@@ -25,7 +26,7 @@ CONFIG_CHANGED = "banana"
 
 
 class DummyTLSCertificatesRequirerCharm(CharmBase):
-    def __init__(self, *args):
+    def __init__(self, *args: Any):
         super().__init__(*args)
         self.certificates = TLSCertificatesRequiresV3(
             self,
@@ -151,7 +152,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         self._generate_private_key()
         self.unit.status = BlockedStatus("Waiting for relation to be created")
 
-    def _on_certificates_relation_created(self, event) -> None:
+    def _on_certificates_relation_created(self, event: EventBase) -> None:
         self._request_certificate()
 
     def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:

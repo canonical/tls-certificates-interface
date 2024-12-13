@@ -5,8 +5,8 @@
 import json
 import unittest
 from datetime import datetime, timedelta, timezone
-from typing import Mapping
-from unittest.mock import Mock, PropertyMock, call, patch
+from typing import Mapping, Optional
+from unittest.mock import MagicMock, Mock, PropertyMock, call, patch
 
 from ops import testing
 
@@ -90,7 +90,9 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         self.harness.begin()
 
     def setup_mock_certificate_object(
-        self, expiry_time=None, start_time=datetime.now(timezone.utc)
+        self,
+        expiry_time: Optional[datetime] = None,
+        start_time: datetime = datetime.now(timezone.utc),
     ) -> Mock:
         if not expiry_time:
             expiry_time = start_time + timedelta(days=DEFAULT_EXPIRY_DAYS)
@@ -113,7 +115,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         new_callable=PropertyMock,
     )
     def test_given_csr_in_relation_data_when_relation_changed_then_certificate_creation_request_is_emitted(  # noqa: E501
-        self, patch_certificate_creation_request
+        self, mock_certificate_creation_request: MagicMock
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
@@ -131,7 +133,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             relation_id=relation_id, app_or_unit=self.remote_unit_name, key_values=key_values
         )
 
-        patch_certificate_creation_request.assert_has_calls(
+        mock_certificate_creation_request.assert_has_calls(
             [call().emit(certificate_signing_request=csr, relation_id=relation_id, is_ca=False)]
         )
 
@@ -140,7 +142,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         new_callable=PropertyMock,
     )
     def test_given_no_csr_in_certificate_signing_request_when_relation_changed_then_certificate_creation_request_is_not_emitted(  # noqa: E501
-        self, patch_certificate_creation_request
+        self, mock_certificate_creation_request: MagicMock
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
         key_values = {
@@ -156,7 +158,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             relation_id=relation_id, app_or_unit=self.remote_unit_name, key_values=key_values
         )
 
-        patch_certificate_creation_request.assert_not_called()
+        mock_certificate_creation_request.assert_not_called()
 
     @patch("cryptography.x509.load_pem_x509_certificate")
     @patch(
@@ -164,7 +166,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         new_callable=PropertyMock,
     )
     def test_given_certificate_for_csr_already_in_relation_data_when_on_relation_changed_then_certificate_creation_request_is_not_emitted(  # noqa: E501
-        self, patch_certificate_creation_request, _
+        self, mock_certificate_creation_request: MagicMock, _
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
@@ -202,14 +204,14 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             key_values=requirer_unit_data,
         )
 
-        patch_certificate_creation_request.assert_not_called()
+        mock_certificate_creation_request.assert_not_called()
 
     @patch(
         f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_creation_request",
         new_callable=PropertyMock,
     )
     def test_given_unit_not_leader_when_relation_changed_then_certificate_creation_request_is_not_emitted(  # noqa: E501
-        self, patch_certificate_creation_request
+        self, mock_certificate_creation_request: MagicMock
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
         csr = "whatever csr"
@@ -229,14 +231,14 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             key_values=requirer_unit_data,
         )
 
-        patch_certificate_creation_request.assert_not_called()
+        mock_certificate_creation_request.assert_not_called()
 
     @patch(f"{LIB_DIR}.TLSCertificatesProvidesV3.remove_certificate")
     @patch(
         f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_revocation_request",
     )
     def test_given_unit_not_leader_when_relation_changed_then_certificate_revocation_request_is_not_emitted(  # noqa: E501
-        self, patch_certificate_revocation_request, _
+        self, mock_certificate_revocation_request: MagicMock, _
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
         remote_unit_relation_data = {"certificate_signing_requests": "[]"}
@@ -247,15 +249,16 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             key_values=remote_unit_relation_data,
         )
 
-        patch_certificate_revocation_request.emit.assert_not_called()
+        mock_certificate_revocation_request.emit.assert_not_called()
 
-    @patch("cryptography.x509.load_pem_x509_certificate")
-    @patch(f"{LIB_DIR}.TLSCertificatesProvidesV3.remove_certificate")
+    @patch("cryptography.x509.load_pem_x509_certificate", new=MagicMock)
+    @patch(f"{LIB_DIR}.TLSCertificatesProvidesV3.remove_certificate", new=MagicMock)
     @patch(
         f"{LIB_DIR}.CertificatesProviderCharmEvents.certificate_revocation_request",
     )
     def test_given_csr_in_provider_relation_data_but_not_in_requirer_when_on_relation_changed_then_certificate_revocation_request_is_emitted(  # noqa: E501
-        self, patch_certificate_revocation_request, _, __
+        self,
+        mock_certificate_revocation_request: MagicMock,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
@@ -287,7 +290,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             key_values=remote_unit_relation_data,
         )
 
-        patch_certificate_revocation_request.emit.assert_called_with(
+        mock_certificate_revocation_request.emit.assert_called_with(
             certificate=certificate,
             certificate_signing_request=csr,
             ca=ca,
@@ -303,8 +306,8 @@ class TestTLSCertificatesProvides(unittest.TestCase):
     def test_given_csr_in_provider_relation_data_but_not_in_requirer_when_on_relation_changed_then_remove_certificate_is_called(  # noqa: E501
         self,
         _,
-        patch_remove_certificate,
-        patch_load_pem_x509_certificate,
+        mock_remove_certificate: MagicMock,
+        mock_load_pem_x509_certificate: MagicMock,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
@@ -325,7 +328,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
                 )
             },
         )
-        patch_load_pem_x509_certificate.return_value = self.setup_mock_certificate_object()
+        mock_load_pem_x509_certificate.return_value = self.setup_mock_certificate_object()
         remote_unit_relation_data = {"certificate_signing_requests": "[]"}
         self.harness.update_relation_data(
             relation_id=relation_id,
@@ -333,7 +336,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             key_values=remote_unit_relation_data,
         )
 
-        patch_remove_certificate.assert_called_with(certificate=certificate)
+        mock_remove_certificate.assert_called_with(certificate=certificate)
 
     @patch(f"{LIB_DIR}.TLSCertificatesProvidesV3.remove_certificate")
     @patch(
@@ -343,7 +346,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
     def test_given_unit_not_leader_when_relation_changed_then_remove_certificate_is_not_called(
         self,
         _,
-        patch_remove_certificate,
+        mock_remove_certificate: MagicMock,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
@@ -355,7 +358,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             key_values=remote_unit_relation_data,
         )
 
-        patch_remove_certificate.assert_not_called()
+        mock_remove_certificate.assert_not_called()
 
     def test_given_no_data_in_relation_data_when_set_relation_certificate_then_certificate_is_added_to_relation_data(  # noqa: E501
         self,
@@ -752,7 +755,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_creation_request")
     def test_given_more_than_one_application_related_to_operator_when_csrs_are_added_to_remote_units_databag_then_certificate_creation_requests_are_triggered(  # noqa: E501
-        self, patch_certificate_creation_request
+        self, mock_certificate_creation_request: MagicMock
     ):
         remote_app_1 = "tls-requirer-1"
         remote_app_2 = "tls-requirer-2"
@@ -802,7 +805,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             key_values=requirer_app_2_unit_data,
         )
 
-        call_args_list = patch_certificate_creation_request.call_args_list
+        call_args_list = mock_certificate_creation_request.call_args_list
 
         self.assertEqual(call_args_list[0].args[0].certificate_signing_request, csr_1)
         self.assertEqual(call_args_list[0].args[0].relation_id, relation_1_id)
@@ -814,7 +817,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
         new_callable=PropertyMock,
     )
     def test_given_requirer_unit_requests_ca_when_relation_changed_then_certificate_creation_request_is_emitted(  # noqa: E501
-        self, patch_certificate_creation_request
+        self, mock_certificate_creation_request: MagicMock
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
@@ -835,7 +838,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             key_values=remote_unit_relation_data,
         )
 
-        patch_certificate_creation_request.assert_has_calls(
+        mock_certificate_creation_request.assert_has_calls(
             [
                 call().emit(
                     certificate_signing_request=csr,
@@ -943,7 +946,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
     @patch("cryptography.x509.load_pem_x509_certificate")
     def test_given_one_certificate_in_relation_data_when_get_issued_certificates_then_certificate_is_returned(  # noqa: E501
-        self, patch_load_pem_x509_certificate
+        self, mock_load_pem_x509_certificate: MagicMock
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
@@ -964,7 +967,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             relation_id=relation_id, app_or_unit=self.harness.charm.app.name, key_values=key_values
         )
         start = datetime.now(timezone.utc)
-        patch_load_pem_x509_certificate.return_value = self.setup_mock_certificate_object(
+        mock_load_pem_x509_certificate.return_value = self.setup_mock_certificate_object(
             start_time=start
         )
         expiry_time = start + timedelta(days=DEFAULT_EXPIRY_DAYS)
@@ -988,7 +991,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
 
     @patch("cryptography.x509.load_pem_x509_certificate")
     def test_given_multiple_certificate_in_relation_data_when_get_issued_certificates_then_certificate_are_returned(  # noqa: E501
-        self, patch_load_pem_x509_certificate
+        self, mock_load_pem_x509_certificate: MagicMock
     ):
         relation_id_requirer_1 = self.create_certificates_relation_with_1_remote_unit()
         requirer_2_app = "tls-certificates-requirer_2"
@@ -1040,7 +1043,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             key_values=key_values_requirer_2,
         )
         start = datetime.now(timezone.utc)
-        patch_load_pem_x509_certificate.return_value = self.setup_mock_certificate_object(
+        mock_load_pem_x509_certificate.return_value = self.setup_mock_certificate_object(
             start_time=start
         )
         expiry_time = start + timedelta(days=DEFAULT_EXPIRY_DAYS)
@@ -1082,7 +1085,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
     @patch("cryptography.x509.load_pem_x509_certificate")
     def test_given_certificate_in_relation_data_when_get_issued_certificates_by_relation_id_then_certificate_is_returned(  # noqa: E501
         self,
-        patch_load_pem_x509_certificate,
+        mock_load_pem_x509_certificate: MagicMock,
     ):
         relation_id = self.create_certificates_relation_with_1_remote_unit()
         self.harness.set_leader(is_leader=True)
@@ -1103,7 +1106,7 @@ class TestTLSCertificatesProvides(unittest.TestCase):
             relation_id=relation_id, app_or_unit=self.harness.charm.app.name, key_values=key_values
         )
         start = datetime.now(timezone.utc)
-        patch_load_pem_x509_certificate.return_value = self.setup_mock_certificate_object(
+        mock_load_pem_x509_certificate.return_value = self.setup_mock_certificate_object(
             start_time=start
         )
         expiry_time = start + timedelta(days=DEFAULT_EXPIRY_DAYS)

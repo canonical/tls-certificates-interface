@@ -1,6 +1,8 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+from typing import Any
+
 from ops.charm import CharmBase
 from ops.main import main
 
@@ -12,7 +14,7 @@ from lib.charms.tls_certificates_interface.v2.tls_certificates import (
 
 
 class DummyTLSCertificatesProviderCharm(CharmBase):
-    def __init__(self, *args):
+    def __init__(self, *args: Any):
         super().__init__(*args)
         self.certificates = TLSCertificatesProvidesV2(self, "certificates")
         self.framework.observe(

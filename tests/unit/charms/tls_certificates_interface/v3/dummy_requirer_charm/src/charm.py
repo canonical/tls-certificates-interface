@@ -1,6 +1,8 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+from typing import Any
+
 from ops.charm import CharmBase
 from ops.main import main
 
@@ -14,7 +16,7 @@ from lib.charms.tls_certificates_interface.v3.tls_certificates import (
 
 
 class DummyTLSCertificatesRequirerCharm(CharmBase):
-    def __init__(self, *args):
+    def __init__(self, *args: Any):
         super().__init__(*args)
         self.certificates = TLSCertificatesRequiresV3(
             self, "certificates", expiry_notification_time=168

@@ -3,7 +3,7 @@
 
 import base64
 import re
-from typing import List
+from typing import Any, List
 
 from ops.charm import ActionEvent, CharmBase
 from ops.framework import EventBase
@@ -43,7 +43,7 @@ def parse_ca_chain(ca_chain_pem: str) -> List[str]:
 
 
 class DummyTLSCertificatesProviderCharm(CharmBase):
-    def __init__(self, *args):
+    def __init__(self, *args: Any):
         super().__init__(*args)
         self.certificates = TLSCertificatesProvidesV4(self, "certificates")
         self.framework.observe(self.on.update_status, self._configure)

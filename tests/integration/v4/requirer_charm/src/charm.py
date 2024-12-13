@@ -2,7 +2,7 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-from typing import FrozenSet, Optional, cast
+from typing import Any, FrozenSet, Optional, cast
 
 from charms.tls_certificates_interface.v4.tls_certificates import (
     CertificateRequestAttributes,
@@ -15,7 +15,7 @@ from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 
 
 class DummyTLSCertificatesRequirerCharm(CharmBase):
-    def __init__(self, *args):
+    def __init__(self, *args: Any):
         super().__init__(*args)
         certificate_request = self._get_certificate_request()
         self.certificates = TLSCertificatesRequiresV4(

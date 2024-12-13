@@ -7,6 +7,7 @@ import shutil
 import time
 
 from certificates import Certificate
+from pytest_operator.plugin import OpsTest
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,10 @@ class TestIntegration:
     requirer_charm = None
     provider_charm = None
 
-    async def test_given_charms_packed_when_deploy_charm_then_status_is_blocked(self, ops_test):
+    async def test_given_charms_packed_when_deploy_charm_then_status_is_blocked(
+        self, ops_test: OpsTest
+    ):
+        assert ops_test.model
         copy_lib_content()
         TestIntegration.requirer_charm = await ops_test.build_charm(f"{REQUIRER_CHARM_DIR}/")
         TestIntegration.provider_charm = await ops_test.build_charm(f"{PROVIDER_CHARM_DIR}/")
@@ -47,7 +51,10 @@ class TestIntegration:
             timeout=1000,
         )
 
-    async def test_given_charms_deployed_when_relate_then_status_is_active(self, ops_test):
+    async def test_given_charms_deployed_when_relate_then_status_is_active(
+        self, ops_test: OpsTest
+    ):
+        assert ops_test.model
         await ops_test.model.add_relation(
             relation1=TLS_CERTIFICATES_REQUIRER_APP_NAME,
             relation2=TLS_CERTIFICATES_PROVIDER_APP_NAME,
@@ -59,8 +66,12 @@ class TestIntegration:
             timeout=1000,
         )
 
-    async def test_given_charms_deployed_when_relate_then_requirer_received_certs(self, ops_test):
+    async def test_given_charms_deployed_when_relate_then_requirer_received_certs(
+        self, ops_test: OpsTest
+    ):
+        assert ops_test.model
         requirer_unit = ops_test.model.units[f"{TLS_CERTIFICATES_REQUIRER_APP_NAME}/0"]
+        assert requirer_unit
 
         action = await requirer_unit.run_action(action_name="get-certificate")
 
@@ -73,8 +84,9 @@ class TestIntegration:
         assert "chain" in action_output and action_output["chain"] is not None
 
     async def test_given_additional_requirer_charm_deployed_when_relate_then_requirer_received_certs(  # noqa: E501
-        self, ops_test
+        self, ops_test: OpsTest
     ):
+        assert ops_test.model
         new_requirer_app_name = "new-tls-requirer"
         await ops_test.model.deploy(
             TestIntegration.requirer_charm, application_name=new_requirer_app_name, series="jammy"
@@ -92,6 +104,7 @@ class TestIntegration:
             timeout=1000,
         )
         requirer_unit = ops_test.model.units[f"{new_requirer_app_name}/0"]
+        assert requirer_unit
 
         action = await requirer_unit.run_action(action_name="get-certificate")
 
@@ -104,9 +117,11 @@ class TestIntegration:
         assert "chain" in action_output and action_output["chain"] is not None
 
     async def test_given_4_min_certificate_validity_when_certificate_expires_then_certificate_is_automatically_renewed(  # noqa: E501
-        self, ops_test
+        self, ops_test: OpsTest
     ):
+        assert ops_test.model
         requirer_unit = ops_test.model.units[f"{TLS_CERTIFICATES_REQUIRER_APP_NAME}/0"]
+        assert requirer_unit
 
         action = await requirer_unit.run_action(action_name="get-certificate")
 
