@@ -3,13 +3,14 @@
 # See LICENSE file for licensing details.
 
 import logging
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from charms.tls_certificates_interface.v4.tls_certificates import (
     Certificate,
     ProviderCertificate,
     TLSCertificatesProvidesV4,
 )
+from ops import EventBase
 from ops.charm import CharmBase, CollectStatusEvent
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, SecretNotFoundError, WaitingStatus
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class DummyTLSCertificatesProviderCharm(CharmBase):
-    def __init__(self, *args):
+    def __init__(self, *args: Any):
         super().__init__(*args)
         self.certificates = TLSCertificatesProvidesV4(self, "certificates")
         self.framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)
@@ -47,7 +48,7 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
             return
         event.add_status(ActiveStatus())
 
-    def _configure(self, event) -> None:
+    def _configure(self, event: EventBase) -> None:
         if not self.unit.is_leader():
             logger.info("Not a leader")
             return

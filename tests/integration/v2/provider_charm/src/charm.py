@@ -3,7 +3,7 @@
 # See LICENSE file for licensing details.
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from charms.tls_certificates_interface.v2.tls_certificates import (
     CertificateCreationRequestEvent,
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class DummyTLSCertificatesProviderCharm(CharmBase):
-    def __init__(self, *args):
+    def __init__(self, *args: Any):
         super().__init__(*args)
         self.certificates = TLSCertificatesProvidesV2(self, "certificates")
         self.framework.observe(self.on.install, self._on_install)

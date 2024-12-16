@@ -5,7 +5,7 @@
 import json
 import unittest
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from ops import testing
@@ -239,7 +239,7 @@ class TestJuju2(unittest.TestCase):
     @patch(f"{LIB_DIR}.TLSCertificatesRequiresV2.request_certificate_creation")
     @patch(f"{LIB_DIR}.TLSCertificatesRequiresV2.request_certificate_revocation")
     def test_given_certificate_revocation_success_when_request_certificate_renewal_then_certificate_creation_is_called(  # noqa: E501
-        self, _, patch_certificate_creation
+        self, _, mock_certificate_creation: MagicMock
     ):
         old_csr = b"whatever old csr"
         new_csr = b"whatever new csr"
@@ -248,26 +248,26 @@ class TestJuju2(unittest.TestCase):
             old_certificate_signing_request=old_csr, new_certificate_signing_request=new_csr
         )
 
-        patch_certificate_creation.assert_called_with(certificate_signing_request=new_csr)
+        mock_certificate_creation.assert_called_with(certificate_signing_request=new_csr)
 
     @patch(f"{LIB_DIR}.TLSCertificatesRequiresV2.request_certificate_creation")
     @patch(f"{LIB_DIR}.TLSCertificatesRequiresV2.request_certificate_revocation")
     def test_given_certificate_revocation_failed_when_request_certificate_renewal_then_certificate_creation_is_called_anyway(  # noqa: E501
-        self, patch_certificate_revocation, patch_certificate_creation
+        self, mock_certificate_revocation: MagicMock, mock_certificate_creation: MagicMock
     ):
         old_csr = b"whatever old csr"
         new_csr = b"whatever new csr"
-        patch_certificate_revocation.side_effect = RuntimeError()
+        mock_certificate_revocation.side_effect = RuntimeError()
 
         self.harness.charm.certificates.request_certificate_renewal(
             old_certificate_signing_request=old_csr, new_certificate_signing_request=new_csr
         )
 
-        patch_certificate_creation.assert_called_with(certificate_signing_request=new_csr)
+        mock_certificate_creation.assert_called_with(certificate_signing_request=new_csr)
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_available")
     def test_given_csr_in_unit_relation_data_and_certificate_in_remote_relation_data_when_relation_changed_then_certificate_available_event_emitted(  # noqa: E501
-        self, patch_on_certificate_available
+        self, mock_on_certificate_available: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -300,8 +300,8 @@ class TestJuju2(unittest.TestCase):
             key_values=remote_app_relation_data,
         )
 
-        patch_on_certificate_available.assert_called()
-        args, _ = patch_on_certificate_available.call_args
+        mock_on_certificate_available.assert_called()
+        args, _ = mock_on_certificate_available.call_args
         certificate_available_event = args[0]
         assert certificate_available_event.certificate == certificate
         assert certificate_available_event.certificate_signing_request == csr
@@ -310,7 +310,7 @@ class TestJuju2(unittest.TestCase):
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_available")
     def test_given_no_csr_in_unit_relation_data_and_certificate_in_remote_relation_data_when_relation_changed_then_certificate_available_event_not_emitted(  # noqa: E501
-        self, patch_on_certificate_available
+        self, mock_on_certificate_available: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -336,11 +336,11 @@ class TestJuju2(unittest.TestCase):
             key_values=remote_app_relation_data,
         )
 
-        patch_on_certificate_available.assert_not_called()
+        mock_on_certificate_available.assert_not_called()
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_available")
     def test_given_csr_in_unit_relation_data_and_certificate_in_remote_relation_data_badly_formatted_when_relation_changed_then_certificate_available_event_not_emitted(  # noqa: E501
-        self, patch_on_certificate_available
+        self, mock_on_certificate_available: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -372,11 +372,11 @@ class TestJuju2(unittest.TestCase):
             key_values=remote_app_relation_data,
         )
 
-        patch_on_certificate_available.assert_not_called()
+        mock_on_certificate_available.assert_not_called()
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_expired_certificate_in_relation_data_when_update_status_then_certificate_invalidated_event_with_reason_expired_emitted(  # noqa: E501
-        self, patch_certificate_invalidated
+        self, mock_certificate_invalidated: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         hours_before_expiry = -1
@@ -424,14 +424,14 @@ class TestJuju2(unittest.TestCase):
 
         self.harness.charm.on.update_status.emit()
 
-        patch_certificate_invalidated.assert_called()
-        args, _ = patch_certificate_invalidated.call_args
+        mock_certificate_invalidated.assert_called()
+        args, _ = mock_certificate_invalidated.call_args
         event_data = args[0]
         assert event_data.certificate == certificate.decode()
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_certificate_in_relation_data_is_not_expired_when_update_status_then_certificate_invalidated_event_with_reason_expired_not_emitted(  # noqa: E501
-        self, patch_certificate_invalidated
+        self, mock_certificate_invalidated: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         hours_before_expiry = 100
@@ -479,11 +479,11 @@ class TestJuju2(unittest.TestCase):
 
         self.harness.charm.on.update_status.emit()
 
-        patch_certificate_invalidated.assert_not_called()
+        mock_certificate_invalidated.assert_not_called()
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_expiring")
     def test_given_certificate_expires_in_shorter_amount_of_time_than_expiry_notification_time_when_update_status_then_certificate_expiring_is_emitted(  # noqa: E501
-        self, patch_certificate_expiring
+        self, mock_certificate_expiring: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         hours_before_expiry = 8
@@ -531,8 +531,8 @@ class TestJuju2(unittest.TestCase):
 
         self.harness.charm.on.update_status.emit()
 
-        patch_certificate_expiring.assert_called()
-        args, _ = patch_certificate_expiring.call_args
+        mock_certificate_expiring.assert_called()
+        args, _ = mock_certificate_expiring.call_args
         event_data = args[0]
         assert event_data.certificate == certificate.decode()
         time_difference = datetime.fromisoformat(event_data.expiry) - datetime.now(timezone.utc)
@@ -544,7 +544,7 @@ class TestJuju2(unittest.TestCase):
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_expiring")
     def test_given_certificate_expires_in_longer_amount_of_time_than_expiry_notification_time_when_update_status_then_certificate_expiring_is_not_emitted(  # noqa: E501
-        self, patch_certificate_expiring
+        self, mock_certificate_expiring: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         hours_before_expiry = 200
@@ -592,12 +592,12 @@ class TestJuju2(unittest.TestCase):
 
         self.harness.charm.on.update_status.emit()
 
-        patch_certificate_expiring.assert_not_called()
+        mock_certificate_expiring.assert_not_called()
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_expiring")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_no_certificate_in_relation_data_when_update_status_then_no_event_emitted(  # noqa: E501
-        self, patch_certificate_invalidated, patch_certificate_expiring
+        self, mock_certificate_invalidated: MagicMock, mock_certificate_expiring: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         self.harness.update_relation_data(
@@ -608,12 +608,12 @@ class TestJuju2(unittest.TestCase):
 
         self.harness.charm.on.update_status.emit()
 
-        patch_certificate_invalidated.assert_not_called()
-        patch_certificate_expiring.assert_not_called()
+        mock_certificate_invalidated.assert_not_called()
+        mock_certificate_expiring.assert_not_called()
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_csr_in_unit_relation_data_and_certificate_revoked_in_remote_relation_data_when_relation_changed_then_certificate_invalidated_event_with_reason_revoked_emitted(  # noqa: E501
-        self, patch_on_certificate_invalidated
+        self, mock_on_certificate_invalidated: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -647,8 +647,8 @@ class TestJuju2(unittest.TestCase):
             key_values=remote_app_relation_data,
         )
 
-        patch_on_certificate_invalidated.assert_called()
-        args, _ = patch_on_certificate_invalidated.call_args
+        mock_on_certificate_invalidated.assert_called()
+        args, _ = mock_on_certificate_invalidated.call_args
         certificate_invalidated_event = args[0]
         assert certificate_invalidated_event.certificate == certificate
         assert certificate_invalidated_event.certificate_signing_request == csr
@@ -657,7 +657,7 @@ class TestJuju2(unittest.TestCase):
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_no_csr_in_unit_relation_data_and_certificate_revoked_in_remote_relation_data_when_relation_changed_then_certificate_invalidated_event_not_emitted(  # noqa: E501
-        self, patch_on_certificate_invalidated
+        self, mock_on_certificate_invalidated: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -684,11 +684,11 @@ class TestJuju2(unittest.TestCase):
             key_values=remote_app_relation_data,
         )
 
-        patch_on_certificate_invalidated.assert_not_called()
+        mock_on_certificate_invalidated.assert_not_called()
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_csr_in_unit_relation_data_and_certificate_revoked_in_remote_relation_data_badly_formatted_when_relation_changed_then_certificate_invalidated_event_not_emitted(  # noqa: E501
-        self, patch_on_certificate_invalidated
+        self, mock_on_certificate_invalidated: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -721,11 +721,11 @@ class TestJuju2(unittest.TestCase):
             key_values=remote_app_relation_data,
         )
 
-        patch_on_certificate_invalidated.assert_not_called()
+        mock_on_certificate_invalidated.assert_not_called()
 
     @patch(f"{BASE_CHARM_DIR}._on_all_certificates_invalidated")
     def test_given_certificate_in_relation_data_when_relation_broken_then_all_certificates_invalidated_event_is_emitted(  # noqa: E501
-        self, patch_on_all_certificates_invalidated
+        self, mock_on_all_certificates_invalidated: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -761,11 +761,11 @@ class TestJuju2(unittest.TestCase):
         )
         self.harness.remove_relation(relation_id)
 
-        patch_on_all_certificates_invalidated.assert_called()
+        mock_on_all_certificates_invalidated.assert_called()
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_certificate_in_relation_data_when_certificate_invalidated_event_with_no_certificate_emitted_then_type_error_is_raised(  # noqa: E501
-        self, patch_on_certificate_invalidated
+        self, mock_on_certificate_invalidated: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -807,13 +807,13 @@ class TestJuju2(unittest.TestCase):
 
     @patch(f"{BASE_CHARM_DIR}._on_all_certificates_invalidated")
     def test_given_no_certificates_in_relation_data_when_relation_broken_then_all_certificates_invalidated_event_emitted(  # noqa: E501
-        self, patch_on_all_certificates_invalidated
+        self, mock_on_all_certificates_invalidated: MagicMock
     ):
         relation_id = self.create_certificates_relation()
 
         self.harness.remove_relation(relation_id)
 
-        patch_on_all_certificates_invalidated.assert_called()
+        mock_on_all_certificates_invalidated.assert_called()
 
 
 class FakeJujuVersion:
@@ -847,7 +847,7 @@ class TestJuju3(unittest.TestCase):
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_expiring")
     def test_given_certificate_expires_in_shorter_amount_of_time_than_expiry_notification_time_and_juju_secrets_are_available_when_update_status_then_certificate_expiring_is_not_emitted(  # noqa: E501
-        self, patch_certificate_expiring
+        self, mock_certificate_expiring: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         hours_before_expiry = 8
@@ -895,7 +895,7 @@ class TestJuju3(unittest.TestCase):
 
         self.harness.charm.on.update_status.emit()
 
-        patch_certificate_expiring.assert_not_called()
+        mock_certificate_expiring.assert_not_called()
 
     def test_given_csr_when_request_certificate_revocation_then_csr_is_removed_from_relation_data(
         self,
@@ -925,7 +925,7 @@ class TestJuju3(unittest.TestCase):
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_csr_in_unit_relation_data_and_certificate_revoked_in_remote_relation_data_and_secret_exists_when_relation_changed_then_secret_revisions_are_removed(  # noqa: E501
-        self, patch_on_certificate_invalidated
+        self, mock_on_certificate_invalidated: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -970,7 +970,7 @@ class TestJuju3(unittest.TestCase):
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_csr_in_unit_relation_data_and_certificate_revoked_in_remote_relation_data_when_relation_changed_then_certificate_invalidated_event_with_reason_revoked_emitted(  # noqa: E501
-        self, patch_on_certificate_invalidated
+        self, mock_on_certificate_invalidated: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -1004,8 +1004,8 @@ class TestJuju3(unittest.TestCase):
             key_values=remote_app_relation_data,
         )
 
-        patch_on_certificate_invalidated.assert_called()
-        args, _ = patch_on_certificate_invalidated.call_args
+        mock_on_certificate_invalidated.assert_called()
+        args, _ = mock_on_certificate_invalidated.call_args
         certificate_invalidated_event = args[0]
         assert certificate_invalidated_event.certificate == certificate
         assert certificate_invalidated_event.certificate_signing_request == csr
@@ -1014,7 +1014,7 @@ class TestJuju3(unittest.TestCase):
 
     @patch(f"{BASE_CHARM_DIR}._on_certificate_available")
     def test_given_csr_in_unit_relation_data_and_certificate_in_remote_relation_data_when_relation_changed_then_certificate_available_event_emitted(  # noqa: E501
-        self, patch_on_certificate_available
+        self, mock_on_certificate_available: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -1047,8 +1047,8 @@ class TestJuju3(unittest.TestCase):
             key_values=remote_app_relation_data,
         )
 
-        patch_on_certificate_available.assert_called()
-        args, _ = patch_on_certificate_available.call_args
+        mock_on_certificate_available.assert_called()
+        args, _ = mock_on_certificate_available.call_args
         certificate_available_event = args[0]
         assert certificate_available_event.certificate == certificate
         assert certificate_available_event.certificate_signing_request == csr
@@ -1058,7 +1058,7 @@ class TestJuju3(unittest.TestCase):
     @patch(f"{LIB_DIR}._get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_available")
     def test_given_csr_in_unit_relation_data_and_certificate_in_remote_relation_data_when_relation_changed_then_secret_is_added(  # noqa: E501
-        self, patch_on_certificate_available, patch_get_expiry_time
+        self, mock_on_certificate_available: MagicMock, mock_get_expiry_time: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -1086,7 +1086,7 @@ class TestJuju3(unittest.TestCase):
             )
         }
         expiry_time = datetime.now(timezone.utc) + timedelta(days=30)
-        patch_get_expiry_time.return_value = expiry_time
+        mock_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
             app_or_unit=self.remote_app,
@@ -1100,7 +1100,7 @@ class TestJuju3(unittest.TestCase):
     @patch(f"{LIB_DIR}._get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_available")
     def test_given_csr_in_unit_relation_data_and_certificate_in_remote_relation_data_and_secret_already_exists_when_relation_changed_then_secret_is_updated(  # noqa: E501
-        self, patch_on_certificate_available, patch_get_expiry_time
+        self, mock_on_certificate_available: MagicMock, mock_get_expiry_time: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -1133,7 +1133,7 @@ class TestJuju3(unittest.TestCase):
         secret = self.harness.model.get_secret(id=secret_id)
         secret.set_info(label=f"{LIBID}-{csr}")
         expiry_time = datetime.now(timezone.utc) + timedelta(days=30)
-        patch_get_expiry_time.return_value = expiry_time
+        mock_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
             app_or_unit=self.remote_app,
@@ -1411,7 +1411,7 @@ class TestJuju3(unittest.TestCase):
 
     @patch(f"{LIB_DIR}._get_certificate_expiry_time")
     def test_given_no_expired_certificates_in_relation_data_when_get_expiring_certificates_then_no_certificates_returned(  # noqa: E501
-        self, patch_get_expiry_time
+        self, mock_get_expiry_time: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -1439,7 +1439,7 @@ class TestJuju3(unittest.TestCase):
             )
         }
         expiry_time = datetime.now(timezone.utc) + timedelta(weeks=520)
-        patch_get_expiry_time.return_value = expiry_time
+        mock_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
             app_or_unit=self.remote_app,
@@ -1451,7 +1451,7 @@ class TestJuju3(unittest.TestCase):
 
     @patch(f"{LIB_DIR}._get_certificate_expiry_time")
     def test_given_expired_certificate_in_relation_data_when_get_expiring_certificates_then_correct_certificates_returned(  # noqa: E501
-        self, patch_get_expiry_time
+        self, mock_get_expiry_time: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -1479,7 +1479,7 @@ class TestJuju3(unittest.TestCase):
             )
         }
         expiry_time = datetime.now(timezone.utc) + timedelta(hours=1)
-        patch_get_expiry_time.return_value = expiry_time
+        mock_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
             app_or_unit=self.remote_app,
@@ -1493,7 +1493,7 @@ class TestJuju3(unittest.TestCase):
     @patch(f"{LIB_DIR}._get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_expired_certificate_in_relation_data_when_secret_expired_then_certificate_invalidated_event_with_reason_expired_emitted(  # noqa: E501
-        self, patch_certificate_invalidated, patch_get_expiry_time
+        self, mock_certificate_invalidated: MagicMock, mock_get_expiry_time: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -1521,7 +1521,7 @@ class TestJuju3(unittest.TestCase):
             )
         }
         expiry_time = datetime.now(timezone.utc) - timedelta(seconds=10)
-        patch_get_expiry_time.return_value = expiry_time
+        mock_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
             app_or_unit=self.remote_app,
@@ -1531,15 +1531,15 @@ class TestJuju3(unittest.TestCase):
 
         self.harness.trigger_secret_expiration(secret.get_info().id, 0)
 
-        patch_certificate_invalidated.assert_called()
-        args, _ = patch_certificate_invalidated.call_args
+        mock_certificate_invalidated.assert_called()
+        args, _ = mock_certificate_invalidated.call_args
         event_data = args[0]
         assert event_data.certificate == certificate
 
     @patch(f"{LIB_DIR}._get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_expired_certificate_and_other_certificates_in_relation_data_when_secret_expired_then_certificate_invalidated_event_with_reason_expired_emitted_once(  # noqa: E501
-        self, patch_certificate_invalidated, patch_get_expiry_time
+        self, mock_certificate_invalidated: MagicMock, mock_get_expiry_time: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -1573,7 +1573,7 @@ class TestJuju3(unittest.TestCase):
             )
         }
         expiry_time = datetime.now(timezone.utc) - timedelta(seconds=10)
-        patch_get_expiry_time.return_value = expiry_time
+        mock_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
             app_or_unit=self.remote_app,
@@ -1583,15 +1583,15 @@ class TestJuju3(unittest.TestCase):
 
         self.harness.trigger_secret_expiration(secret.get_info().id, 0)
 
-        patch_certificate_invalidated.assert_called_once()
-        args, _ = patch_certificate_invalidated.call_args
+        mock_certificate_invalidated.assert_called_once()
+        args, _ = mock_certificate_invalidated.call_args
         event_data = args[0]
         assert event_data.certificate == certificate
 
     @patch(f"{LIB_DIR}._get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_invalidated")
     def test_given_expired_certificate_in_relation_data_when_secret_expired_then_secret_revisions_are_removed(  # noqa: E501
-        self, patch_certificate_invalidated, patch_get_expiry_time
+        self, mock_certificate_invalidated: MagicMock, mock_get_expiry_time: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -1619,7 +1619,7 @@ class TestJuju3(unittest.TestCase):
             )
         }
         expiry_time = datetime.now(timezone.utc) - timedelta(seconds=10)
-        patch_get_expiry_time.return_value = expiry_time
+        mock_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
             app_or_unit=self.remote_app,
@@ -1636,7 +1636,7 @@ class TestJuju3(unittest.TestCase):
     @patch(f"{LIB_DIR}._get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_expiring")
     def test_given_almost_expiring_certificate_in_relation_data_when_secret_expired_then_certificate_expiring_event_emitted(  # noqa: E501
-        self, patch_certificate_expiring, patch_get_expiry_time
+        self, mock_certificate_expiring: MagicMock, mock_get_expiry_time: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -1664,7 +1664,7 @@ class TestJuju3(unittest.TestCase):
             )
         }
         expiry_time = datetime.now(timezone.utc) + timedelta(days=8)
-        patch_get_expiry_time.return_value = expiry_time
+        mock_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
             app_or_unit=self.remote_app,
@@ -1674,15 +1674,15 @@ class TestJuju3(unittest.TestCase):
 
         self.harness.trigger_secret_expiration(secret.get_info().id, 0)
 
-        patch_certificate_expiring.assert_called()
-        args, _ = patch_certificate_expiring.call_args
+        mock_certificate_expiring.assert_called()
+        args, _ = mock_certificate_expiring.call_args
         event_data = args[0]
         assert event_data.certificate == certificate
 
     @patch(f"{LIB_DIR}._get_certificate_expiry_time")
     @patch(f"{BASE_CHARM_DIR}._on_certificate_expiring")
     def test_given_almost_expiring_certificate_in_relation_data_when_secret_expired_then_secret_expiry_is_set_to_certificate_expiry(  # noqa: E501
-        self, patch_certificate_expiring, patch_get_expiry_time
+        self, mock_certificate_expiring: MagicMock, mock_get_expiry_time: MagicMock
     ):
         relation_id = self.create_certificates_relation()
         ca_certificate = "whatever certificate"
@@ -1710,7 +1710,7 @@ class TestJuju3(unittest.TestCase):
             )
         }
         expiry_time = datetime.now(timezone.utc) + timedelta(days=8)
-        patch_get_expiry_time.return_value = expiry_time
+        mock_get_expiry_time.return_value = expiry_time
         self.harness.update_relation_data(
             relation_id=relation_id,
             app_or_unit=self.remote_app,

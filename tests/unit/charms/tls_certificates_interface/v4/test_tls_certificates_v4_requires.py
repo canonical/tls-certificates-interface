@@ -5,7 +5,7 @@ import datetime
 import json
 from pathlib import Path
 from typing import Iterable
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import ops
 import pytest
@@ -90,14 +90,14 @@ class TestTLSCertificatesRequiresV4:
 
     @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
     def test_given_certificate_requested_when_relation_joined_then_certificate_request_is_added_to_databag(  # noqa: E501
-        self, patch_generate_csr
+        self, mock_generate_csr: MagicMock
     ):
         private_key = generate_private_key()
         csr = generate_csr(
             private_key=private_key,
             common_name="example.com",
         )
-        patch_generate_csr.return_value = csr
+        mock_generate_csr.return_value = csr
         certificates_relation = scenario.Relation(
             endpoint="certificates",
             interface="tls-certificates",
@@ -143,14 +143,14 @@ class TestTLSCertificatesRequiresV4:
 
     @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
     def test_given_ca_certificate_requested_when_relation_joined_then_certificate_request_is_added_to_databag(  # noqa: E501
-        self, patch_generate_csr
+        self, mock_generate_csr: MagicMock
     ):
         private_key = generate_private_key()
         csr = generate_csr(
             private_key=private_key,
             common_name="example.com",
         )
-        patch_generate_csr.return_value = csr
+        mock_generate_csr.return_value = csr
         certificates_relation = scenario.Relation(
             endpoint="certificates",
             interface="tls-certificates",
@@ -418,7 +418,7 @@ class TestTLSCertificatesRequiresV4:
 
     @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
     def test_given_private_key_does_not_match_with_certificate_requests_when_relation_changed_then_certificate_request_is_replaced_in_databag(  # noqa: E501
-        self, patch_generate_csr
+        self, mock_generate_csr: MagicMock
     ):
         initial_private_key = generate_private_key()
         csr = generate_csr(
@@ -448,7 +448,7 @@ class TestTLSCertificatesRequiresV4:
             private_key=new_private_key,
             common_name="example.com",
         )
-        patch_generate_csr.return_value = new_csr
+        mock_generate_csr.return_value = new_csr
 
         state_in = scenario.State(
             relations={certificates_relation},
@@ -487,7 +487,7 @@ class TestTLSCertificatesRequiresV4:
 
     @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
     def test_given_certificate_request_changed_when_relation_changed_then_new_certificate_is_requested(  # noqa: E501
-        self, patch_generate_csr
+        self, mock_generate_csr: MagicMock
     ):
         private_key = generate_private_key()
         csr_in_relation_data = generate_csr(
@@ -498,7 +498,7 @@ class TestTLSCertificatesRequiresV4:
             private_key=private_key,
             common_name="new.example.com",
         )
-        patch_generate_csr.return_value = new_csr
+        mock_generate_csr.return_value = new_csr
         certificates_relation = scenario.Relation(
             endpoint="certificates",
             interface="tls-certificates",
@@ -997,7 +997,7 @@ class TestTLSCertificatesRequiresV4:
 
     @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
     def test_given_certificate_when_certificate_secret_expires_then_new_certificate_is_requested(  # noqa: E501
-        self, patch_generate_csr
+        self, mock_generate_csr: MagicMock
     ):
         private_key = generate_private_key()
         csr = generate_csr(
@@ -1022,7 +1022,7 @@ class TestTLSCertificatesRequiresV4:
             common_name="example.com",
         )
         assert csr != new_csr
-        patch_generate_csr.return_value = new_csr
+        mock_generate_csr.return_value = new_csr
 
         private_key_secret = Secret(
             {"private-key": private_key},
@@ -1114,7 +1114,7 @@ class TestTLSCertificatesRequiresV4:
 
     @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
     def test_given_certificate_when_renew_certificate_then_new_certificate_is_requested(
-        self, patch_generate_csr
+        self, mock_generate_csr: MagicMock
     ):
         private_key = generate_private_key()
         csr = generate_csr(
@@ -1139,7 +1139,7 @@ class TestTLSCertificatesRequiresV4:
             common_name="example.com",
         )
         assert csr != new_csr
-        patch_generate_csr.return_value = new_csr
+        mock_generate_csr.return_value = new_csr
 
         private_key_secret = Secret(
             {"private-key": private_key},

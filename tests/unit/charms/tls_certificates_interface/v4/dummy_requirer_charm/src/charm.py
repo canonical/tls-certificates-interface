@@ -1,7 +1,7 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-from typing import FrozenSet, List, Optional, cast
+from typing import Any, FrozenSet, List, Optional, cast
 
 from ops.charm import ActionEvent, CharmBase
 from ops.main import main
@@ -15,7 +15,7 @@ from lib.charms.tls_certificates_interface.v4.tls_certificates import (
 
 
 class DummyTLSCertificatesRequirerCharm(CharmBase):
-    def __init__(self, *args):
+    def __init__(self, *args: Any):
         super().__init__(*args)
         certificate_requests = self._get_certificate_requests()
         self.certificates = TLSCertificatesRequiresV4(
