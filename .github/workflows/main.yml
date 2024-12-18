@@ -18,8 +18,10 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - name: Install uv
+        run: sudo snap install --classic astral-uv
       - name: Install tox
-        run: pip install tox
+        run: uv tool install tox --with tox-uv
       - name: Run tests using tox
         run: tox -e lint
 
@@ -28,8 +30,10 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - name: Install uv
+        run: sudo snap install --classic astral-uv
       - name: Install tox
-        run: pip install tox
+        run: uv tool install tox --with tox-uv
       - name: Run tests using tox
         run: tox -e static
 
@@ -38,8 +42,10 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - name: Install uv
+        run: sudo snap install --classic astral-uv
       - name: Install tox
-        run: pip install tox
+        run: uv tool install tox --with tox-uv
       - name: Run tests using tox
         run: tox -e unit
 
@@ -75,6 +81,11 @@ jobs:
           juju-channel: 2.9/stable
           provider: microk8s
           channel: 1.29/stable
+      - name: Install UV and Tox
+        run: |
+          pipx uninstall tox
+          sudo snap install astral-uv --classic
+          uv tool install tox --with tox-uv
       - name: Run tests using tox
         run: tox -e integration-v2-juju-2
       - name: Archive charmcraft logs
@@ -103,6 +114,11 @@ jobs:
           juju-channel: 3.4/stable
           provider: microk8s
           channel: 1.31-strict/stable
+      - name: Install UV and Tox
+        run: |
+          pipx uninstall tox
+          sudo snap install astral-uv --classic
+          uv tool install tox --with tox-uv
       - name: Run tests using tox
         run: tox -e integration-v2-juju-3
       - name: Archive charmcraft logs
@@ -131,6 +147,11 @@ jobs:
           juju-channel: 3.4/stable
           provider: microk8s
           channel: 1.31-strict/stable
+      - name: Install UV and Tox
+        run: |
+          pipx uninstall tox
+          sudo snap install astral-uv --classic
+          uv tool install tox --with tox-uv
       - name: Run tests using tox
         run: tox -e integration-v3
       - name: Archive charmcraft logs
@@ -159,6 +180,11 @@ jobs:
           juju-channel: 3.6/stable
           provider: microk8s
           channel: 1.31-strict/stable
+      - name: Install UV and Tox
+        run: |
+          pipx uninstall tox
+          sudo snap install astral-uv --classic
+          uv tool install tox --with tox-uv
       - name: Run tests using tox
         run: tox -e integration-v4
       - name: Archive charmcraft logs
