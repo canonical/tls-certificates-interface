@@ -1,6 +1,8 @@
 venv/
+.venv/
 build/
 *.charm
+*.egg-info/
 
 .coverage
 __pycache__/
@@ -11,3 +13,7 @@ __pycache__/
 
 tests/integration/v2/provider_charm/lib/charms/tls_certificates_interface/v2/tls_certificates.py
 tests/integration/v2/requirer_charm/lib/charms/tls_certificates_interface/v2/tls_certificates.py
+tests/integration/v3/provider_charm/lib/charms/tls_certificates_interface/v3/tls_certificates.py
+tests/integration/v3/requirer_charm/lib/charms/tls_certificates_interface/v3/tls_certificates.py
+tests/integration/v4/provider_charm/lib/charms/tls_certificates_interface/v4/tls_certificates.py
+tests/integration/v4/requirer_charm/lib/charms/tls_certificates_interface/v4/tls_certificates.py

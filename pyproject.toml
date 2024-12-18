@@ -1,3 +1,45 @@
+[project]
+name = "tls-certificates-interface"
+version = "0.1.0"
+requires-python = ">=3.10"
+
+dependencies = [
+    "cryptography",
+    "jsonschema",
+    "ops",
+    "pydantic",
+    "rpds-py==0.18.1"
+]
+
+[dependency-groups]
+test = [
+    "coverage[toml]",
+    "pytest",
+    "pytest-operator",
+    "pytest-asyncio==0.21.2",
+    "ops[testing]",
+]
+dev = [
+    "codespell",
+    "pyright",
+    "ruff",
+]
+test-juju-2 = [
+    "juju==2.9.49.0",
+    "websockets==12.0",
+]
+test-juju-3 = [
+    "juju>3"
+]
+
+[tool.uv]
+conflicts = [
+    [
+        { group = "test-juju-2" },
+        { group = "test-juju-3" },
+    ],
+]
+
 # Testing tools configuration
 [tool.coverage.run]
 branch = true
