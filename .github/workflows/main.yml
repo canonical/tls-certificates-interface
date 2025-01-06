@@ -15,7 +15,7 @@ concurrency:
 jobs:
   lint-report:
     name: Lint report
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
       - name: Install uv
@@ -27,7 +27,7 @@ jobs:
 
   static-analysis:
     name: Static analysis
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
       - name: Install uv
@@ -39,7 +39,7 @@ jobs:
 
   unit-tests-with-coverage:
     name: Unit tests
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
       - name: Install uv
@@ -51,7 +51,7 @@ jobs:
 
   build:
     name: Build charm
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - unit-tests-with-coverage
       - lint-report
@@ -70,7 +70,7 @@ jobs:
 
   integration-tests-v2-juju-2:
     name: Integration tests for tls interface v2 (Juju 2.9)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - build
     steps:
@@ -103,7 +103,7 @@ jobs:
 
   integration-tests-v2-juju-3:
     name: Integration tests for tls interface v2 (Juju 3.x)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - build
     steps:
@@ -136,7 +136,7 @@ jobs:
 
   integration-tests-v3:
     name: Integration tests for tls interface v3
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - build
     steps:
@@ -169,7 +169,7 @@ jobs:
 
   integration-tests-v4:
     name: Integration tests for tls interface v4
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - build
     steps:
