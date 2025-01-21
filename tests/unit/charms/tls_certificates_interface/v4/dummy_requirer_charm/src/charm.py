@@ -39,7 +39,9 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         )
 
     def get_private_key(self) -> PrivateKey:
-        private_key_path = "tests/unit/charms/tls_certificates_interface/v4/dummy_requirer_charm/private_key.pem"  # noqa: E501
+        private_key_path = (
+            "tests/unit/charms/tls_certificates_interface/v4/dummy_requirer_charm/private_key.pem"  # noqa: E501
+        )
         with open(private_key_path, "r") as f:
             private_key = f.read()
         return PrivateKey.from_string(private_key)
