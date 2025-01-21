@@ -1166,6 +1166,10 @@ class TLSCertificatesRequiresV4(Object):
         """Regenerate the private key.
 
         Generate a new private key, remove old certificate requests and send new ones.
+
+        Args:
+            private_key (Optional[PrivateKey]): The private key to use for the certificates.
+                If provided, it will be used instead of generating a new one.
         """
         if not self._private_key_generated():
             logger.warning("No private key to regenerate")
