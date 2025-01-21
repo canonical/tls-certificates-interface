@@ -52,7 +52,7 @@ LIBAPI = 4
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 5
+LIBPATCH = 6
 
 PYDEPS = ["cryptography", "pydantic"]
 
@@ -978,6 +978,7 @@ class TLSCertificatesRequiresV4(Object):
         certificate_requests: List[CertificateRequestAttributes],
         mode: Mode = Mode.UNIT,
         refresh_events: List[BoundEvent] = [],
+        private_key: Optional[PrivateKey] = None,
     ):
         """Create a new instance of the TLSCertificatesRequiresV4 class.
 
@@ -989,6 +990,7 @@ class TLSCertificatesRequiresV4(Object):
             mode (Mode): Whether to use unit or app certificates mode. Default is Mode.UNIT.
             refresh_events (List[BoundEvent]): A list of events to trigger a refresh of
               the certificates.
+            private_key (Optional[PrivateKey]): The private key to use for the certificates.
         """
         super().__init__(charm, relationship_name)
         if not JujuVersion.from_environ().has_secrets:
@@ -1002,6 +1004,7 @@ class TLSCertificatesRequiresV4(Object):
         self.relationship_name = relationship_name
         self.certificate_requests = certificate_requests
         self.mode = mode
+        self._private_key = private_key
         self.framework.observe(charm.on[relationship_name].relation_created, self._configure)
         self.framework.observe(charm.on[relationship_name].relation_changed, self._configure)
         self.framework.observe(charm.on.secret_expired, self._on_secret_expired)
@@ -1020,7 +1023,7 @@ class TLSCertificatesRequiresV4(Object):
         if not self._tls_relation_created():
             logger.debug("TLS relation not created yet.")
             return
-        self._generate_private_key()
+        self._ensure_private_key()
         self._send_certificate_requests()
         self._find_available_certificates()
         self._cleanup_certificate_requests()
@@ -1120,15 +1123,15 @@ class TLSCertificatesRequiresV4(Object):
         private_key = secret.get_content(refresh=True)["private-key"]
         return PrivateKey.from_string(private_key)
 
-    def _generate_private_key(self) -> None:
+    def _ensure_private_key(self) -> None:
         if self._private_key_generated():
             return
-        private_key = generate_private_key()
+        private_key = self._private_key or generate_private_key()
         self.charm.unit.add_secret(
             content={"private-key": str(private_key)},
             label=self._get_private_key_secret_label(),
         )
-        logger.info("Private key generated")
+        logger.info("Private key secret created")
 
     def regenerate_private_key(self) -> None:
         """Regenerate the private key.
