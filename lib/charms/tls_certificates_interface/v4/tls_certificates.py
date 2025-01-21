@@ -991,6 +991,7 @@ class TLSCertificatesRequiresV4(Object):
             refresh_events (List[BoundEvent]): A list of events to trigger a refresh of
               the certificates.
             private_key (Optional[PrivateKey]): The private key to use for the certificates.
+                If provided, it will be used instead of generating a new one.
         """
         super().__init__(charm, relationship_name)
         if not JujuVersion.from_environ().has_secrets:
