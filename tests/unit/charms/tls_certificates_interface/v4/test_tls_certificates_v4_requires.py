@@ -18,6 +18,7 @@ from lib.charms.tls_certificates_interface.v4.tls_certificates import (
     Certificate,
     CertificateAvailableEvent,
     CertificateSigningRequest,
+    PrivateKey,
 )
 from tests.unit.charms.tls_certificates_interface.v4.certificates import (
     generate_ca,
@@ -126,6 +127,27 @@ class TestTLSCertificatesRequiresV4:
             private_key = f.read()
             assert private_key
             assert private_key == secret.latest_content["private-key"]
+
+    @patch(
+        "tests.unit.charms.tls_certificates_interface.v4.dummy_requirer_charm.src.charm.DummyTLSCertificatesRequirerCharm.get_private_key",  # noqa: E501
+    )
+    def test_given_private_key_not_valid_when_certificates_relation_created_then_private_key_is_generated(  # noqa: E501
+        self, mock_get_private_key: MagicMock
+    ):
+        mock_get_private_key.return_value = PrivateKey.from_string("invalid")
+        certificates_relation = scenario.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+        )
+        state_in = scenario.State(
+            relations={certificates_relation},
+            config={"common_name": "example.com"},
+        )
+
+        state_out = self.ctx.run(self.ctx.on.relation_created(certificates_relation), state_in)
+
+        assert self.private_key_secret_exists(state_out.secrets)
 
     @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
     def test_given_certificate_requested_when_relation_joined_then_certificate_request_is_added_to_databag(  # noqa: E501

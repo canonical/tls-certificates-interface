@@ -211,6 +211,27 @@ class PrivateKey:
         """Create a PrivateKey object from a private key."""
         return cls(raw=private_key.strip())
 
+    def is_valid(self) -> bool:
+        """Validate that the private key is PEM-formatted, RSA, and at least 2048 bits."""
+        try:
+            key = serialization.load_pem_private_key(
+                self.raw.encode(),
+                password=None,
+            )
+
+            if not isinstance(key, rsa.RSAPrivateKey):
+                logger.warning("Private key is not an RSA key")
+                return False
+
+            if key.key_size < 2048:
+                logger.warning("RSA key size is less than 2048 bits")
+                return False
+
+            return True
+        except ValueError:
+            logger.warning("Invalid private key format")
+            return False
+
 
 @dataclass(frozen=True)
 class Certificate:
@@ -612,12 +633,14 @@ def generate_private_key(
     """Generate a private key with the RSA algorithm.
 
     Args:
-        key_size (int): Key size in bytes
+        key_size (int): Key size in bits, must be at least 2048 bits
         public_exponent: Public exponent.
 
     Returns:
         PrivateKey: Private Key
     """
+    if key_size < 2048:
+        raise ValueError("Key size must be at least 2048 bits for RSA security")
     private_key = rsa.generate_private_key(
         public_exponent=public_exponent,
         key_size=key_size,
@@ -1005,7 +1028,9 @@ class TLSCertificatesRequiresV4(Object):
         self.relationship_name = relationship_name
         self.certificate_requests = certificate_requests
         self.mode = mode
-        self._private_key = private_key
+        self._private_key = (
+            private_key if self._validate_user_provided_private_key(private_key) else None
+        )
         self.framework.observe(charm.on[relationship_name].relation_created, self._configure)
         self.framework.observe(charm.on[relationship_name].relation_changed, self._configure)
         self.framework.observe(charm.on.secret_expired, self._on_secret_expired)
@@ -1125,6 +1150,9 @@ class TLSCertificatesRequiresV4(Object):
         return PrivateKey.from_string(private_key)
 
     def _ensure_private_key(self) -> None:
+        # This ensures that the private key provided by the user is used only at the start.
+        # The lifecycle of the key is managed by the library.
+        # So when is is regenerated we don't override it with the user provided one.
         if self._private_key_generated():
             return
         private_key = self._private_key or generate_private_key()
@@ -1448,6 +1476,14 @@ class TLSCertificatesRequiresV4(Object):
 
     def _get_unit_number(self) -> str:
         return self.model.unit.name.split("/")[1]
+
+    def _validate_user_provided_private_key(self, private_key: Optional[PrivateKey]) -> bool:
+        if not private_key or not private_key.is_valid():
+            logger.warning(
+                "The provided private key won't be used, a new one will be generated instead."
+            )
+            return False
+        return True
 
 
 class TLSCertificatesProvidesV4(Object):
