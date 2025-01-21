@@ -1126,7 +1126,7 @@ class TLSCertificatesRequiresV4(Object):
     def _ensure_private_key(self) -> None:
         if self._private_key_generated():
             return
-        private_key = self._private_key or generate_private_key()
+        private_key = self._private_key if self._private_key is not None else generate_private_key()
         self.charm.unit.add_secret(
             content={"private-key": str(private_key)},
             label=self._get_private_key_secret_label(),

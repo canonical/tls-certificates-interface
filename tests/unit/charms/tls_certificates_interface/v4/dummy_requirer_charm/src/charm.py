@@ -1,6 +1,7 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+import os
 from typing import Any, FrozenSet, List, Optional, cast
 
 from ops.charm import ActionEvent, CharmBase
@@ -11,8 +12,8 @@ from lib.charms.tls_certificates_interface.v4.tls_certificates import (
     CertificateRequestAttributes,
     Mode,
     TLSCertificatesRequiresV4,
+    PrivateKey,
 )
-
 
 class DummyTLSCertificatesRequirerCharm(CharmBase):
     def __init__(self, *args: Any):
@@ -24,6 +25,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
             certificate_requests=certificate_requests,
             mode=Mode.UNIT,
             refresh_events=[self.on.config_changed],
+            private_key=self.get_private_key(),
         )
         self.framework.observe(
             self.certificates.on.certificate_available, self._on_certificate_available
@@ -35,6 +37,12 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         self.framework.observe(
             self.on.renew_certificates_action, self._on_renew_certificates_action
         )
+
+    def get_private_key(self) -> PrivateKey:
+        private_key_path = "tests/unit/charms/tls_certificates_interface/v4/dummy_requirer_charm/private_key.pem"
+        with open(private_key_path, "r") as f:
+            private_key = f.read()
+        return PrivateKey.from_string(private_key)
 
     def _get_certificate_requests(self) -> List[CertificateRequestAttributes]:
         if not self._get_config_common_name():

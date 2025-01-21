@@ -5,7 +5,7 @@ import datetime
 import json
 from pathlib import Path
 from typing import Iterable
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import ops
 import pytest
@@ -71,7 +71,11 @@ class TestTLSCertificatesRequiresV4:
             actions=METADATA["actions"],
         )
 
-    def test_given_private_key_not_created_when_certificates_relation_created_then_private_key_is_generated(  # noqa: E501
+    @patch(
+        "tests.unit.charms.tls_certificates_interface.v4.dummy_requirer_charm.src.charm.DummyTLSCertificatesRequirerCharm.get_private_key",  # noqa: E501
+        MagicMock(return_value=None),
+    )
+    def test_given_private_key_not_created_and_not_passed_when_certificates_relation_created_then_private_key_is_generated(  # noqa: E501
         self,
     ):
         certificates_relation = scenario.Relation(
@@ -87,6 +91,35 @@ class TestTLSCertificatesRequiresV4:
         state_out = self.ctx.run(self.ctx.on.relation_created(certificates_relation), state_in)
 
         assert self.private_key_secret_exists(state_out.secrets)
+        secret = state_out.get_secret(label=f"{LIBID}-private-key-0")
+        assert secret.latest_content is not None
+        with open("tests/unit/charms/tls_certificates_interface/v4/dummy_requirer_charm/private_key.pem", "r") as f:
+            private_key = f.read()
+            assert private_key
+            assert private_key != secret.latest_content["private-key"]
+
+    def test_given_private_key_not_created_and_passed_when_certificates_relation_created_then_private_key_is_stored(  # noqa: E501
+        self,
+    ):
+        certificates_relation = scenario.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+        )
+        state_in = scenario.State(
+            relations={certificates_relation},
+            config={"common_name": "example.com"},
+        )
+
+        state_out = self.ctx.run(self.ctx.on.relation_created(certificates_relation), state_in)
+
+        assert self.private_key_secret_exists(state_out.secrets)
+        secret = state_out.get_secret(label=f"{LIBID}-private-key-0")
+        assert secret.latest_content is not None
+        with open("tests/unit/charms/tls_certificates_interface/v4/dummy_requirer_charm/private_key.pem", "r") as f:
+            private_key = f.read()
+            assert private_key
+            assert private_key == secret.latest_content["private-key"]
 
     @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
     def test_given_certificate_requested_when_relation_joined_then_certificate_request_is_added_to_databag(  # noqa: E501
