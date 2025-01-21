@@ -1162,7 +1162,7 @@ class TLSCertificatesRequiresV4(Object):
         )
         logger.info("Private key secret created")
 
-    def regenerate_private_key(self) -> None:
+    def regenerate_private_key(self, private_key: Optional[PrivateKey] = None) -> None:
         """Regenerate the private key.
 
         Generate a new private key, remove old certificate requests and send new ones.
@@ -1170,12 +1170,15 @@ class TLSCertificatesRequiresV4(Object):
         if not self._private_key_generated():
             logger.warning("No private key to regenerate")
             return
-        self._regenerate_private_key()
+        self._regenerate_private_key(private_key)
         self._cleanup_certificate_requests()
         self._send_certificate_requests()
 
-    def _regenerate_private_key(self) -> None:
+    def _regenerate_private_key(self, private_key: Optional[PrivateKey] = None) -> None:
         secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
+        if private_key and private_key.is_valid():
+            secret.set_content({"private-key": str(private_key)})
+            return
         secret.set_content({"private-key": str(generate_private_key())})
 
     def _private_key_generated(self) -> bool:

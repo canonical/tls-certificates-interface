@@ -716,6 +716,41 @@ class TestTLSCertificatesRequiresV4:
         assert secret.latest_content is not None
         assert secret.latest_content["private-key"] != initial_private_key
 
+    def test_given_private_key_provided_when_regenerate_private_key_then_provided_private_key_stored(  # noqa: E501
+        self,
+    ):
+        initial_private_key = "whatever the initial private key is"
+        certificates_relation = scenario.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+        )
+
+        state_in = scenario.State(
+            relations={certificates_relation},
+            config={"common_name": "example.com"},
+            secrets={
+                Secret(
+                    {"private-key": initial_private_key},
+                    label=f"{LIBID}-private-key-0",
+                    owner="unit",
+                )
+            },
+        )
+
+        state_out = self.ctx.run(
+            self.ctx.on.action("regenerate-private-key", params={"use_own_private_key": True}),
+            state_in,
+        )
+
+        secret = state_out.get_secret(label=f"{LIBID}-private-key-0")
+        assert secret.latest_content is not None
+        with open(
+            "tests/unit/charms/tls_certificates_interface/v4/dummy_requirer_charm/private_key.pem",
+            "r",
+        ) as f:
+            assert f.read() == secret.latest_content["private-key"]
+
     def test_given_certificate_is_provided_when_get_certificate_then_certificate_is_returned(self):
         private_key = generate_private_key()
         private_key_secret = Secret(

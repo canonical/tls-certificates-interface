@@ -48,6 +48,10 @@ config:
 
 actions:
   regenerate-private-key:
+    params:
+      use_own_private_key:
+        type: boolean
+        description: Use the private key from the file
     description: Regenerate the private key
   get-certificate:
     description: Get the certificate

@@ -39,12 +39,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         )
 
     def get_private_key(self) -> PrivateKey:
-        private_key_path = (
-            "tests/unit/charms/tls_certificates_interface/v4/dummy_requirer_charm/private_key.pem"  # noqa: E501
-        )
-        with open(private_key_path, "r") as f:
-            private_key = f.read()
-        return PrivateKey.from_string(private_key)
+        return self._get_private_key_from_file()
 
     def _get_certificate_requests(self) -> List[CertificateRequestAttributes]:
         if not self._get_config_common_name():
@@ -70,7 +65,19 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         print("Certificate available for common name:", event.certificate.common_name)
 
     def _on_regenerate_private_key_action(self, event: ActionEvent) -> None:
-        self.certificates.regenerate_private_key()
+        if event.params.get("use_own_private_key"):
+            private_key = self._get_private_key_from_file()
+            self.certificates.regenerate_private_key(private_key)
+        else:
+            self.certificates.regenerate_private_key()
+
+    def _get_private_key_from_file(self) -> PrivateKey:
+        private_key_path = (
+            "tests/unit/charms/tls_certificates_interface/v4/dummy_requirer_charm/private_key.pem"  # noqa: E501
+        )
+        with open(private_key_path, "r") as f:
+            private_key = f.read()
+            return PrivateKey.from_string(private_key)
 
     def _on_get_certificate_action(self, event: ActionEvent) -> None:
         certificate, _ = self.certificates.get_assigned_certificate(
