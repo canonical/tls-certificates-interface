@@ -1001,6 +1001,7 @@ class TLSCertificatesRequiresV4(Object):
         self.charm = charm
         self.relationship_name = relationship_name
         self.certificate_requests = certificate_requests
+        self._cached_private_key: Optional[PrivateKey] = None
         self.mode = mode
         self.framework.observe(charm.on[relationship_name].relation_created, self._configure)
         self.framework.observe(charm.on[relationship_name].relation_changed, self._configure)
@@ -1118,17 +1119,13 @@ class TLSCertificatesRequiresV4(Object):
             return None
         secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
         private_key = secret.get_content(refresh=True)["private-key"]
-        return PrivateKey.from_string(private_key)
+        return self._cached_private_key or PrivateKey.from_string(private_key)
 
     def _generate_private_key(self) -> None:
         if self._private_key_generated():
             return
         private_key = generate_private_key()
-        self.charm.unit.add_secret(
-            content={"private-key": str(private_key)},
-            label=self._get_private_key_secret_label(),
-        )
-        logger.info("Private key generated")
+        self._set_private_key_secret(private_key)
 
     def regenerate_private_key(self) -> None:
         """Regenerate the private key.
@@ -1143,8 +1140,7 @@ class TLSCertificatesRequiresV4(Object):
         self._send_certificate_requests()
 
     def _regenerate_private_key(self) -> None:
-        secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
-        secret.set_content({"private-key": str(generate_private_key())})
+        self._set_private_key_secret(generate_private_key())
 
     def _private_key_generated(self) -> bool:
         try:
@@ -1152,6 +1148,19 @@ class TLSCertificatesRequiresV4(Object):
         except (SecretNotFoundError, KeyError):
             return False
         return True
+
+    def _set_private_key_secret(self, private_key: PrivateKey) -> None:
+        try:
+            secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
+            secret.set_content({"private-key": str(private_key)})
+            logger.info("Private key updated")
+        except SecretNotFoundError:
+            self.charm.unit.add_secret(
+            content={"private-key": str(private_key)},
+            label=self._get_private_key_secret_label(),
+        )
+            logger.info("Private key generated")
+        self._cached_private_key = private_key
 
     def _csr_matches_certificate_request(
         self, certificate_signing_request: CertificateSigningRequest, is_ca: bool
