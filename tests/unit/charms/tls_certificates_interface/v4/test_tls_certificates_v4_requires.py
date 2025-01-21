@@ -5,7 +5,7 @@ import datetime
 import json
 from pathlib import Path
 from typing import Iterable
-from unittest.mock import MagicMock, PropertyMock, patch
+from unittest.mock import MagicMock, patch
 
 import ops
 import pytest
@@ -93,7 +93,10 @@ class TestTLSCertificatesRequiresV4:
         assert self.private_key_secret_exists(state_out.secrets)
         secret = state_out.get_secret(label=f"{LIBID}-private-key-0")
         assert secret.latest_content is not None
-        with open("tests/unit/charms/tls_certificates_interface/v4/dummy_requirer_charm/private_key.pem", "r") as f:
+        with open(
+            "tests/unit/charms/tls_certificates_interface/v4/dummy_requirer_charm/private_key.pem",
+            "r",
+        ) as f:
             private_key = f.read()
             assert private_key
             assert private_key != secret.latest_content["private-key"]
@@ -116,7 +119,10 @@ class TestTLSCertificatesRequiresV4:
         assert self.private_key_secret_exists(state_out.secrets)
         secret = state_out.get_secret(label=f"{LIBID}-private-key-0")
         assert secret.latest_content is not None
-        with open("tests/unit/charms/tls_certificates_interface/v4/dummy_requirer_charm/private_key.pem", "r") as f:
+        with open(
+            "tests/unit/charms/tls_certificates_interface/v4/dummy_requirer_charm/private_key.pem",
+            "r",
+        ) as f:
             private_key = f.read()
             assert private_key
             assert private_key == secret.latest_content["private-key"]
