@@ -11,6 +11,7 @@ from lib.charms.tls_certificates_interface.v4.tls_certificates import (
     CertificateRequestAttributes,
     Mode,
     PrivateKey,
+    TLSCertificatesError,
     TLSCertificatesRequiresV4,
 )
 
@@ -65,11 +66,10 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         print("Certificate available for common name:", event.certificate.common_name)
 
     def _on_regenerate_private_key_action(self, event: ActionEvent) -> None:
-        if event.params.get("use_own_private_key"):
-            private_key = self._get_private_key_from_file()
-            self.certificates.regenerate_private_key(private_key)
-        else:
+        try:
             self.certificates.regenerate_private_key()
+        except TLSCertificatesError:
+            event.fail("Can't regenerate private key")
 
     def _get_private_key_from_file(self) -> PrivateKey:
         private_key_path = (

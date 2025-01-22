@@ -1015,6 +1015,8 @@ class TLSCertificatesRequiresV4(Object):
               the certificates.
             private_key (Optional[PrivateKey]): The private key to use for the certificates.
                 If provided, it will be used instead of generating a new one.
+                If the key is not valid the library will generate a new one.
+                Using this parameter is discouraged.
         """
         super().__init__(charm, relationship_name)
         if not JujuVersion.from_environ().has_secrets:
@@ -1143,46 +1145,51 @@ class TLSCertificatesRequiresV4(Object):
     @property
     def private_key(self) -> Optional[PrivateKey]:
         """Return the private key."""
-        if not self._private_key_generated():
+        if not self._private_key_generated() and not self._private_key:
             return None
+        if self._private_key:
+            return self._private_key
         secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
         private_key = secret.get_content(refresh=True)["private-key"]
         return PrivateKey.from_string(private_key)
 
     def _ensure_private_key(self) -> None:
-        # This ensures that the private key provided by the user is used only at the start.
-        # The lifecycle of the key is managed by the library.
-        # So when is is regenerated we don't override it with the user provided one.
         if self._private_key_generated():
+            logger.debug("Private key secret already generated")
             return
-        private_key = self._private_key or generate_private_key()
+        if self._private_key:
+            logger.debug("Using private key provided by the user")
+            return
+        private_key = generate_private_key()
         self.charm.unit.add_secret(
             content={"private-key": str(private_key)},
             label=self._get_private_key_secret_label(),
         )
         logger.info("Private key secret created")
 
-    def regenerate_private_key(self, private_key: Optional[PrivateKey] = None) -> None:
+    def regenerate_private_key(self) -> None:
         """Regenerate the private key.
 
         Generate a new private key, remove old certificate requests and send new ones.
 
-        Args:
-            private_key (Optional[PrivateKey]): The private key to use for the certificates.
-                If provided, it will be used instead of generating a new one.
+        Raises:
+            TLSCertificatesError: If the private key is managed by the charm.
+                In that case the charm is responsible for regenerating the private key
+                and the only entry point is the init function.
         """
+        if self._private_key:
+            raise TLSCertificatesError(
+                "Private key managed by the charm, this function can't be used"
+            )
         if not self._private_key_generated():
             logger.warning("No private key to regenerate")
             return
-        self._regenerate_private_key(private_key)
+        self._regenerate_private_key()
         self._cleanup_certificate_requests()
         self._send_certificate_requests()
 
-    def _regenerate_private_key(self, private_key: Optional[PrivateKey] = None) -> None:
+    def _regenerate_private_key(self) -> None:
         secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
-        if private_key and private_key.is_valid():
-            secret.set_content({"private-key": str(private_key)})
-            return
         secret.set_content({"private-key": str(generate_private_key())})
 
     def _private_key_generated(self) -> bool:
