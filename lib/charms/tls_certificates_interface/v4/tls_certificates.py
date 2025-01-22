@@ -1165,7 +1165,7 @@ class TLSCertificatesRequiresV4(Object):
             content={"private-key": str(private_key)},
             label=self._get_private_key_secret_label(),
         )
-        logger.info("Private key secret created")
+        logger.info("Private key generated")
 
     def regenerate_private_key(self) -> None:
         """Regenerate the private key.

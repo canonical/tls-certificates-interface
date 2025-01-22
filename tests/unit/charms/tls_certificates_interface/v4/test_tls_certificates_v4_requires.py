@@ -12,7 +12,7 @@ import pytest
 import scenario
 import yaml
 from cryptography.hazmat.primitives import hashes
-from scenario import Secret, ActionFailed
+from scenario import Secret
 
 from lib.charms.tls_certificates_interface.v4.tls_certificates import (
     Certificate,
@@ -33,7 +33,6 @@ from tests.unit.charms.tls_certificates_interface.v4.dummy_requirer_charm.src.ch
 BASE_CHARM_DIR = "tests.unit.charms.tls_certificates_interface.v4.dummy_requirer_charm.src.charm.DummyTLSCertificatesRequirerCharm"  # noqa: E501
 LIB_DIR = "lib.charms.tls_certificates_interface.v4.tls_certificates"
 LIBID = "afd8c2bccf834997afce12c2706d2ede"
-DUMMY_REQUIRE_PATH = "tests.unit.charms.tls_certificates_interface.v4.dummy_requirer_charm.src.charm.DummyTLSCertificatesRequirerCharm"
 
 METADATA = yaml.safe_load(
     Path(
@@ -75,7 +74,7 @@ class TestTLSCertificatesRequiresV4:
         )
 
     @patch(
-        f"{DUMMY_REQUIRE_PATH}.get_private_key",  # noqa: E501
+        f"{BASE_CHARM_DIR}.get_private_key",
         MagicMock(return_value=None),
     )
     def test_given_private_key_not_created_and_not_passed_when_certificates_relation_created_then_private_key_is_generated(  # noqa: E501
@@ -122,7 +121,7 @@ class TestTLSCertificatesRequiresV4:
         assert not self.private_key_secret_exists(state_out.secrets)
 
     @patch(
-        "tests.unit.charms.tls_certificates_interface.v4.dummy_requirer_charm.src.charm.DummyTLSCertificatesRequirerCharm.get_private_key",  # noqa: E501
+        f"{BASE_CHARM_DIR}.get_private_key",
     )
     def test_given_private_key_not_valid_when_certificates_relation_created_then_private_key_is_generated(  # noqa: E501
         self, mock_get_private_key: MagicMock
@@ -143,7 +142,7 @@ class TestTLSCertificatesRequiresV4:
         assert self.private_key_secret_exists(state_out.secrets)
 
     @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
-    @patch(f"{DUMMY_REQUIRE_PATH}.get_private_key", MagicMock(return_value=None))
+    @patch(f"{BASE_CHARM_DIR}.get_private_key", MagicMock(return_value=None))
     def test_given_certificate_requested_when_relation_joined_then_certificate_request_is_added_to_databag(  # noqa: E501
         self, mock_generate_csr: MagicMock
     ):
@@ -197,7 +196,7 @@ class TestTLSCertificatesRequiresV4:
         )
 
     @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
-    @patch(f"{DUMMY_REQUIRE_PATH}.get_private_key", MagicMock(return_value=None))
+    @patch(f"{BASE_CHARM_DIR}.get_private_key", MagicMock(return_value=None))
     def test_given_ca_certificate_requested_when_relation_joined_then_certificate_request_is_added_to_databag(  # noqa: E501
         self, mock_generate_csr: MagicMock
     ):
@@ -473,6 +472,7 @@ class TestTLSCertificatesRequiresV4:
         )
 
     @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
+    @patch(f"{BASE_CHARM_DIR}.get_private_key", MagicMock(return_value=None))
     def test_given_private_key_does_not_match_with_certificate_requests_when_relation_changed_then_certificate_request_is_replaced_in_databag(  # noqa: E501
         self, mock_generate_csr: MagicMock
     ):
@@ -542,7 +542,7 @@ class TestTLSCertificatesRequiresV4:
         )
 
     @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
-    @patch(f"{DUMMY_REQUIRE_PATH}.get_private_key", MagicMock(return_value=None))
+    @patch(f"{BASE_CHARM_DIR}.get_private_key", MagicMock(return_value=None))
     def test_given_certificate_request_changed_when_relation_changed_then_new_certificate_is_requested(  # noqa: E501
         self, mock_generate_csr: MagicMock
     ):
@@ -684,7 +684,7 @@ class TestTLSCertificatesRequiresV4:
             }
         )
 
-    @patch(f"{DUMMY_REQUIRE_PATH}.get_private_key", MagicMock(return_value=None))
+    @patch(f"{BASE_CHARM_DIR}.get_private_key", MagicMock(return_value=None))
     def test_given_private_key_generated_by_library_is_used_when_regenerate_private_key_then_new_private_key_is_generated(  # noqa: E501
         self,
     ):
@@ -713,7 +713,7 @@ class TestTLSCertificatesRequiresV4:
         assert secret.latest_content is not None
         assert secret.latest_content["private-key"] != initial_private_key
 
-    def test_given_private_key_provided_when_regenerate_private_key_then_event_fails(  # noqa: E501
+    def test_given_private_key_provided_by_charm_when_regenerate_private_key_then_event_fails(  # noqa: E501
         self,
     ):
         initial_private_key = "whatever the initial private key is"
@@ -735,14 +735,14 @@ class TestTLSCertificatesRequiresV4:
             },
         )
 
-        with pytest.raises(ActionFailed):  # type: ignore[reportAttributeAccessIssue]
+        with pytest.raises(ops._private.harness.ActionFailed):  # type: ignore[reportAttributeAccessIssue]
             self.ctx.run(self.ctx.on.action("regenerate-private-key"), state_in)
 
     @patch(
-        f"{DUMMY_REQUIRE_PATH}.get_private_key",  # noqa: E501
+        f"{BASE_CHARM_DIR}.get_private_key",
         MagicMock(return_value=None),
     )
-    def test_given_certificate_is_provided_when_get_certificate_then_certificate_is_returned(self): 
+    def test_given_certificate_is_provided_when_get_certificate_then_certificate_is_returned(self):
         private_key = generate_private_key()
         private_key_secret = Secret(
             {"private-key": private_key},
@@ -866,7 +866,7 @@ class TestTLSCertificatesRequiresV4:
             secrets={private_key_secret},
         )
 
-        with pytest.raises(ActionFailed):  # type: ignore[reportAttributeAccessIssue]
+        with pytest.raises(ops._private.harness.ActionFailed):  # type: ignore[reportAttributeAccessIssue]
             self.ctx.run(self.ctx.on.action("get-certificate"), state_in)
 
     def test_given_certificate_is_provided_when_relation_changed_then_certificate_secret_is_created(  # noqa: E501
@@ -1200,7 +1200,7 @@ class TestTLSCertificatesRequiresV4:
         )
 
     @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
-    @patch(f"{DUMMY_REQUIRE_PATH}.get_private_key", MagicMock(return_value=None))
+    @patch(f"{BASE_CHARM_DIR}.get_private_key", MagicMock(return_value=None))
     def test_given_certificate_when_renew_certificate_then_new_certificate_is_requested(
         self, mock_generate_csr: MagicMock
     ):
