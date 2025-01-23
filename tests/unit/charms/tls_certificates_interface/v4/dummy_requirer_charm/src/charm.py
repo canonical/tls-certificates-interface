@@ -39,8 +39,9 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
             self.on.renew_certificates_action, self._on_renew_certificates_action
         )
 
-    def get_private_key(self) -> PrivateKey:
-        return self._get_private_key_from_file()
+    def get_private_key(self) -> Optional[PrivateKey]:
+        # By default, the private key is not provided by the charm
+        return None
 
     def _get_certificate_requests(self) -> List[CertificateRequestAttributes]:
         if not self._get_config_common_name():
@@ -70,14 +71,6 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
             self.certificates.regenerate_private_key()
         except TLSCertificatesError:
             event.fail("Can't regenerate private key")
-
-    def _get_private_key_from_file(self) -> PrivateKey:
-        private_key_path = (
-            "tests/unit/charms/tls_certificates_interface/v4/dummy_requirer_charm/private_key.pem"  # noqa: E501
-        )
-        with open(private_key_path, "r") as f:
-            private_key = f.read()
-            return PrivateKey.from_string(private_key)
 
     def _on_get_certificate_action(self, event: ActionEvent) -> None:
         certificate, _ = self.certificates.get_assigned_certificate(

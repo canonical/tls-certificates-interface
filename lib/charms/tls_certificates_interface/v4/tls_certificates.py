@@ -1145,27 +1145,23 @@ class TLSCertificatesRequiresV4(Object):
     @property
     def private_key(self) -> Optional[PrivateKey]:
         """Return the private key."""
-        if not self._private_key_generated() and not self._private_key:
+        if not self._private_key_secret_exists():
             return None
-        if self._private_key:
-            return self._private_key
         secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
         private_key = secret.get_content(refresh=True)["private-key"]
         return PrivateKey.from_string(private_key)
 
     def _ensure_private_key(self) -> None:
-        if self._private_key_generated():
-            logger.debug("Private key secret already generated")
+        if self._private_key_secret_exists():
+            if self._correct_private_key_stored():
+                logger.debug("Private key secret already stored")
+                return
+            private_key = self._private_key or generate_private_key()
+            self._replace_private_key(private_key)
             return
-        if self._private_key:
-            logger.debug("Using private key provided by the user")
-            return
-        private_key = generate_private_key()
-        self.charm.unit.add_secret(
-            content={"private-key": str(private_key)},
-            label=self._get_private_key_secret_label(),
-        )
-        logger.info("Private key generated")
+        private_key = self._private_key or generate_private_key()
+        self._store_private_key(private_key)
+        logger.info("Private key stored")
 
     def regenerate_private_key(self) -> None:
         """Regenerate the private key.
@@ -1181,23 +1177,47 @@ class TLSCertificatesRequiresV4(Object):
             raise TLSCertificatesError(
                 "Private key managed by the charm, this function can't be used"
             )
-        if not self._private_key_generated():
+        if not self._private_key_secret_exists():
             logger.warning("No private key to regenerate")
             return
-        self._regenerate_private_key()
+        self._replace_private_key(generate_private_key())
+
+    def _replace_private_key(self, private_key: PrivateKey) -> None:
+        """Replace the private key with a new one.
+
+        Remove old certificate requests and send new ones.
+        """
+        self._store_private_key(private_key)
         self._cleanup_certificate_requests()
         self._send_certificate_requests()
 
-    def _regenerate_private_key(self) -> None:
-        secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
-        secret.set_content({"private-key": str(generate_private_key())})
-
-    def _private_key_generated(self) -> bool:
+    def _private_key_secret_exists(self) -> bool:
         try:
-            self.charm.model.get_secret(label=self._get_private_key_secret_label())
+            secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
+            secret.get_content(refresh=True)
+            return True
+        except SecretNotFoundError:
+            return False
+
+    def _correct_private_key_stored(self) -> bool:
+        try:
+            secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
+            private_key = secret.get_content(refresh=True)["private-key"]
+            if self._private_key:
+                return private_key == str(self._private_key)
+            return True
         except (SecretNotFoundError, KeyError):
             return False
-        return True
+
+    def _store_private_key(self, private_key: PrivateKey) -> None:
+        try:
+            secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
+            secret.set_content({"private-key": str(private_key)})
+        except SecretNotFoundError:
+            self.charm.unit.add_secret(
+                content={"private-key": str(private_key)},
+                label=self._get_private_key_secret_label(),
+            )
 
     def _csr_matches_certificate_request(
         self, certificate_signing_request: CertificateSigningRequest, is_ca: bool
