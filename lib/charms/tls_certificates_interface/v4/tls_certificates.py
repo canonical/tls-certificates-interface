@@ -1015,8 +1015,10 @@ class TLSCertificatesRequiresV4(Object):
               the certificates.
             private_key (Optional[PrivateKey]): The private key to use for the certificates.
                 If provided, it will be used instead of generating a new one.
-                If the key is not valid the library will generate a new one.
-                Using this parameter is discouraged.
+                If the key is not valid an exception will be raised.
+                Using this parameter is discouraged,
+                having to pass around private keys manually can be a security concern.
+                Allowing the library to generate and manage the key is the more secure approach.
         """
         super().__init__(charm, relationship_name)
         if not JujuVersion.from_environ().has_secrets:
@@ -1156,8 +1158,8 @@ class TLSCertificatesRequiresV4(Object):
     def _ensure_private_key(self) -> None:
         """Make sure there is a private key to be used.
 
-        It will make sure there is a private key provided by the charm otherwise it will
-        generate a new one.
+        It will make sure there is a private key passed by the charm using the private_key
+        parameter or generate a new one otherwise.
         """
         if self._private_key:
             self._remove_private_key_secret()
