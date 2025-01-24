@@ -1145,6 +1145,7 @@ class TLSCertificatesRequiresV4(Object):
     def _regenerate_private_key(self) -> None:
         secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
         secret.set_content({"private-key": str(generate_private_key())})
+        secret.get_content(refresh=True)
 
     def _private_key_generated(self) -> bool:
         try:
@@ -1370,6 +1371,7 @@ class TLSCertificatesRequiresV4(Object):
                         secret.set_info(
                             expire=provider_certificate.certificate.expiry_time,
                         )
+                        secret.get_content(refresh=True)
                     except SecretNotFoundError:
                         logger.debug("Creating new secret with label %s", secret_label)
                         secret = self.charm.unit.add_secret(
