@@ -26,3 +26,7 @@ parts:
       - libssl-dev
       - pkg-config
       - rustc
+
+charm-libs:
+  - lib: tls-certificates-interface.tls_certificates
+    version: "4"

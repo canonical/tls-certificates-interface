@@ -10,9 +10,8 @@ from charms.tls_certificates_interface.v4.tls_certificates import (
     ProviderCertificate,
     TLSCertificatesProvidesV4,
 )
-from ops import EventBase
+from ops import EventBase, main
 from ops.charm import CharmBase, CollectStatusEvent
-from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, SecretNotFoundError, WaitingStatus
 from self_signed_certificates import (
     generate_ca,
