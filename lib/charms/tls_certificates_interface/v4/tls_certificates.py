@@ -1052,9 +1052,9 @@ class TLSCertificatesRequiresV4(Object):
             logger.debug("TLS relation not created yet.")
             return
         self._ensure_private_key()
+        self._cleanup_certificate_requests()
         self._send_certificate_requests()
         self._find_available_certificates()
-        self._cleanup_certificate_requests()
 
     def _mode_is_valid(self, mode: Mode) -> bool:
         return mode in [Mode.UNIT, Mode.APP]
@@ -1145,23 +1145,22 @@ class TLSCertificatesRequiresV4(Object):
     @property
     def private_key(self) -> Optional[PrivateKey]:
         """Return the private key."""
-        if not self._private_key_secret_exists():
+        if self._private_key:
+            return self._private_key
+        if not self._private_key_generated():
             return None
         secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
         private_key = secret.get_content(refresh=True)["private-key"]
         return PrivateKey.from_string(private_key)
 
     def _ensure_private_key(self) -> None:
-        if self._private_key_secret_exists():
-            if self._correct_private_key_stored():
-                logger.debug("Private key secret already stored")
-                return
-            private_key = self._private_key or generate_private_key()
-            self._replace_private_key(private_key)
+        if self._private_key:
+            self._remove_private_key_secret()
             return
-        private_key = self._private_key or generate_private_key()
-        self._store_private_key(private_key)
-        logger.info("Private key stored")
+        if self._private_key_generated():
+            logger.debug("Private key already generated")
+            return
+        self._generate_private_key()
 
     def regenerate_private_key(self) -> None:
         """Regenerate the private key.
@@ -1177,21 +1176,19 @@ class TLSCertificatesRequiresV4(Object):
             raise TLSCertificatesError(
                 "Private key managed by the charm, this function can't be used"
             )
-        if not self._private_key_secret_exists():
+        if not self._private_key_generated():
             logger.warning("No private key to regenerate")
             return
-        self._replace_private_key(generate_private_key())
-
-    def _replace_private_key(self, private_key: PrivateKey) -> None:
-        """Replace the private key with a new one.
-
-        Remove old certificate requests and send new ones.
-        """
-        self._store_private_key(private_key)
+        self._generate_private_key()
         self._cleanup_certificate_requests()
         self._send_certificate_requests()
 
-    def _private_key_secret_exists(self) -> bool:
+    def _generate_private_key(self) -> None:
+        """Generate a new private key."""
+        self._store_private_key_in_secret(generate_private_key())
+        logger.info("Private key generated")
+
+    def _private_key_generated(self) -> bool:
         try:
             secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
             secret.get_content(refresh=True)
@@ -1199,17 +1196,7 @@ class TLSCertificatesRequiresV4(Object):
         except SecretNotFoundError:
             return False
 
-    def _correct_private_key_stored(self) -> bool:
-        try:
-            secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
-            private_key = secret.get_content(refresh=True)["private-key"]
-            if self._private_key:
-                return private_key == str(self._private_key)
-            return True
-        except (SecretNotFoundError, KeyError):
-            return False
-
-    def _store_private_key(self, private_key: PrivateKey) -> None:
+    def _store_private_key_in_secret(self, private_key: PrivateKey) -> None:
         try:
             secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
             secret.set_content({"private-key": str(private_key)})
@@ -1218,6 +1205,14 @@ class TLSCertificatesRequiresV4(Object):
                 content={"private-key": str(private_key)},
                 label=self._get_private_key_secret_label(),
             )
+
+    def _remove_private_key_secret(self) -> None:
+        """Remove the private key secret."""
+        try:
+            secret = self.charm.model.get_secret(label=self._get_private_key_secret_label())
+            secret.remove_all_revisions()
+        except SecretNotFoundError:
+            logger.warning("Private key secret not found, nothing to remove")
 
     def _csr_matches_certificate_request(
         self, certificate_signing_request: CertificateSigningRequest, is_ca: bool
