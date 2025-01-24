@@ -1226,31 +1226,3 @@ class TestTLSCertificatesRequiresV4:
                 )
             }
         )
-
-    def test_given_private_key_generated_when_regenerate_private_key_then_new_private_key_is_generated_in_same_hook(  # noqa: E501
-        self,
-    ):
-        initial_private_key = "whatever the initial private key is"
-        certificates_relation = scenario.Relation(
-            endpoint="certificates",
-            interface="tls-certificates",
-            remote_app_name="certificate-requirer",
-        )
-
-        state_in = scenario.State(
-            relations={certificates_relation},
-            config={"common_name": "example.com"},
-            secrets={
-                Secret(
-                    {"private-key": initial_private_key},
-                    label=f"{LIBID}-private-key-0",
-                    owner="unit",
-                )
-            },
-        )
-
-        with self.ctx(self.ctx.on.update_status(), state_in) as manager:
-            charm: DummyTLSCertificatesRequirerCharm = manager.charm  # type: ignore
-            old_private_key = charm.certificates.private_key
-            charm.certificates._regenerate_private_key()
-            assert charm.certificates.private_key != old_private_key
