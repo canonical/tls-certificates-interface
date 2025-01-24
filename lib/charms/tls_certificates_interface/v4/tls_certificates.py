@@ -52,7 +52,7 @@ LIBAPI = 4
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 5
+LIBPATCH = 6
 
 PYDEPS = ["cryptography", "pydantic"]
 
@@ -1427,9 +1427,9 @@ class TLSCertificatesRequiresV4(Object):
 
     def _get_private_key_secret_label(self) -> str:
         if self.mode == Mode.UNIT:
-            return f"{LIBID}-private-key-{self._get_unit_number()}"
+            return f"{LIBID}-private-key-{self._get_unit_number()}-{self.relationship_name}"
         elif self.mode == Mode.APP:
-            return f"{LIBID}-private-key"
+            return f"{LIBID}-private-key-{self.relationship_name}"
         else:
             raise TLSCertificatesError("Invalid mode. Must be Mode.UNIT or Mode.APP.")
 
