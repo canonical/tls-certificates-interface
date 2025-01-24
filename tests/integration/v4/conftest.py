@@ -9,10 +9,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
-def pytest_configure(config: pytest.Config) -> None:
-    config.addinivalue_line("markers", "slow: mark test as slow to run")
-
-
 # Adapted from
 # https://docs.pytest.org/en/latest/example/simple.html#control-skipping-of-tests-according-to-command-line-option
 def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item]) -> None:
