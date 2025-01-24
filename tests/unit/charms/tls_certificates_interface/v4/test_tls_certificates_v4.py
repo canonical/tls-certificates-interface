@@ -72,7 +72,7 @@ def test_given_no_password_when_generate_private_key_then_key_is_generated_and_l
 
 
 def test_given_key_size_provided_when_generate_private_key_then_private_key_is_generated():
-    key_size = 1234
+    key_size = 2234
 
     private_key = generate_private_key(key_size=key_size)
 
