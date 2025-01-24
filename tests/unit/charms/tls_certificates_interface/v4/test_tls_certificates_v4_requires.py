@@ -86,7 +86,9 @@ class TestTLSCertificatesRequiresV4:
 
         state_out = self.ctx.run(self.ctx.on.relation_created(certificates_relation), state_in)
 
-        assert self.private_key_secret_exists(state_out.secrets, f"{LIBID}-private-key-0-{certificates_relation.endpoint}")
+        assert self.private_key_secret_exists(
+            state_out.secrets, f"{LIBID}-private-key-0-{certificates_relation.endpoint}"
+        )
 
     @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
     def test_given_certificate_requested_when_relation_joined_then_certificate_request_is_added_to_databag(  # noqa: E501
@@ -651,7 +653,9 @@ class TestTLSCertificatesRequiresV4:
 
         state_out = self.ctx.run(self.ctx.on.action("regenerate-private-key"), state_in)
 
-        secret = state_out.get_secret(label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}")
+        secret = state_out.get_secret(
+            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}"
+        )
         assert secret.latest_content is not None
         assert secret.latest_content["private-key"] != initial_private_key
 
