@@ -18,6 +18,7 @@ from lib.charms.tls_certificates_interface.v4.tls_certificates import (
     CertificateAvailableEvent,
     CertificateSigningRequest,
     PrivateKey,
+    TLSCertificatesError,
 )
 from tests.unit.charms.tls_certificates_interface.v4.certificates import (
     generate_ca,
@@ -134,7 +135,7 @@ class TestTLSCertificatesRequiresV4:
     @patch(
         f"{BASE_CHARM_DIR}.get_private_key",
     )
-    def test_given_private_key_passed_from_charm_not_valid_when_certificates_relation_created_then_private_key_is_generated(  # noqa: E501
+    def test_given_private_key_passed_from_charm_not_valid_when_certificates_relation_created_then_error_is_raised(  # noqa: E501
         self, mock_get_private_key: MagicMock
     ):
         mock_get_private_key.return_value = PrivateKey.from_string("invalid")
@@ -148,9 +149,13 @@ class TestTLSCertificatesRequiresV4:
             config={"common_name": "example.com"},
         )
 
-        state_out = self.ctx.run(self.ctx.on.relation_created(certificates_relation), state_in)
-
-        assert self.private_key_secret_exists(state_out.secrets)
+        # Scenario raises this error if the charm raises while handling an event.
+        # The charm here would be raising a TLSCertificatesError.
+        with pytest.raises(testing.errors.UncaughtCharmError):
+            self.ctx.run(
+                self.ctx.on.relation_created(certificates_relation),
+                state_in
+            )
 
     @patch(
         f"{BASE_CHARM_DIR}.get_private_key",
@@ -752,7 +757,7 @@ class TestTLSCertificatesRequiresV4:
         f"{BASE_CHARM_DIR}.get_private_key",
         MagicMock(return_value=get_private_key_from_file()),
     )
-    def test_given_private_key_passed_from_charm_when_regenerate_private_key_then_event_fails(  # noqa: E501
+    def test_given_private_key_passed_from_charm_when_regenerate_private_key_then_action_fails(  # noqa: E501
         self,
     ):
         initial_private_key = "whatever the initial private key is"
@@ -776,6 +781,37 @@ class TestTLSCertificatesRequiresV4:
 
         with pytest.raises(ActionFailed):
             self.ctx.run(self.ctx.on.action("regenerate-private-key"), state_in)
+
+    @patch(
+        f"{BASE_CHARM_DIR}.get_private_key",
+        MagicMock(return_value=get_private_key_from_file()),
+    )
+    def test_given_private_key_passed_from_charm_when_regenerate_private_key_then_raises_error(  # noqa: E501
+        self,
+    ):
+        initial_private_key = "whatever the initial private key is"
+        certificates_relation = testing.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+        )
+
+        state_in = testing.State(
+            relations={certificates_relation},
+            config={"common_name": "example.com"},
+            secrets={
+                Secret(
+                    {"private-key": initial_private_key},
+                    label=f"{LIBID}-private-key-0",
+                    owner="unit",
+                )
+            },
+        )
+
+        with self.ctx(self.ctx.on.update_status(), state_in) as manager:
+            with pytest.raises(TLSCertificatesError):
+                charm: DummyTLSCertificatesRequirerCharm = manager.charm  # type: ignore
+                charm.certificates.regenerate_private_key()
 
     def test_given_certificate_is_provided_when_get_certificate_then_certificate_is_returned(self):
         private_key = generate_private_key()

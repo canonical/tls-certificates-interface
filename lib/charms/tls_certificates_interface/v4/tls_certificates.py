@@ -1030,9 +1030,9 @@ class TLSCertificatesRequiresV4(Object):
         self.relationship_name = relationship_name
         self.certificate_requests = certificate_requests
         self.mode = mode
-        self._private_key = (
-            private_key if self._validate_user_provided_private_key(private_key) else None
-        )
+        if private_key and not private_key.is_valid():
+            raise TLSCertificatesError("Invalid private key")
+        self._private_key = private_key
         self.framework.observe(charm.on[relationship_name].relation_created, self._configure)
         self.framework.observe(charm.on[relationship_name].relation_changed, self._configure)
         self.framework.observe(charm.on.secret_expired, self._on_secret_expired)
@@ -1154,6 +1154,11 @@ class TLSCertificatesRequiresV4(Object):
         return PrivateKey.from_string(private_key)
 
     def _ensure_private_key(self) -> None:
+        """Make sure there is a private key to be used.
+
+        It will make sure there is a private key provided by the charm otherwise it will
+        generate a new one.
+        """
         if self._private_key:
             self._remove_private_key_secret()
             return
@@ -1168,13 +1173,13 @@ class TLSCertificatesRequiresV4(Object):
         Generate a new private key, remove old certificate requests and send new ones.
 
         Raises:
-            TLSCertificatesError: If the private key is managed by the charm.
-                In that case the charm is responsible for regenerating the private key
-                and the only entry point is the init function.
+            TLSCertificatesError: If the private key is passed by the charm using the
+                private_key parameter.
         """
         if self._private_key:
             raise TLSCertificatesError(
-                "Private key managed by the charm, this function can't be used"
+                "Private key is provided by the charm through the private_key parameter, "
+                "this function can't be used"
             )
         if not self._private_key_generated():
             logger.warning("No private key to regenerate")
@@ -1431,6 +1436,7 @@ class TLSCertificatesRequiresV4(Object):
                         secret.set_info(
                             expire=provider_certificate.certificate.expiry_time,
                         )
+                        secret.get_content(refresh=True)
                     except SecretNotFoundError:
                         logger.debug("Creating new secret with label %s", secret_label)
                         secret = self.charm.unit.add_secret(
@@ -1505,14 +1511,6 @@ class TLSCertificatesRequiresV4(Object):
 
     def _get_unit_number(self) -> str:
         return self.model.unit.name.split("/")[1]
-
-    def _validate_user_provided_private_key(self, private_key: Optional[PrivateKey]) -> bool:
-        if not private_key or not private_key.is_valid():
-            logger.warning(
-                "The provided private key won't be used, a new one will be generated instead."
-            )
-            return False
-        return True
 
 
 class TLSCertificatesProvidesV4(Object):
