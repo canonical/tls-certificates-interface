@@ -152,10 +152,7 @@ class TestTLSCertificatesRequiresV4:
         # Scenario raises this error if the charm raises while handling an event.
         # The charm here would be raising a TLSCertificatesError.
         with pytest.raises(testing.errors.UncaughtCharmError):
-            self.ctx.run(
-                self.ctx.on.relation_created(certificates_relation),
-                state_in
-            )
+            self.ctx.run(self.ctx.on.relation_created(certificates_relation), state_in)
 
     @patch(
         f"{BASE_CHARM_DIR}.get_private_key",
