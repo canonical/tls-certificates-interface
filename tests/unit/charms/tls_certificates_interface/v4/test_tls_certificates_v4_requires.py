@@ -90,6 +90,36 @@ class TestTLSCertificatesRequiresV4:
             state_out.secrets, f"{LIBID}-private-key-0-{certificates_relation.endpoint}"
         )
 
+    def test_given_private_key_secret_label_pre_v_4_7_when_configure_then_private_key_is_regenerated_in_new_secret(  # noqa: E501
+        self
+    ):
+        initial_private_key = generate_private_key()
+        certificates_relation = scenario.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+        )
+
+        state_in = scenario.State(
+            relations={certificates_relation},
+            config={"common_name": "example.com"},
+            secrets={
+                Secret(
+                    {"private-key": initial_private_key},
+                    label=f"{LIBID}-private-key-0",
+                    owner="unit",
+                )
+            },
+        )
+
+        state_out = self.ctx.run(self.ctx.on.upgrade_charm(), state_in)
+
+        secret = state_out.get_secret(
+            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}"
+        )
+        assert secret.latest_content is not None
+        assert secret.latest_content["private-key"] == initial_private_key
+
     @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
     def test_given_certificate_requested_when_relation_joined_then_certificate_request_is_added_to_databag(  # noqa: E501
         self, mock_generate_csr: MagicMock
