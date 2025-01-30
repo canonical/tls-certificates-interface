@@ -466,7 +466,7 @@ class TestTLSCertificatesRequiresV4:
                     endpoint="certificates",
                     interface="tls-certificates",
                     remote_app_name="certificate-requirer",
-                    local_unit_data={"certificate_signing_requests": "[]"},
+                    local_unit_data={},
                 ),
             }
         )
