@@ -9,8 +9,8 @@ from charms.tls_certificates_interface.v4.tls_certificates import (
     Mode,
     TLSCertificatesRequiresV4,
 )
+from ops import main
 from ops.charm import ActionEvent, CharmBase, CollectStatusEvent
-from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 
 
@@ -27,6 +27,16 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         )
         self.framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)
         self.framework.observe(self.on.get_certificate_action, self._on_get_certificate_action)
+        self.framework.observe(self.on.renew_certificate_action, self._on_renew_certificate_action)
+
+    def _on_renew_certificate_action(self, event: ActionEvent) -> None:
+        cert, _private_key = self.certificates.get_assigned_certificate(
+            self._get_certificate_request()
+        )
+        if not cert:
+            event.fail("Certificate not available")
+            return
+        self.certificates.renew_certificate(cert)
 
     def _on_collect_unit_status(self, event: CollectStatusEvent):
         if not self._relation_created("certificates"):

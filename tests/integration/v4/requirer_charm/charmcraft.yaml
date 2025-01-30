@@ -61,3 +61,10 @@ config:
 actions:
   get-certificate:
     description: Returns the TLS Certificate.
+
+  renew-certificate:
+    description: Renews the TLS Certificate.
+
+charm-libs:
+  - lib: tls-certificates-interface.tls_certificates
+    version: "4"
