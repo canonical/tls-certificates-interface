@@ -888,9 +888,7 @@ class TestTLSCertificatesProvidesV4:
 
         state_out = self.ctx.run(self.ctx.on.relation_changed(certificates_relation), state_in)
 
-        assert state_out.get_relation(certificates_relation.id).local_app_data == {
-            "certificates": "[]"
-        }
+        assert state_out.get_relation(certificates_relation.id).local_app_data == {}
 
     def test_given_fulfilled_certificate_requests_when_relation_changed_then_certificates_removed(
         self,

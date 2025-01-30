@@ -52,7 +52,7 @@ LIBAPI = 4
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 6
+LIBPATCH = 7
 
 PYDEPS = ["cryptography", "pydantic"]
 
@@ -171,7 +171,7 @@ class _CertificateSigningRequest(BaseModel):
 class _ProviderApplicationData(_DatabagModel):
     """Provider application data model."""
 
-    certificates: List[_Certificate]
+    certificates: List[_Certificate] = []
 
 
 class _RequirerData(_DatabagModel):
@@ -180,7 +180,7 @@ class _RequirerData(_DatabagModel):
     The same model is used for the unit and application data.
     """
 
-    certificate_signing_requests: List[_CertificateSigningRequest]
+    certificate_signing_requests: List[_CertificateSigningRequest] = []
 
 
 class Mode(Enum):
