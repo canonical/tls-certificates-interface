@@ -91,7 +91,7 @@ class TestTLSCertificatesRequiresV4:
         )
 
     def test_given_private_key_secret_label_pre_v_4_7_when_configure_then_private_key_is_regenerated_in_new_secret(  # noqa: E501
-        self
+        self,
     ):
         initial_private_key = generate_private_key()
         certificates_relation = scenario.Relation(
@@ -100,13 +100,14 @@ class TestTLSCertificatesRequiresV4:
             remote_app_name="certificate-requirer",
         )
 
+        old_private_key_secret_label = f"{LIBID}-private-key-0"
         state_in = scenario.State(
             relations={certificates_relation},
             config={"common_name": "example.com"},
             secrets={
                 Secret(
                     {"private-key": initial_private_key},
-                    label=f"{LIBID}-private-key-0",
+                    label=old_private_key_secret_label,
                     owner="unit",
                 )
             },
