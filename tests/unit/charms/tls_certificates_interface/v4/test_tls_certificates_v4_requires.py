@@ -18,6 +18,7 @@ from lib.charms.tls_certificates_interface.v4.tls_certificates import (
     Certificate,
     CertificateAvailableEvent,
     CertificateSigningRequest,
+    Mode,
 )
 from tests.unit.charms.tls_certificates_interface.v4.certificates import (
     generate_ca,
@@ -89,7 +90,7 @@ class TestTLSCertificatesRequiresV4:
         assert self.private_key_secret_exists(state_out.secrets)
 
     @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
-    def test_given_certificate_requested_when_relation_joined_then_certificate_request_is_added_to_databag(  # noqa: E501
+    def test_given_certificate_requested_when_relation_joined_then_certificate_request_is_added_to_unit_databag(  # noqa: E501
         self, mock_generate_csr: MagicMock
     ):
         private_key = generate_private_key()
@@ -128,6 +129,60 @@ class TestTLSCertificatesRequiresV4:
                     interface="tls-certificates",
                     remote_app_name="certificate-requirer",
                     local_unit_data={
+                        "certificate_signing_requests": json.dumps(
+                            [
+                                {
+                                    "certificate_signing_request": csr,
+                                    "ca": False,
+                                }
+                            ]
+                        )
+                    },
+                ),
+            }
+        )
+
+    @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
+    @patch(BASE_CHARM_DIR + "._app_or_unit", MagicMock(return_value=Mode.APP))
+    def test_given_certificate_requested_in_app_mode_when_relation_joined_then_certificate_request_is_added_to_app_databag(  # noqa: E501
+        self, mock_generate_csr: MagicMock
+    ):
+        private_key = generate_private_key()
+        csr = generate_csr(
+            private_key=private_key,
+            common_name="example.com",
+        )
+        mock_generate_csr.return_value = csr
+        certificates_relation = scenario.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+        )
+        state_in = scenario.State(
+            leader=True,
+            relations={certificates_relation},
+            config={
+                "common_name": "example.com",
+                "is_ca": False,
+            },
+            secrets=[
+                Secret(
+                    {"private-key": private_key},
+                    label=f"{LIBID}-private-key",
+                    owner="unit",
+                )
+            ],
+        )
+
+        state_out = self.ctx.run(self.ctx.on.relation_changed(certificates_relation), state_in)
+        assert state_out.relations == frozenset(
+            {
+                scenario.Relation(
+                    id=certificates_relation.id,
+                    endpoint="certificates",
+                    interface="tls-certificates",
+                    remote_app_name="certificate-requirer",
+                    local_app_data={
                         "certificate_signing_requests": json.dumps(
                             [
                                 {

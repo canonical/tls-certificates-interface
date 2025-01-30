@@ -22,7 +22,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
             charm=self,
             relationship_name="certificates",
             certificate_requests=certificate_requests,
-            mode=Mode.UNIT,
+            mode=self._app_or_unit(),
             refresh_events=[self.on.config_changed],
         )
         self.framework.observe(
@@ -87,6 +87,10 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         self.certificates.renew_certificate(
             certificate=certificate,
         )
+
+    def _app_or_unit(self) -> Mode:
+        """Return Unit by default, This function is mocked in tests to return App."""
+        return Mode.UNIT
 
     def _get_config_common_name(self) -> str:
         return cast(str, self.model.config.get("common_name"))
