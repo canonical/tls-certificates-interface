@@ -19,6 +19,7 @@ jobs:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           channel: "edge"
           upload-image: "false"
+          destructive-mode: "false"
 
       - name: Publish libs
         env:
