@@ -8,6 +8,7 @@ from typing import Iterable
 from unittest.mock import MagicMock, patch
 
 import pytest
+import scenario
 import yaml
 from cryptography.hazmat.primitives import hashes
 from ops import testing
@@ -17,9 +18,9 @@ from lib.charms.tls_certificates_interface.v4.tls_certificates import (
     Certificate,
     CertificateAvailableEvent,
     CertificateSigningRequest,
+    Mode,
     PrivateKey,
     TLSCertificatesError,
-    Mode,
 )
 from tests.unit.charms.tls_certificates_interface.v4.certificates import (
     generate_ca,
@@ -31,6 +32,7 @@ from tests.unit.charms.tls_certificates_interface.v4.dummy_requirer_charm.src.ch
     DummyTLSCertificatesRequirerCharm,
 )
 
+BASE_CHARM_DIR = "tests.unit.charms.tls_certificates_interface.v4.dummy_requirer_charm.src.charm.DummyTLSCertificatesRequirerCharm"  # noqa: E501
 LIB_DIR = "lib.charms.tls_certificates_interface.v4.tls_certificates"
 LIBID = "afd8c2bccf834997afce12c2706d2ede"
 

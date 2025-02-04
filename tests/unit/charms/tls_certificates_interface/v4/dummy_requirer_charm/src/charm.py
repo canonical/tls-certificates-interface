@@ -103,6 +103,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
 
     def _get_config_private_key(self) -> Optional[str]:
         return cast(Optional[str], self.model.config.get("private_key"))
+
     def _app_or_unit(self) -> Mode:
         """Return Unit by default, This function is mocked in tests to return App."""
         return Mode.UNIT
