@@ -41,6 +41,9 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
 
     def get_private_key(self) -> Optional[PrivateKey]:
         # By default, the private key is not provided by the charm
+        pk_from_config = self._get_config_private_key()
+        if pk_from_config:
+            return PrivateKey.from_string(pk_from_config)
         return None
 
     def _get_certificate_requests(self) -> List[CertificateRequestAttributes]:
@@ -97,6 +100,9 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         self.certificates.renew_certificate(
             certificate=certificate,
         )
+
+    def _get_config_private_key(self) -> Optional[str]:
+        return cast(Optional[str], self.model.config.get("private_key"))
 
     def _get_config_common_name(self) -> str:
         return cast(str, self.model.config.get("common_name"))

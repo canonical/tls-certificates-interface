@@ -30,7 +30,6 @@ from tests.unit.charms.tls_certificates_interface.v4.dummy_requirer_charm.src.ch
     DummyTLSCertificatesRequirerCharm,
 )
 
-BASE_CHARM_DIR = "tests.unit.charms.tls_certificates_interface.v4.dummy_requirer_charm.src.charm.DummyTLSCertificatesRequirerCharm"  # noqa: E501
 LIB_DIR = "lib.charms.tls_certificates_interface.v4.tls_certificates"
 LIBID = "afd8c2bccf834997afce12c2706d2ede"
 
@@ -111,10 +110,6 @@ class TestTLSCertificatesRequiresV4:
             assert private_key
             assert private_key != secret.latest_content["private-key"]
 
-    @patch(
-        f"{BASE_CHARM_DIR}.get_private_key",
-        MagicMock(return_value=get_private_key_from_file()),
-    )
     def test_given_private_key_passed_from_charm_when_certificates_relation_created_then_private_key_is_not_stored(  # noqa: E501
         self,
     ):
@@ -125,20 +120,19 @@ class TestTLSCertificatesRequiresV4:
         )
         state_in = testing.State(
             relations={certificates_relation},
-            config={"common_name": "example.com"},
+            config={
+                "common_name": "example.com",
+                "private_key": get_private_string_key_from_file(),
+            },
         )
 
         state_out = self.ctx.run(self.ctx.on.relation_created(certificates_relation), state_in)
 
         assert not self.private_key_secret_exists(state_out.secrets)
 
-    @patch(
-        f"{BASE_CHARM_DIR}.get_private_key",
-    )
     def test_given_private_key_passed_from_charm_not_valid_when_certificates_relation_created_then_error_is_raised(  # noqa: E501
-        self, mock_get_private_key: MagicMock
+        self,
     ):
-        mock_get_private_key.return_value = PrivateKey.from_string("invalid")
         certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
@@ -146,7 +140,10 @@ class TestTLSCertificatesRequiresV4:
         )
         state_in = testing.State(
             relations={certificates_relation},
-            config={"common_name": "example.com"},
+            config={
+                "common_name": "example.com",
+                "private_key": "invalid",
+            },
         )
 
         # Scenario raises this error if the charm raises while handling an event.
@@ -154,10 +151,6 @@ class TestTLSCertificatesRequiresV4:
         with pytest.raises(testing.errors.UncaughtCharmError):
             self.ctx.run(self.ctx.on.relation_created(certificates_relation), state_in)
 
-    @patch(
-        f"{BASE_CHARM_DIR}.get_private_key",
-        MagicMock(return_value=get_private_key_from_file()),
-    )
     def test_given_private_key_generated_then_passed_by_charm_then_generated_private_key_secret_is_removed(  # noqa: E501
         self,
     ):
@@ -169,7 +162,10 @@ class TestTLSCertificatesRequiresV4:
         )
         state_in = testing.State(
             relations={certificates_relation},
-            config={"common_name": "example.com"},
+            config={
+                "common_name": "example.com",
+                "private_key": get_private_string_key_from_file(),
+            },
             secrets=[
                 Secret(
                     {"private-key": private_key},
@@ -750,10 +746,6 @@ class TestTLSCertificatesRequiresV4:
         assert secret.latest_content is not None
         assert secret.latest_content["private-key"] != initial_private_key
 
-    @patch(
-        f"{BASE_CHARM_DIR}.get_private_key",
-        MagicMock(return_value=get_private_key_from_file()),
-    )
     def test_given_private_key_passed_from_charm_when_regenerate_private_key_then_action_fails(  # noqa: E501
         self,
     ):
@@ -766,7 +758,10 @@ class TestTLSCertificatesRequiresV4:
 
         state_in = testing.State(
             relations={certificates_relation},
-            config={"common_name": "example.com"},
+            config={
+                "common_name": "example.com",
+                "private_key": get_private_string_key_from_file(),
+            },
             secrets={
                 Secret(
                     {"private-key": initial_private_key},
@@ -779,10 +774,6 @@ class TestTLSCertificatesRequiresV4:
         with pytest.raises(ActionFailed):
             self.ctx.run(self.ctx.on.action("regenerate-private-key"), state_in)
 
-    @patch(
-        f"{BASE_CHARM_DIR}.get_private_key",
-        MagicMock(return_value=get_private_key_from_file()),
-    )
     def test_given_private_key_passed_from_charm_when_regenerate_private_key_then_raises_error(  # noqa: E501
         self,
     ):
@@ -795,7 +786,10 @@ class TestTLSCertificatesRequiresV4:
 
         state_in = testing.State(
             relations={certificates_relation},
-            config={"common_name": "example.com"},
+            config={
+                "common_name": "example.com",
+                "private_key": get_private_string_key_from_file(),
+            },
             secrets={
                 Secret(
                     {"private-key": initial_private_key},
