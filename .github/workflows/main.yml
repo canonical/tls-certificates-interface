@@ -14,40 +14,13 @@ concurrency:
 
 jobs:
   lint-report:
-    name: Lint report
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      - name: Install uv
-        run: sudo snap install --classic astral-uv
-      - name: Install tox
-        run: uv tool install tox --with tox-uv
-      - name: Run tests using tox
-        run: tox -e lint
+    uses: canonical/identity-credentials-workflows/.github/workflows/lint-report.yaml@v0
 
   static-analysis:
-    name: Static analysis
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      - name: Install uv
-        run: sudo snap install --classic astral-uv
-      - name: Install tox
-        run: uv tool install tox --with tox-uv
-      - name: Run tests using tox
-        run: tox -e static
+    uses: canonical/identity-credentials-workflows/.github/workflows/static-analysis.yaml@v0
 
   unit-tests-with-coverage:
-    name: Unit tests
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      - name: Install uv
-        run: sudo snap install --classic astral-uv
-      - name: Install tox
-        run: uv tool install tox --with tox-uv
-      - name: Run tests using tox
-        run: tox -e unit
+    uses: canonical/identity-credentials-workflows/.github/workflows/unit-test.yaml@v0
 
   build:
     name: Build charm
