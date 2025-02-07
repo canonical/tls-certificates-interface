@@ -7,18 +7,20 @@ from pathlib import Path
 from typing import Iterable
 from unittest.mock import MagicMock, patch
 
-import ops
 import pytest
 import scenario
 import yaml
 from cryptography.hazmat.primitives import hashes
-from scenario import Secret
+from ops import testing
+from ops.testing import ActionFailed, Secret
 
 from lib.charms.tls_certificates_interface.v4.tls_certificates import (
     Certificate,
     CertificateAvailableEvent,
     CertificateSigningRequest,
     Mode,
+    PrivateKey,
+    TLSCertificatesError,
 )
 from tests.unit.charms.tls_certificates_interface.v4.certificates import (
     generate_ca,
@@ -33,11 +35,24 @@ from tests.unit.charms.tls_certificates_interface.v4.dummy_requirer_charm.src.ch
 BASE_CHARM_DIR = "tests.unit.charms.tls_certificates_interface.v4.dummy_requirer_charm.src.charm.DummyTLSCertificatesRequirerCharm"  # noqa: E501
 LIB_DIR = "lib.charms.tls_certificates_interface.v4.tls_certificates"
 LIBID = "afd8c2bccf834997afce12c2706d2ede"
+
 METADATA = yaml.safe_load(
     Path(
         "tests/unit/charms/tls_certificates_interface/v4/dummy_requirer_charm/charmcraft.yaml"  # noqa: E501
     ).read_text()
 )
+
+
+def get_private_string_key_from_file() -> str:
+    with open(
+        "tests/unit/charms/tls_certificates_interface/v4/dummy_requirer_charm/private_key.pem",
+        "r",
+    ) as f:
+        return f.read()
+
+
+def get_private_key_from_file() -> PrivateKey:
+    return PrivateKey.from_string(get_private_string_key_from_file())
 
 
 def get_sha256_hex(data: str) -> str:
@@ -65,22 +80,22 @@ class TestTLSCertificatesRequiresV4:
 
     @pytest.fixture(autouse=True)
     def context(self):
-        self.ctx = scenario.Context(
+        self.ctx = testing.Context(
             charm_type=DummyTLSCertificatesRequirerCharm,
             meta=METADATA,
             config=METADATA["config"],
             actions=METADATA["actions"],
         )
 
-    def test_given_private_key_not_created_when_certificates_relation_created_then_private_key_is_generated(  # noqa: E501
+    def test_given_private_key_not_created_and_not_passed_when_certificates_relation_created_then_private_key_is_generated(  # noqa: E501
         self,
     ):
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
             remote_app_name="certificate-requirer",
         )
-        state_in = scenario.State(
+        state_in = testing.State(
             relations={certificates_relation},
             config={"common_name": "example.com"},
         )
@@ -90,37 +105,90 @@ class TestTLSCertificatesRequiresV4:
         assert self.private_key_secret_exists(
             state_out.secrets, f"{LIBID}-private-key-0-{certificates_relation.endpoint}"
         )
-
-    def test_given_private_key_secret_label_pre_v_4_7_when_configure_then_private_key_is_regenerated_in_new_secret(  # noqa: E501
-        self,
-    ):
-        initial_private_key = generate_private_key()
-        certificates_relation = scenario.Relation(
-            endpoint="certificates",
-            interface="tls-certificates",
-            remote_app_name="certificate-requirer",
-        )
-
-        old_private_key_secret_label = f"{LIBID}-private-key-0"
-        state_in = scenario.State(
-            relations={certificates_relation},
-            config={"common_name": "example.com"},
-            secrets={
-                Secret(
-                    {"private-key": initial_private_key},
-                    label=old_private_key_secret_label,
-                    owner="unit",
-                )
-            },
-        )
-
-        state_out = self.ctx.run(self.ctx.on.upgrade_charm(), state_in)
-
         secret = state_out.get_secret(
             label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}"
         )
         assert secret.latest_content is not None
-        assert secret.latest_content["private-key"] == initial_private_key
+        with open(
+            "tests/unit/charms/tls_certificates_interface/v4/dummy_requirer_charm/private_key.pem",
+            "r",
+        ) as f:
+            private_key = f.read()
+            assert private_key
+            assert private_key != secret.latest_content["private-key"]
+
+    def test_given_private_key_passed_from_charm_when_certificates_relation_created_then_private_key_is_not_stored(  # noqa: E501
+        self,
+    ):
+        certificates_relation = testing.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+        )
+        state_in = testing.State(
+            relations={certificates_relation},
+            config={
+                "common_name": "example.com",
+                "private_key": get_private_string_key_from_file(),
+            },
+        )
+
+        state_out = self.ctx.run(self.ctx.on.relation_created(certificates_relation), state_in)
+
+        assert not self.private_key_secret_exists(
+            state_out.secrets, f"{LIBID}-private-key-0-{certificates_relation.endpoint}"
+        )
+
+    def test_given_private_key_passed_from_charm_not_valid_when_certificates_relation_created_then_error_is_raised(  # noqa: E501
+        self,
+    ):
+        certificates_relation = testing.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+        )
+        state_in = testing.State(
+            relations={certificates_relation},
+            config={
+                "common_name": "example.com",
+                "private_key": "invalid",
+            },
+        )
+
+        # Scenario raises this error if the charm raises while handling an event.
+        # The charm here would be raising a TLSCertificatesError.
+        with pytest.raises(testing.errors.UncaughtCharmError):
+            self.ctx.run(self.ctx.on.relation_created(certificates_relation), state_in)
+
+    def test_given_private_key_generated_then_passed_by_charm_then_generated_private_key_secret_is_removed(  # noqa: E501
+        self,
+    ):
+        private_key = generate_private_key()
+        certificates_relation = testing.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+        )
+        state_in = testing.State(
+            relations={certificates_relation},
+            config={
+                "common_name": "example.com",
+                "private_key": get_private_string_key_from_file(),
+            },
+            secrets=[
+                Secret(
+                    {"private-key": private_key},
+                    label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
+                    owner="unit",
+                )
+            ],
+        )
+
+        state_out = self.ctx.run(self.ctx.on.relation_created(certificates_relation), state_in)
+
+        assert not self.private_key_secret_exists(
+            state_out.secrets, f"{LIBID}-private-key-0-{certificates_relation.endpoint}"
+        )
 
     @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
     def test_given_certificate_requested_when_relation_joined_then_certificate_request_is_added_to_unit_databag(  # noqa: E501
@@ -132,12 +200,12 @@ class TestTLSCertificatesRequiresV4:
             common_name="example.com",
         )
         mock_generate_csr.return_value = csr
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
             remote_app_name="certificate-requirer",
         )
-        state_in = scenario.State(
+        state_in = testing.State(
             relations={certificates_relation},
             config={
                 "common_name": "example.com",
@@ -156,7 +224,7 @@ class TestTLSCertificatesRequiresV4:
 
         assert state_out.relations == frozenset(
             {
-                scenario.Relation(
+                testing.Relation(
                     id=certificates_relation.id,
                     endpoint="certificates",
                     interface="tls-certificates",
@@ -239,12 +307,12 @@ class TestTLSCertificatesRequiresV4:
             common_name="example.com",
         )
         mock_generate_csr.return_value = csr
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
             remote_app_name="certificate-requirer",
         )
-        state_in = scenario.State(
+        state_in = testing.State(
             relations={certificates_relation},
             config={
                 "common_name": "example.com",
@@ -263,7 +331,7 @@ class TestTLSCertificatesRequiresV4:
 
         assert state_out.relations == frozenset(
             {
-                scenario.Relation(
+                testing.Relation(
                     id=certificates_relation.id,
                     endpoint="certificates",
                     interface="tls-certificates",
@@ -300,7 +368,7 @@ class TestTLSCertificatesRequiresV4:
             csr=csr,
             ca=provider_ca_certificate,
         )
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
             remote_app_name="certificate-requirer",
@@ -332,7 +400,7 @@ class TestTLSCertificatesRequiresV4:
             label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
             owner="unit",
         )
-        state_in = scenario.State(
+        state_in = testing.State(
             relations={certificates_relation},
             config={"common_name": "example.com"},
             secrets={private_key_secret},
@@ -367,7 +435,7 @@ class TestTLSCertificatesRequiresV4:
             ca=provider_ca_certificate,
             is_ca=True,
         )
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
             remote_app_name="certificate-requirer",
@@ -399,7 +467,7 @@ class TestTLSCertificatesRequiresV4:
             label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
             owner="unit",
         )
-        state_in = scenario.State(
+        state_in = testing.State(
             relations=[certificates_relation],
             config={
                 "common_name": "example.com",
@@ -436,7 +504,7 @@ class TestTLSCertificatesRequiresV4:
             ca=provider_ca_certificate,
             csr=csr,
         )
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
             remote_app_name="certificate-requirer",
@@ -452,7 +520,7 @@ class TestTLSCertificatesRequiresV4:
             },
         )
 
-        state_in = scenario.State(
+        state_in = testing.State(
             relations={certificates_relation},
             config={"common_name": "example.com"},
         )
@@ -469,7 +537,7 @@ class TestTLSCertificatesRequiresV4:
             private_key=private_key,
             common_name="example.com",
         )
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
             remote_app_name="certificate-requirer",
@@ -485,7 +553,7 @@ class TestTLSCertificatesRequiresV4:
             },
         )
 
-        state_in = scenario.State(
+        state_in = testing.State(
             relations={certificates_relation},
             config={},  # Note that there is no `common_name` in the config here
         )
@@ -494,7 +562,7 @@ class TestTLSCertificatesRequiresV4:
 
         assert state_out.relations == frozenset(
             {
-                scenario.Relation(
+                testing.Relation(
                     id=certificates_relation.id,
                     endpoint="certificates",
                     interface="tls-certificates",
@@ -514,7 +582,7 @@ class TestTLSCertificatesRequiresV4:
             common_name="example.com",
         )
 
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
             remote_app_name="certificate-requirer",
@@ -538,7 +606,7 @@ class TestTLSCertificatesRequiresV4:
         )
         mock_generate_csr.return_value = new_csr
 
-        state_in = scenario.State(
+        state_in = testing.State(
             relations={certificates_relation},
             config={"common_name": "example.com"},
             secrets={
@@ -554,7 +622,7 @@ class TestTLSCertificatesRequiresV4:
 
         assert state_out.relations == frozenset(
             {
-                scenario.Relation(
+                testing.Relation(
                     id=certificates_relation.id,
                     endpoint="certificates",
                     interface="tls-certificates",
@@ -587,7 +655,7 @@ class TestTLSCertificatesRequiresV4:
             common_name="new.example.com",
         )
         mock_generate_csr.return_value = new_csr
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
             remote_app_name="certificate-requirer",
@@ -603,7 +671,7 @@ class TestTLSCertificatesRequiresV4:
             },
         )
 
-        state_in = scenario.State(
+        state_in = testing.State(
             relations={certificates_relation},
             config={"common_name": "new.example.com"},
             secrets={
@@ -619,7 +687,7 @@ class TestTLSCertificatesRequiresV4:
 
         assert state_out.relations == frozenset(
             {
-                scenario.Relation(
+                testing.Relation(
                     id=certificates_relation.id,
                     endpoint="certificates",
                     interface="tls-certificates",
@@ -656,7 +724,7 @@ class TestTLSCertificatesRequiresV4:
             csr=csr,
             ca=provider_ca_certificate,
         )
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
             remote_app_name="certificate-requirer",
@@ -698,7 +766,7 @@ class TestTLSCertificatesRequiresV4:
             label=f"{LIBID}-certificate-0-{get_sha256_hex(csr)}",
             owner="unit",
         )
-        state_in = scenario.State(
+        state_in = testing.State(
             relations={certificates_relation},
             config={"common_name": "example.com"},
             secrets={
@@ -715,17 +783,17 @@ class TestTLSCertificatesRequiresV4:
             }
         )
 
-    def test_given_private_key_generated_when_regenerate_private_key_then_new_private_key_is_generated(  # noqa: E501
+    def test_given_private_key_generated_by_library_is_used_when_regenerate_private_key_then_new_private_key_is_generated(  # noqa: E501
         self,
     ):
         initial_private_key = "whatever the initial private key is"
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
             remote_app_name="certificate-requirer",
         )
 
-        state_in = scenario.State(
+        state_in = testing.State(
             relations={certificates_relation},
             config={"common_name": "example.com"},
             secrets={
@@ -739,14 +807,75 @@ class TestTLSCertificatesRequiresV4:
 
         state_out = self.ctx.run(self.ctx.on.action("regenerate-private-key"), state_in)
 
-        secret = state_out.get_secret(
-            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}"
-        )
+        secret = state_out.get_secret(label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}")
         assert secret.latest_content is not None
         assert secret.latest_content["private-key"] != initial_private_key
 
+    def test_given_private_key_passed_from_charm_when_regenerate_private_key_then_action_fails(  # noqa: E501
+        self,
+    ):
+        initial_private_key = "whatever the initial private key is"
+        certificates_relation = testing.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+        )
+
+        state_in = testing.State(
+            relations={certificates_relation},
+            config={
+                "common_name": "example.com",
+                "private_key": get_private_string_key_from_file(),
+            },
+            secrets={
+                Secret(
+                    {"private-key": initial_private_key},
+                    label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
+                    owner="unit",
+                )
+            },
+        )
+
+        with pytest.raises(ActionFailed):
+            self.ctx.run(self.ctx.on.action("regenerate-private-key"), state_in)
+
+    def test_given_private_key_passed_from_charm_when_regenerate_private_key_then_raises_error(  # noqa: E501
+        self,
+    ):
+        initial_private_key = "whatever the initial private key is"
+        certificates_relation = testing.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            remote_app_name="certificate-requirer",
+        )
+
+        state_in = testing.State(
+            relations={certificates_relation},
+            config={
+                "common_name": "example.com",
+                "private_key": get_private_string_key_from_file(),
+            },
+            secrets={
+                Secret(
+                    {"private-key": initial_private_key},
+                    label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
+                    owner="unit",
+                )
+            },
+        )
+
+        with self.ctx(self.ctx.on.update_status(), state_in) as manager:
+            with pytest.raises(TLSCertificatesError):
+                charm: DummyTLSCertificatesRequirerCharm = manager.charm  # type: ignore
+                charm.certificates.regenerate_private_key()
+
     def test_given_certificate_is_provided_when_get_certificate_then_certificate_is_returned(self):
         private_key = generate_private_key()
+        private_key_secret = Secret(
+            {"private-key": private_key},
+            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
+            owner="unit",
+        )
         csr = generate_csr(
             private_key=private_key,
             common_name="example.com",
@@ -761,7 +890,7 @@ class TestTLSCertificatesRequiresV4:
             csr=csr,
             ca=provider_ca_certificate,
         )
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
             remote_app_name="certificate-requirer",
@@ -787,13 +916,8 @@ class TestTLSCertificatesRequiresV4:
                 ),
             },
         )
-        private_key_secret = Secret(
-            {"private-key": private_key},
-            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
-            owner="unit",
-        )
 
-        state_in = scenario.State(
+        state_in = testing.State(
             relations={certificates_relation},
             config={"common_name": "example.com"},
             secrets={private_key_secret},
@@ -811,6 +935,11 @@ class TestTLSCertificatesRequiresV4:
         self,
     ):
         private_key = generate_private_key()
+        private_key_secret = Secret(
+            {"private-key": private_key},
+            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
+            owner="unit",
+        )
 
         csr = generate_csr(
             private_key=private_key,
@@ -831,7 +960,7 @@ class TestTLSCertificatesRequiresV4:
             csr=bad_csr,
             ca=provider_ca_certificate,
         )
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
             remote_app_name="certificate-requirer",
@@ -858,19 +987,13 @@ class TestTLSCertificatesRequiresV4:
             },
         )
 
-        private_key_secret = Secret(
-            {"private-key": private_key},
-            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
-            owner="unit",
-        )
-
-        state_in = scenario.State(
+        state_in = testing.State(
             relations={certificates_relation},
             config={"common_name": "example.com"},
             secrets={private_key_secret},
         )
 
-        with pytest.raises(ops._private.harness.ActionFailed):  # type: ignore[reportAttributeAccessIssue]
+        with pytest.raises(ActionFailed):
             self.ctx.run(self.ctx.on.action("get-certificate"), state_in)
 
     def test_given_certificate_is_provided_when_relation_changed_then_certificate_secret_is_created(  # noqa: E501
@@ -891,7 +1014,7 @@ class TestTLSCertificatesRequiresV4:
             csr=csr,
             ca=provider_ca_certificate,
         )
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
             remote_app_name="certificate-requirer",
@@ -924,7 +1047,7 @@ class TestTLSCertificatesRequiresV4:
             owner="unit",
         )
 
-        state_in = scenario.State(
+        state_in = testing.State(
             relations={certificates_relation},
             config={"common_name": "example.com"},
             secrets={private_key_secret},
@@ -962,7 +1085,7 @@ class TestTLSCertificatesRequiresV4:
             csr=csr,
             ca=provider_ca_certificate,
         )
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
             remote_app_name="certificate-requirer",
@@ -995,7 +1118,7 @@ class TestTLSCertificatesRequiresV4:
             owner="unit",
         )
 
-        state_in = scenario.State(
+        state_in = testing.State(
             relations={certificates_relation},
             config={"common_name": "example.com"},
             secrets={private_key_secret, initial_certificate_secret},
@@ -1031,7 +1154,7 @@ class TestTLSCertificatesRequiresV4:
             csr=csr,
             ca=provider_ca_certificate,
         )
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
             remote_app_name="certificate-requirer",
@@ -1072,7 +1195,7 @@ class TestTLSCertificatesRequiresV4:
             label=f"{LIBID}-certificate-0-{get_sha256_hex(csr)}",
             owner="unit",
         )
-        state_in = scenario.State(
+        state_in = testing.State(
             relations={certificates_relation},
             config={"common_name": "example.com"},
             secrets={private_key_secret, certificate_secret},
@@ -1115,6 +1238,12 @@ class TestTLSCertificatesRequiresV4:
         assert csr != new_csr
         mock_generate_csr.return_value = new_csr
 
+        private_key_secret = Secret(
+            {"private-key": private_key},
+            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
+            owner="unit",
+        )
+
         certificate_secret = Secret(
             {
                 "certificate": certificate,
@@ -1125,7 +1254,7 @@ class TestTLSCertificatesRequiresV4:
             expire=datetime.datetime.now() - datetime.timedelta(minutes=1),
         )
 
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
             remote_app_name="certificate-requirer",
@@ -1152,13 +1281,7 @@ class TestTLSCertificatesRequiresV4:
             },
         )
 
-        private_key_secret = Secret(
-            {"private-key": private_key},
-            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
-            owner="unit",
-        )
-
-        state_in = scenario.State(
+        state_in = testing.State(
             config={"common_name": "example.com"},
             relations={certificates_relation},
             secrets={
@@ -1173,7 +1296,7 @@ class TestTLSCertificatesRequiresV4:
 
         assert state_out.relations == frozenset(
             {
-                scenario.Relation(
+                testing.Relation(
                     id=certificates_relation.id,
                     endpoint="certificates",
                     interface="tls-certificates",
@@ -1232,6 +1355,12 @@ class TestTLSCertificatesRequiresV4:
         assert csr != new_csr
         mock_generate_csr.return_value = new_csr
 
+        private_key_secret = Secret(
+            {"private-key": private_key},
+            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
+            owner="unit",
+        )
+
         certificate_secret = Secret(
             {
                 "certificate": certificate,
@@ -1242,7 +1371,7 @@ class TestTLSCertificatesRequiresV4:
             expire=datetime.datetime.now() - datetime.timedelta(minutes=1),
         )
 
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
             remote_app_name="certificate-requirer",
@@ -1269,13 +1398,7 @@ class TestTLSCertificatesRequiresV4:
             },
         )
 
-        private_key_secret = Secret(
-            {"private-key": private_key},
-            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
-            owner="unit",
-        )
-
-        state_in = scenario.State(
+        state_in = testing.State(
             config={"common_name": "example.com"},
             relations={certificates_relation},
             secrets={
@@ -1288,7 +1411,7 @@ class TestTLSCertificatesRequiresV4:
 
         assert state_out.relations == frozenset(
             {
-                scenario.Relation(
+                testing.Relation(
                     id=certificates_relation.id,
                     endpoint="certificates",
                     interface="tls-certificates",

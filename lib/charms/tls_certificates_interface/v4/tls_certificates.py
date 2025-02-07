@@ -1006,7 +1006,6 @@ class TLSCertificatesRequiresV4(Object):
         self.framework.observe(charm.on[relationship_name].relation_changed, self._configure)
         self.framework.observe(charm.on.secret_expired, self._on_secret_expired)
         self.framework.observe(charm.on.secret_remove, self._on_secret_remove)
-        self.framework.observe(charm.on.upgrade_charm, self._configure)
         for event in refresh_events:
             self.framework.observe(event, self._configure)
 
@@ -1124,41 +1123,12 @@ class TLSCertificatesRequiresV4(Object):
     def _generate_private_key(self) -> None:
         if self._private_key_generated():
             return
-        try:
-            self._update_private_key_secret_label_if_legacy()
-        except SecretNotFoundError:
-            private_key = generate_private_key()
-            self.charm.unit.add_secret(
-                content={"private-key": str(private_key)},
-                label=self._get_private_key_secret_label(),
-            )
-            logger.info("Private key generated")
-
-    def _update_private_key_secret_label_if_legacy(self) -> None:
-        """Migrate the private key from an old-labeled Juju secret to a new-labeled one.
-
-        This function checks for and moves a private key from a secret using the pre-v4.7
-        labeling format to a secret with the updated labeling. If the old secret exists,
-        its content is copied to a new secret and the old one is removed. This migration
-        maintains compatibility with deployments running on versions older than v4.7 without
-        requiring a private key rotation.
-        """
-        if self.mode == Mode.UNIT:
-            label = f"{LIBID}-private-key-{self._get_unit_number()}"
-        elif self.mode == Mode.APP:
-            label = f"{LIBID}-private-key"
-        else:
-            raise TLSCertificatesError("Invalid mode. Must be Mode.UNIT or Mode.APP.")
-        try:
-            secret = self.charm.model.get_secret(label=label)
-            self.charm.unit.add_secret(
-                content={"private-key": secret.get_content(refresh=True)["private-key"]},
-                label=self._get_private_key_secret_label(),
-            )
-            secret.remove_all_revisions()
-            logger.debug("Private key migrated to secret with new label")
-        except SecretNotFoundError:
-            raise
+        private_key = generate_private_key()
+        self.charm.unit.add_secret(
+            content={"private-key": str(private_key)},
+            label=self._get_private_key_secret_label(),
+        )
+        logger.info("Private key generated")
 
     def regenerate_private_key(self) -> None:
         """Regenerate the private key.
