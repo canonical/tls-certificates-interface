@@ -807,7 +807,9 @@ class TestTLSCertificatesRequiresV4:
 
         state_out = self.ctx.run(self.ctx.on.action("regenerate-private-key"), state_in)
 
-        secret = state_out.get_secret(label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}")
+        secret = state_out.get_secret(
+            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}"
+        )
         assert secret.latest_content is not None
         assert secret.latest_content["private-key"] != initial_private_key
 
@@ -871,11 +873,6 @@ class TestTLSCertificatesRequiresV4:
 
     def test_given_certificate_is_provided_when_get_certificate_then_certificate_is_returned(self):
         private_key = generate_private_key()
-        private_key_secret = Secret(
-            {"private-key": private_key},
-            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
-            owner="unit",
-        )
         csr = generate_csr(
             private_key=private_key,
             common_name="example.com",
@@ -916,6 +913,11 @@ class TestTLSCertificatesRequiresV4:
                 ),
             },
         )
+        private_key_secret = Secret(
+            {"private-key": private_key},
+            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
+            owner="unit",
+        )
 
         state_in = testing.State(
             relations={certificates_relation},
@@ -935,11 +937,6 @@ class TestTLSCertificatesRequiresV4:
         self,
     ):
         private_key = generate_private_key()
-        private_key_secret = Secret(
-            {"private-key": private_key},
-            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
-            owner="unit",
-        )
 
         csr = generate_csr(
             private_key=private_key,
@@ -987,6 +984,11 @@ class TestTLSCertificatesRequiresV4:
             },
         )
 
+        private_key_secret = Secret(
+            {"private-key": private_key},
+            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
+            owner="unit",
+        )
         state_in = testing.State(
             relations={certificates_relation},
             config={"common_name": "example.com"},
@@ -1238,12 +1240,6 @@ class TestTLSCertificatesRequiresV4:
         assert csr != new_csr
         mock_generate_csr.return_value = new_csr
 
-        private_key_secret = Secret(
-            {"private-key": private_key},
-            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
-            owner="unit",
-        )
-
         certificate_secret = Secret(
             {
                 "certificate": certificate,
@@ -1279,6 +1275,12 @@ class TestTLSCertificatesRequiresV4:
                     ]
                 ),
             },
+        )
+
+        private_key_secret = Secret(
+            {"private-key": private_key},
+            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
+            owner="unit",
         )
 
         state_in = testing.State(
@@ -1355,12 +1357,6 @@ class TestTLSCertificatesRequiresV4:
         assert csr != new_csr
         mock_generate_csr.return_value = new_csr
 
-        private_key_secret = Secret(
-            {"private-key": private_key},
-            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
-            owner="unit",
-        )
-
         certificate_secret = Secret(
             {
                 "certificate": certificate,
@@ -1396,6 +1392,12 @@ class TestTLSCertificatesRequiresV4:
                     ]
                 ),
             },
+        )
+
+        private_key_secret = Secret(
+            {"private-key": private_key},
+            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
+            owner="unit",
         )
 
         state_in = testing.State(
