@@ -9,7 +9,7 @@ interface.
 Pre-requisites:
   - Juju >= 3.0
   - cryptography >= 43.0.0
-  - pydantic
+  - pydantic >= 2.0
 
 Learn more on how-to use the TLS Certificates interface library by reading the documentation:
 - https://charmhub.io/tls-certificates-interface/
@@ -54,7 +54,10 @@ LIBAPI = 4
 # to 0 if you are raising the major API version
 LIBPATCH = 8
 
-PYDEPS = ["cryptography", "pydantic"]
+PYDEPS = [
+    "cryptography>=43.0.0",
+    "pydantic>=2.0",
+]
 
 logger = logging.getLogger(__name__)
 
