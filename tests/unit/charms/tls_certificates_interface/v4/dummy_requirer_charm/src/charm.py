@@ -10,6 +10,8 @@ from lib.charms.tls_certificates_interface.v4.tls_certificates import (
     CertificateAvailableEvent,
     CertificateRequestAttributes,
     Mode,
+    PrivateKey,
+    TLSCertificatesError,
     TLSCertificatesRequiresV4,
 )
 
@@ -24,6 +26,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
             certificate_requests=certificate_requests,
             mode=self._app_or_unit(),
             refresh_events=[self.on.config_changed],
+            private_key=self.get_private_key(),
         )
         self.framework.observe(
             self.certificates.on.certificate_available, self._on_certificate_available
@@ -35,6 +38,13 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         self.framework.observe(
             self.on.renew_certificates_action, self._on_renew_certificates_action
         )
+
+    def get_private_key(self) -> Optional[PrivateKey]:
+        # By default, the private key is not provided by the charm
+        pk_from_config = self._get_config_private_key()
+        if pk_from_config:
+            return PrivateKey.from_string(pk_from_config)
+        return None
 
     def _get_certificate_requests(self) -> List[CertificateRequestAttributes]:
         if not self._get_config_common_name():
@@ -60,7 +70,10 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         print("Certificate available for common name:", event.certificate.common_name)
 
     def _on_regenerate_private_key_action(self, event: ActionEvent) -> None:
-        self.certificates.regenerate_private_key()
+        try:
+            self.certificates.regenerate_private_key()
+        except TLSCertificatesError:
+            event.fail("Can't regenerate private key")
 
     def _on_get_certificate_action(self, event: ActionEvent) -> None:
         certificate, _ = self.certificates.get_assigned_certificate(
@@ -87,6 +100,9 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
         self.certificates.renew_certificate(
             certificate=certificate,
         )
+
+    def _get_config_private_key(self) -> Optional[str]:
+        return cast(Optional[str], self.model.config.get("private_key"))
 
     def _app_or_unit(self) -> Mode:
         """Return Unit by default, This function is mocked in tests to return App."""
