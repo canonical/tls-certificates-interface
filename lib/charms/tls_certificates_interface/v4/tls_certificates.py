@@ -1443,7 +1443,7 @@ class TLSCertificatesRequiresV4(Object):
                             logger.debug(
                                 "Secret %s with correct certificate already exists", secret_label
                             )
-                            return
+                            continue
                         secret.set_content(
                             content={
                                 "certificate": str(provider_certificate.certificate),
