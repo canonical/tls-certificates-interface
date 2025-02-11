@@ -1211,6 +1211,114 @@ class TestTLSCertificatesRequiresV4:
 
         assert certificate_secret._latest_revision == 1
 
+    def test_given_multiple_certificates_when_find_available_certificates_then_only_secrets_with_changed_certificates_are_updated(  # noqa: E501
+        self,
+    ):
+        provider_private_key = generate_private_key()
+        provider_ca_certificate = generate_ca(
+            private_key=provider_private_key,
+            common_name="example.com",
+        )
+
+        private_key = generate_private_key()
+        csr_1 = generate_csr(
+            private_key=private_key,
+            common_name="example.com",
+        )
+
+        certificate_1 = generate_certificate(
+            ca_key=provider_private_key,
+            csr=csr_1,
+            ca=provider_ca_certificate,
+        )
+
+        csr_2 = generate_csr(
+            private_key=private_key,
+            common_name="example.com",
+        )
+
+        certificate_2 = generate_certificate(
+            ca_key=provider_private_key,
+            csr=csr_2,
+            ca=provider_ca_certificate,
+        )
+
+        certificates_relation = testing.Relation(
+            endpoint="certificates",
+            interface="tls-certificates",
+            local_unit_data={
+                "certificate_signing_requests": json.dumps(
+                    [
+                        {
+                            "certificate_signing_request": csr_1,
+                            "ca": False,
+                        },
+                        {
+                            "certificate_signing_request": csr_2,
+                            "ca": False,
+                        },
+                    ]
+                )
+            },
+            remote_app_data={
+                "certificates": json.dumps(
+                    [
+                        {
+                            "certificate": certificate_1,
+                            "certificate_signing_request": csr_1,
+                            "ca": provider_ca_certificate,
+                        },
+                        {
+                            "certificate": certificate_2,
+                            "certificate_signing_request": csr_2,
+                            "ca": provider_ca_certificate,
+                        },
+                    ]
+                ),
+            },
+        )
+
+        private_key_secret = Secret(
+            {"private-key": private_key},
+            label=f"{LIBID}-private-key-0-{certificates_relation.endpoint}",
+            owner="unit",
+        )
+        certificate_1_secret = Secret(
+            {
+                "certificate": certificate_1,
+                "csr": csr_1,
+            },
+            label=f"{LIBID}-certificate-0-{get_sha256_hex(csr_1)}",
+            owner="unit",
+        )
+        certificate_2_secret = Secret(
+            {
+                "certificate": "Content that should be updated",
+                "csr": csr_2,
+            },
+            label=f"{LIBID}-certificate-0-{get_sha256_hex(csr_2)}",
+            owner="unit",
+        )
+        state_in = testing.State(
+            relations={certificates_relation},
+            config={"common_name": "example.com"},
+            secrets={
+                private_key_secret,
+                certificate_1_secret,
+                certificate_2_secret,
+            },
+        )
+
+        state_out = self.ctx.run(self.ctx.on.relation_changed(certificates_relation), state_in)
+
+        for secret in state_out.secrets:
+            if secret.label == f"{LIBID}-certificate-0-{get_sha256_hex(csr_2)}":
+                assert secret.latest_content
+                assert secret.latest_content.get("certificate") == certificate_2
+            elif secret.label == f"{LIBID}-certificate-0-{get_sha256_hex(csr_1)}":
+                assert secret.latest_content
+                assert secret.latest_content.get("certificate") == certificate_1
+
     @patch(LIB_DIR + ".CertificateRequestAttributes.generate_csr")
     def test_given_certificate_when_certificate_secret_expires_then_new_certificate_is_requested(  # noqa: E501
         self, mock_generate_csr: MagicMock
