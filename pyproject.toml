@@ -8,7 +8,7 @@ dependencies = [
     "jsonschema",
     "ops",
     "pydantic",
-    "rpds-py==0.18.1"
+    "rpds-py==0.22.3"
 ]
 
 [dependency-groups]
@@ -25,8 +25,8 @@ dev = [
     "ruff",
 ]
 test-juju-2 = [
-    "juju==2.9.49.0",
-    "websockets==12.0",
+    "juju==2.9.49.1",
+    "websockets==13.1",
 ]
 test-juju-3 = [
     "juju>3"
