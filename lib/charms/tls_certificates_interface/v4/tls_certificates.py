@@ -1064,8 +1064,8 @@ class TLSCertificatesRequiresV4(Object):
     def _mode_is_valid(self, mode: Mode) -> bool:
         return mode in [Mode.UNIT, Mode.APP]
 
-    def _ensure_secret_exists(self, secret: Secret) -> None:
-        secret.get_info()
+    def _validate_secret_exists(self, secret: Secret) -> None:
+        secret.get_info()  # Will raise `SecretNotFoundError` if the secret does not exist
 
     def _on_secret_remove(self, event: SecretRemoveEvent) -> None:
         """Handle Secret Removed Event."""
@@ -1074,7 +1074,7 @@ class TLSCertificatesRequiresV4(Object):
             # the unit could be stuck in an error state. See the docstring of
             # `remove_revision` and the below issue for more information.
             # https://github.com/juju/juju/issues/19036
-            self._ensure_secret_exists(event.secret)
+            self._validate_secret_exists(event.secret)
             event.secret.remove_revision(event.revision)
         except SecretNotFoundError:
             logger.warning(
