@@ -100,10 +100,11 @@ class TestIntegration:
         copy_lib_content()
         TestIntegration.requirer_charm = await ops_test.build_charm(f"{REQUIRER_CHARM_DIR}/")
         TestIntegration.provider_charm = await ops_test.build_charm(f"{PROVIDER_CHARM_DIR}/")
-        await ops_test.model.applications[TLS_CERTIFICATES_REQUIRER_APP_NAME].refresh(
+        await ops_test.model.applications[TLS_CERTIFICATES_REQUIRER_APP_NAME].refresh(  # pyright: ignore [reportOptionalMemberAccess] for python-libjuju 2.9
             path=TestIntegration.requirer_charm
         )
-        await ops_test.model.applications[TLS_CERTIFICATES_PROVIDER_APP_NAME].refresh(
+
+        await ops_test.model.applications[TLS_CERTIFICATES_PROVIDER_APP_NAME].refresh(  # pyright: ignore [reportOptionalMemberAccess] for python-libjuju 2.9
             path=TestIntegration.provider_charm
         )
         await ops_test.model.wait_for_idle(
@@ -138,8 +139,8 @@ class TestIntegration:
         assert "chain" in action_output and action_output["chain"] is not None
 
         # tear down so that the rest of the tests can run as normal
-        await ops_test.model.applications[TLS_CERTIFICATES_REQUIRER_APP_NAME].remove()
-        await ops_test.model.applications[TLS_CERTIFICATES_PROVIDER_APP_NAME].remove()
+        await ops_test.model.applications[TLS_CERTIFICATES_REQUIRER_APP_NAME].remove()  # pyright: ignore [reportOptionalMemberAccess] for python-libjuju 2.9
+        await ops_test.model.applications[TLS_CERTIFICATES_PROVIDER_APP_NAME].remove()  # pyright: ignore [reportOptionalMemberAccess] for python-libjuju 2.9
 
     async def test_given_charms_packed_when_deploy_charm_then_status_is_blocked(
         self, ops_test: OpsTest
