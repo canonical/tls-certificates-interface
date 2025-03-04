@@ -31,6 +31,13 @@
       "enabled": false
     },
     {
+      // Bumping "juju" to a new major version breaks the integration tests
+      // which individually test each version of Juju
+      "matchPackageNames": ["juju"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
       "matchManagers": ["github-actions"],
       "groupName": "GitHub actions"
     },
