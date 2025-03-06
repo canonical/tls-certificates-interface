@@ -1021,12 +1021,10 @@ class TLSCertificatesRequiresV4(Object):
                 certificate signing request and certificate.
                 UNIT mode is for use cases where each unit has its own identity.
                 If you don't know which mode to use, you likely need UNIT.
-                In APP mode the requirer will place the csr in the app relation data.
-                The leader unit will be responsible for
-                placing the csr in the app relation databag.
+                In APP mode the leader unit will place the csr in the app relation databag.
                 APP mode is for use cases where the underlying application needs the certificate
                 for example using it as an intermediate CA to sign other certificates.
-                The certificate can be accessed by the leader unit only.
+                The certificate can only be accessed by the leader unit.
             refresh_events (List[BoundEvent]): A list of events to trigger a refresh of
               the certificates.
             private_key (Optional[PrivateKey]): The private key to use for the certificates.
