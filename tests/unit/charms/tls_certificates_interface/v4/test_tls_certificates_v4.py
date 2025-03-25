@@ -18,6 +18,11 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, pkcs12
 
+from lib.charms.tls_certificates_interface.v4.tls_certificates import (
+    Certificate,
+    CertificateRequestAttributes,
+    CertificateSigningRequest,
+)
 from tests.unit.charms.tls_certificates_interface.v4.certificates import (
     generate_private_key as generate_private_key_helper,
 )
@@ -155,6 +160,37 @@ def test_given_ipv6_sans_when_generate_csr_then_csr_contains_ipv6_sans():
     assert IPv6Address("2001:db8::2") in sans_ip
 
 
+def test_given_certificate_request_attributes_when_generate_csr_then_csr_is_generated_correctly():
+    private_key = generate_private_key()
+
+    csr = generate_csr(
+        private_key=private_key,
+        common_name="example.com",
+        sans_dns=frozenset(["example.com"]),
+        sans_ip=frozenset(["1.2.3.4"]),
+        sans_oid=frozenset(["1.2.3.4"]),
+        email_address="banana@gmail.com",
+        organization="Example",
+        organizational_unit="Example Unit",
+        country_name="CA",
+        state_or_province_name="Quebec",
+        locality_name="Montreal",
+    )
+    assert csr.common_name == "example.com"
+    assert csr.sans_dns == frozenset(["example.com"])
+    assert csr.sans_ip == frozenset(["1.2.3.4"])
+    assert csr.sans_oid is not None
+    assert len(csr.sans_oid) == 1
+    oid = next(iter(csr.sans_oid))
+    assert "1.2.3.4" in str(oid)
+    assert csr.email_address == "banana@gmail.com"
+    assert csr.organization == "Example"
+    assert csr.organizational_unit == "Example Unit"
+    assert csr.country_name == "CA"
+    assert csr.state_or_province_name == "Quebec"
+    assert csr.locality_name == "Montreal"
+
+
 # Generate CA
 
 
@@ -167,6 +203,7 @@ def test_given_ca_certificate_attributes_when_generate_ca_then_ca_is_generated_c
         common_name="certifier.example.com",
         sans_dns=frozenset(["certifier.example.com"]),
         sans_ip=frozenset(["1.2.3.4"]),
+        sans_oid=frozenset(["1.2.3.4"]),
         email_address="banana@gmail.com",
         organization="Example",
         organizational_unit="Example Unit",
@@ -187,7 +224,10 @@ def test_given_ca_certificate_attributes_when_generate_ca_then_ca_is_generated_c
     assert ca_certificate.locality_name == "Montreal"
     assert ca_certificate.sans_dns == frozenset(["certifier.example.com"])
     assert ca_certificate.sans_ip == frozenset(["1.2.3.4"])
-    assert ca_certificate.sans_oid == frozenset()
+    assert ca_certificate.sans_oid is not None
+    assert len(ca_certificate.sans_oid) == 1
+    oid = next(iter(ca_certificate.sans_oid))
+    assert "1.2.3.4" in str(oid)
 
 
 # Generate Certificate
@@ -265,3 +305,115 @@ def test_given_csr_for_ca_when_generate_certificate_then_certificate_generated_w
     assert certificate.email_address is None
     assert certificate.country_name is None
     assert certificate.locality_name == "wherever"
+
+
+# from_string and from_csr
+
+
+def test_given_csr_string_when_from_string_then_certificate_signing_request_is_created_correctly():
+    private_key = generate_private_key()
+    csr = generate_csr(
+        private_key=private_key,
+        common_name="example.com",
+        sans_dns=frozenset(["example.com"]),
+        sans_ip=frozenset(["1.2.3.4"]),
+        sans_oid=frozenset(["1.2.3.4"]),
+        email_address="banana@gmail.com",
+        organization="Example",
+        organizational_unit="Example Unit",
+        country_name="CA",
+        state_or_province_name="Quebec",
+        locality_name="Montreal",
+    )
+    csr_from_string = CertificateSigningRequest.from_string(str(csr))
+    assert csr_from_string.common_name == "example.com"
+    assert csr_from_string.sans_dns == frozenset(["example.com"])
+    assert csr_from_string.sans_ip == frozenset(["1.2.3.4"])
+    assert csr_from_string.sans_oid == frozenset(["1.2.3.4"])
+    assert csr_from_string.email_address == "banana@gmail.com"
+    assert csr_from_string.organization == "Example"
+    assert csr_from_string.organizational_unit == "Example Unit"
+    assert csr_from_string.country_name == "CA"
+    assert csr_from_string.state_or_province_name == "Quebec"
+    assert csr_from_string.locality_name == "Montreal"
+
+
+def test_given_certificate_signin_request_when_from_csr_then_attributes_are_correctly_parsed():
+    private_key = generate_private_key()
+    csr = generate_csr(
+        private_key=private_key,
+        common_name="example.com",
+        sans_dns=frozenset(["example.com"]),
+        sans_ip=frozenset(["1.2.3.4"]),
+        sans_oid=frozenset(["1.2.3.4"]),
+        email_address="banana@gmail.com",
+        organization="Example",
+        organizational_unit="Example Unit",
+        country_name="CA",
+        state_or_province_name="Quebec",
+        locality_name="Montreal",
+    )
+    csr_from_string = CertificateSigningRequest.from_string(str(csr))
+    attributes = CertificateRequestAttributes.from_csr(csr_from_string, is_ca=False)
+    assert attributes.common_name == "example.com"
+    assert attributes.sans_dns == frozenset(["example.com"])
+    assert attributes.sans_ip == frozenset(["1.2.3.4"])
+    assert attributes.sans_oid == frozenset(["1.2.3.4"])
+    assert attributes.email_address == "banana@gmail.com"
+    assert attributes.organization == "Example"
+    assert attributes.organizational_unit == "Example Unit"
+    assert attributes.country_name == "CA"
+    assert attributes.state_or_province_name == "Quebec"
+    assert attributes.locality_name == "Montreal"
+
+
+def test_given_certificate_string_when_from_string_then_certificate_is_created_correctly():
+    private_key = generate_private_key()
+    csr = generate_csr(
+        private_key=private_key,
+        common_name="example.com",
+        sans_dns=frozenset(["example.com"]),
+        sans_ip=frozenset(["1.2.3.4"]),
+        sans_oid=frozenset(["1.2.3.4"]),
+        email_address="banana@gmail.com",
+        organization="Example",
+        organizational_unit="Example Unit",
+        country_name="CA",
+        state_or_province_name="Quebec",
+        locality_name="Montreal",
+    )
+    ca_private_key = generate_private_key()
+    ca_certificate = generate_ca(
+        private_key=ca_private_key,
+        validity=timedelta(days=365),
+        common_name="certifier.example.com",
+        sans_dns=frozenset(["certifier.example.com"]),
+    )
+    certificate = generate_certificate(
+        csr=csr,
+        ca=ca_certificate,
+        ca_private_key=ca_private_key,
+        validity=timedelta(days=200),
+        is_ca=False,
+    )
+    certificate_from_string = Certificate.from_string(str(certificate))
+    assert certificate_from_string.common_name == "example.com"
+    expected_expiry = datetime.now(timezone.utc) + timedelta(days=200)
+    assert abs(certificate_from_string.expiry_time - expected_expiry) <= timedelta(seconds=2)
+    expected_validity_start_time = datetime.now(timezone.utc)
+    assert abs(
+        certificate_from_string.validity_start_time - expected_validity_start_time
+    ) <= timedelta(seconds=2)
+    assert certificate_from_string.sans_dns == frozenset(["example.com"])
+    assert certificate_from_string.sans_ip == frozenset(["1.2.3.4"])
+    assert certificate_from_string.sans_oid is not None
+    assert len(certificate_from_string.sans_oid) == 1
+    oid = next(iter(certificate_from_string.sans_oid))
+    assert "1.2.3.4" in str(oid)
+    assert certificate_from_string.email_address == "banana@gmail.com"
+    assert certificate_from_string.organization == "Example"
+    assert certificate_from_string.organizational_unit == "Example Unit"
+    assert certificate_from_string.country_name == "CA"
+    assert certificate_from_string.state_or_province_name == "Quebec"
+    assert certificate_from_string.locality_name == "Montreal"
+    assert certificate_from_string.is_ca is False
