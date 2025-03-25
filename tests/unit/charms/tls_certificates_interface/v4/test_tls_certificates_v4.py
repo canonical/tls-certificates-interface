@@ -190,6 +190,7 @@ def test_given_certificate_request_attributes_when_generate_csr_then_csr_is_gene
     assert csr.state_or_province_name == "Quebec"
     assert csr.locality_name == "Montreal"
 
+
 # Generate CA
 
 
@@ -307,6 +308,7 @@ def test_given_csr_for_ca_when_generate_certificate_then_certificate_generated_w
 
 
 # from_string and from_csr
+
 
 def test_given_csr_string_when_from_string_then_certificate_signing_request_is_created_correctly():
     private_key = generate_private_key()
