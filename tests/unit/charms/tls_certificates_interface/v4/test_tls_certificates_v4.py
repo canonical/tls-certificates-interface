@@ -324,6 +324,7 @@ def test_given_csr_string_when_from_string_then_certificate_signing_request_is_c
         country_name="CA",
         state_or_province_name="Quebec",
         locality_name="Montreal",
+        add_unique_id_to_subject_name=False,
     )
     csr_from_string = CertificateSigningRequest.from_string(str(csr))
     assert csr_from_string.common_name == "example.com"
@@ -336,6 +337,7 @@ def test_given_csr_string_when_from_string_then_certificate_signing_request_is_c
     assert csr_from_string.country_name == "CA"
     assert csr_from_string.state_or_province_name == "Quebec"
     assert csr_from_string.locality_name == "Montreal"
+    assert not csr_from_string.has_unique_identifier
 
 
 def test_given_certificate_signin_request_when_from_csr_then_attributes_are_correctly_parsed():
