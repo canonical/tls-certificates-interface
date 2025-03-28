@@ -409,7 +409,9 @@ class CertificateSigningRequest:
             NameOID.ORGANIZATIONAL_UNIT_NAME
         )
         email_address = csr_object.subject.get_attributes_for_oid(NameOID.EMAIL_ADDRESS)
-        unique_identifier = csr_object.subject.get_attributes_for_oid(NameOID.X500_UNIQUE_IDENTIFIER)
+        unique_identifier = csr_object.subject.get_attributes_for_oid(
+            NameOID.X500_UNIQUE_IDENTIFIER
+        )
         try:
             sans = csr_object.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
             sans_dns = frozenset(sans.get_values_for_type(x509.DNSName))
