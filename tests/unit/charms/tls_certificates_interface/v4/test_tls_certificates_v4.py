@@ -369,6 +369,24 @@ def test_given_certificate_signin_request_when_from_csr_then_attributes_are_corr
     assert attributes.locality_name == "Montreal"
 
 
+def test_generated_ca_does_not_have_an_empty_sans_extension():
+    ca_private_key = generate_private_key()
+    ca_certificate = generate_ca(
+        private_key=ca_private_key,
+        validity=timedelta(days=365),
+        common_name="certifier.example.com",
+    )
+    ca = x509.load_pem_x509_certificate(ca_certificate.raw.encode())
+    alt_name_ext = [e for e in ca.extensions if e.oid._name == "subjectAltName"]
+
+    # It's OK for the extension to be missing
+    assert len(alt_name_ext) in (0, 1)
+
+    if alt_name_ext:
+        # If the subjectAltName extension is present, it cannot be empty
+        assert alt_name_ext[0].value._general_names[:]
+
+
 def test_given_certificate_string_when_from_string_then_certificate_is_created_correctly():
     private_key = generate_private_key()
     csr = generate_csr(

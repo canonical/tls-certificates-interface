@@ -801,18 +801,11 @@ def generate_ca(
     if locality_name:
         subject_name.append(x509.NameAttribute(x509.NameOID.LOCALITY_NAME, locality_name))
 
-    _sans: List[x509.GeneralName] = []
-    if sans_oid:
-        _sans.extend([x509.RegisteredID(x509.ObjectIdentifier(san)) for san in sans_oid])
-    if sans_ip:
-        _sans.extend([x509.IPAddress(ipaddress.ip_address(san)) for san in sans_ip])
-    if sans_dns:
-        _sans.extend([x509.DNSName(san) for san in sans_dns])
-
     subject_identifier_object = x509.SubjectKeyIdentifier.from_public_key(
         private_key_object.public_key()
     )
     subject_identifier = key_identifier = subject_identifier_object.public_bytes()
+    basic = x509.BasicConstraints(ca=True, path_length=None)
     key_usage = x509.KeyUsage(
         digital_signature=True,
         key_encipherment=True,
@@ -824,33 +817,49 @@ def generate_ca(
         encipher_only=False,
         decipher_only=False,
     )
+    ski = x509.SubjectKeyIdentifier(digest=subject_identifier)
+    aki = x509.AuthorityKeyIdentifier(
+        key_identifier=key_identifier,
+        authority_cert_issuer=None,
+        authority_cert_serial_number=None,
+    )
+    extensions = [
+        x509.Extension(basic.oid, True, basic),
+        x509.Extension(key_usage.oid, True, key_usage),
+        x509.Extension(ski.oid, False, ski),
+        x509.Extension(aki.oid, False, aki),
+    ]
+    if san := _subject_alternative_name_extension(sans_dns, sans_ip, sans_oid):
+        extensions.append(san)
     cert = (
-        x509.CertificateBuilder()
+        x509.CertificateBuilder(extensions=extensions)
         .subject_name(x509.Name(subject_name))
         .issuer_name(x509.Name([x509.NameAttribute(x509.NameOID.COMMON_NAME, common_name)]))
         .public_key(private_key_object.public_key())
         .serial_number(x509.random_serial_number())
         .not_valid_before(datetime.now(timezone.utc))
         .not_valid_after(datetime.now(timezone.utc) + validity)
-        .add_extension(x509.SubjectAlternativeName(set(_sans)), critical=False)
-        .add_extension(x509.SubjectKeyIdentifier(digest=subject_identifier), critical=False)
-        .add_extension(
-            x509.AuthorityKeyIdentifier(
-                key_identifier=key_identifier,
-                authority_cert_issuer=None,
-                authority_cert_serial_number=None,
-            ),
-            critical=False,
-        )
-        .add_extension(key_usage, critical=True)
-        .add_extension(
-            x509.BasicConstraints(ca=True, path_length=None),
-            critical=True,
-        )
         .sign(private_key_object, hashes.SHA256())  # type: ignore[arg-type]
     )
     ca_cert_str = cert.public_bytes(serialization.Encoding.PEM).decode().strip()
     return Certificate.from_string(ca_cert_str)
+
+
+def _subject_alternative_name_extension(
+    sans_dns: Optional[FrozenSet[str]] = frozenset(),
+    sans_ip: Optional[FrozenSet[str]] = frozenset(),
+    sans_oid: Optional[FrozenSet[str]] = frozenset(),
+) -> Optional[x509.Extension]:
+    _sans: List[x509.GeneralName] = []
+    if sans_oid:
+        _sans.extend([x509.RegisteredID(x509.ObjectIdentifier(san)) for san in sans_oid])
+    if sans_ip:
+        _sans.extend([x509.IPAddress(ipaddress.ip_address(san)) for san in sans_ip])
+    if sans_dns:
+        _sans.extend([x509.DNSName(san) for san in sans_dns])
+    if _sans:
+        san = x509.SubjectAlternativeName(set(_sans))
+        return x509.Extension(san.oid, False, san)
 
 
 def generate_certificate(
