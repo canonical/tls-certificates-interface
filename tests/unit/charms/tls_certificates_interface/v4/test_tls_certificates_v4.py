@@ -68,6 +68,7 @@ def validate_induced_data_from_pfx_is_equal_to_initial_data(
     assert initial_public_key == induced_public_key
     assert induced_certificate == initial_certificate
     assert initial_private_key == induced_private_key
+    # dummy comment
 
 
 def test_given_no_password_when_generate_private_key_then_key_is_generated_and_loadable():
