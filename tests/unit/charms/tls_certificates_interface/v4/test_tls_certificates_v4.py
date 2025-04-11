@@ -228,6 +228,15 @@ def test_given_ca_certificate_attributes_when_generate_ca_then_ca_is_generated_c
     assert len(ca_certificate.sans_oid) == 1
     oid = next(iter(ca_certificate.sans_oid))
     assert "1.2.3.4" in str(oid)
+    assert ca_certificate.is_ca is True
+
+    # Check extensions
+    x509_certificate = x509.load_pem_x509_certificate(data=ca_certificate.raw.encode())
+    assert (
+        x509_certificate.extensions.get_extension_for_class(x509.BasicConstraints).value.ca is True
+    )
+    key_usage = x509_certificate.extensions.get_extension_for_class(x509.KeyUsage).value
+    assert key_usage and key_usage.key_cert_sign and not key_usage.crl_sign
 
 
 # Generate Certificate
@@ -269,6 +278,15 @@ def test_given_csr_when_generate_certificate_then_certificate_generated_with_req
     assert certificate.country_name is None
     assert certificate.locality_name == "wherever"
 
+    # check extensions
+    x509_certificate = x509.load_pem_x509_certificate(data=certificate.raw.encode())
+    assert (
+        x509_certificate.extensions.get_extension_for_class(x509.BasicConstraints).value.ca
+        is False
+    )
+    key_usage = x509_certificate.extensions.get_extension_for_class(x509.KeyUsage).value
+    assert key_usage and not key_usage.key_cert_sign and not key_usage.crl_sign
+
 
 def test_given_csr_for_ca_when_generate_certificate_then_certificate_generated_with_requested_attributes():  # noqa: E501
     private_key = generate_private_key()
@@ -305,6 +323,14 @@ def test_given_csr_for_ca_when_generate_certificate_then_certificate_generated_w
     assert certificate.email_address is None
     assert certificate.country_name is None
     assert certificate.locality_name == "wherever"
+
+    # check extensions
+    x509_certificate = x509.load_pem_x509_certificate(data=certificate.raw.encode())
+    assert (
+        x509_certificate.extensions.get_extension_for_class(x509.BasicConstraints).value.ca is True
+    )
+    key_usage = x509_certificate.extensions.get_extension_for_class(x509.KeyUsage).value
+    assert key_usage and key_usage.key_cert_sign and key_usage.crl_sign
 
 
 # from_string and from_csr

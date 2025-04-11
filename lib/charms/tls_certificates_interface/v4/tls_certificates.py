@@ -52,7 +52,7 @@ LIBAPI = 4
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 13
+LIBPATCH = 14
 
 PYDEPS = [
     "cryptography>=43.0.0",
@@ -943,6 +943,21 @@ def _get_certificate_request_extensions(
             critical=True,
             value=x509.BasicConstraints(ca=is_ca, path_length=None),
         ),
+        x509.Extension(
+            ExtensionOID.KEY_USAGE,
+            critical=True,
+            value=x509.KeyUsage(
+                digital_signature=False,
+                content_commitment=False,
+                key_encipherment=False,
+                data_encipherment=False,
+                key_agreement=False,
+                key_cert_sign=is_ca,
+                crl_sign=is_ca,
+                encipher_only=False,
+                decipher_only=False,
+            ),
+        ),
     ]
     sans: List[x509.GeneralName] = []
     try:
@@ -968,25 +983,6 @@ def _get_certificate_request_extensions(
                 oid=ExtensionOID.SUBJECT_ALTERNATIVE_NAME,
                 critical=False,
                 value=x509.SubjectAlternativeName(sans),
-            )
-        )
-
-    if is_ca:
-        cert_extensions_list.append(
-            x509.Extension(
-                ExtensionOID.KEY_USAGE,
-                critical=True,
-                value=x509.KeyUsage(
-                    digital_signature=False,
-                    content_commitment=False,
-                    key_encipherment=False,
-                    data_encipherment=False,
-                    key_agreement=False,
-                    key_cert_sign=True,
-                    crl_sign=True,
-                    encipher_only=False,
-                    decipher_only=False,
-                ),
             )
         )
 
