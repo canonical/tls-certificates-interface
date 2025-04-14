@@ -26,7 +26,7 @@ dev = [
 ]
 test-juju-2 = [
     "juju==2.9.49.1",
-    "websockets==13.1",
+    "websockets==15.0.1",
 ]
 test-juju-3 = [
     "juju>3"
