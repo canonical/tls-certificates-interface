@@ -4,8 +4,11 @@
 
 import logging
 import shutil
+import subprocess
+from pathlib import Path
 
-from pytest_operator.plugin import OpsTest
+import jubilant
+import pytest
 
 logger = logging.getLogger(__name__)
 
@@ -16,112 +19,103 @@ TLS_CERTIFICATES_PROVIDER_APP_NAME = "tls-certificates-provider"
 TLS_CERTIFICATES_REQUIRER_APP_NAME = "tls-certificates-requirer"
 
 
-def copy_lib_content() -> None:
-    shutil.copyfile(src=LIB_DIR, dst=f"{REQUIRER_CHARM_DIR}/{LIB_DIR}")
-    shutil.copyfile(src=LIB_DIR, dst=f"{PROVIDER_CHARM_DIR}/{LIB_DIR}")
+def build_charm(path: Path) -> Path:
+    shutil.copyfile(src=LIB_DIR, dst=path / Path(LIB_DIR))
+    _ = subprocess.run(
+        ["charmcraft", "pack", "--verbose"],
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+        cwd=path,
+    )
+    return next(path.glob("*.charm"))
 
 
-class TestIntegration:
-    requirer_charm = None
-    provider_charm = None
+@pytest.fixture(scope="module")
+def requirer_charm():
+    charm_path = ""
+    charm_path = build_charm(Path(f"{REQUIRER_CHARM_DIR}/").absolute())
+    yield charm_path
 
-    async def test_given_charms_packed_when_deploy_charm_then_status_is_blocked(
-        self, ops_test: OpsTest
-    ):
-        assert ops_test.model
-        copy_lib_content()
-        TestIntegration.requirer_charm = await ops_test.build_charm(f"{REQUIRER_CHARM_DIR}/")
-        TestIntegration.provider_charm = await ops_test.build_charm(f"{PROVIDER_CHARM_DIR}/")
-        await ops_test.model.deploy(
-            TestIntegration.requirer_charm,
-            application_name=TLS_CERTIFICATES_REQUIRER_APP_NAME,
-            series="jammy",
-        )
-        await ops_test.model.deploy(
-            TestIntegration.provider_charm,
-            application_name=TLS_CERTIFICATES_PROVIDER_APP_NAME,
-            series="jammy",
-        )
 
-        await ops_test.model.wait_for_idle(
-            apps=[TLS_CERTIFICATES_REQUIRER_APP_NAME, TLS_CERTIFICATES_PROVIDER_APP_NAME],
-            status="blocked",
-            timeout=1000,
-        )
+@pytest.fixture(scope="module")
+def provider_charm():
+    charm_path = ""
+    charm_path = build_charm(Path(f"{PROVIDER_CHARM_DIR}/").absolute())
+    yield charm_path
 
-    async def test_given_charms_deployed_when_relate_then_status_is_active(
-        self, ops_test: OpsTest
-    ):
-        assert ops_test.model
-        await ops_test.model.add_relation(
-            relation1=TLS_CERTIFICATES_REQUIRER_APP_NAME,
-            relation2=TLS_CERTIFICATES_PROVIDER_APP_NAME,
-        )
 
-        await ops_test.model.wait_for_idle(
-            apps=[TLS_CERTIFICATES_REQUIRER_APP_NAME, TLS_CERTIFICATES_PROVIDER_APP_NAME],
-            status="active",
-            timeout=1000,
-        )
+@pytest.fixture(scope="module")
+def juju():
+    with jubilant.temp_model() as juju:
+        yield juju
 
-    async def test_given_charms_deployed_when_relate_then_requirer_received_certs(
-        self, ops_test: OpsTest
-    ):
-        assert ops_test.model
-        requirer_unit = ops_test.model.units[f"{TLS_CERTIFICATES_REQUIRER_APP_NAME}/0"]
-        assert requirer_unit
 
-        action = await requirer_unit.run_action(action_name="get-certificate")
+def test_given_charms_packed_when_deploy_charm_then_status_is_blocked(
+    juju: jubilant.Juju,
+    requirer_charm: Path,
+    provider_charm: Path,
+):
+    juju.deploy(requirer_charm, app=TLS_CERTIFICATES_REQUIRER_APP_NAME, base="ubuntu@22.04")
+    juju.deploy(provider_charm, app=TLS_CERTIFICATES_PROVIDER_APP_NAME, base="ubuntu@22.04")
+    status = juju.wait(jubilant.all_blocked)
+    assert status.apps[TLS_CERTIFICATES_REQUIRER_APP_NAME].scale == 1
+    assert status.apps[TLS_CERTIFICATES_PROVIDER_APP_NAME].scale == 1
 
-        action_output = await ops_test.model.get_action_output(
-            action_uuid=action.entity_id, wait=60
-        )
-        assert "ca" in action_output and action_output["ca"] is not None
-        assert "certificate" in action_output and action_output["certificate"] is not None
-        assert "chain" in action_output and action_output["chain"] is not None
 
-    async def test_given_additional_requirer_charm_deployed_when_relate_then_requirer_received_certs(  # noqa: E501
-        self, ops_test: OpsTest
-    ):
-        assert ops_test.model
-        new_requirer_app_name = "new-tls-requirer"
-        await ops_test.model.deploy(
-            TestIntegration.requirer_charm, application_name=new_requirer_app_name, series="jammy"
-        )
-        await ops_test.model.add_relation(
-            relation1=new_requirer_app_name,
-            relation2=TLS_CERTIFICATES_PROVIDER_APP_NAME,
-        )
-        await ops_test.model.wait_for_idle(
-            apps=[
-                TLS_CERTIFICATES_PROVIDER_APP_NAME,
-                new_requirer_app_name,
-            ],
-            status="active",
-            timeout=1000,
-        )
-        requirer_unit = ops_test.model.units[f"{new_requirer_app_name}/0"]
-        assert requirer_unit
+def test_given_charms_deployed_when_relate_then_status_is_active(
+    juju: jubilant.Juju,
+):
+    juju.integrate(TLS_CERTIFICATES_REQUIRER_APP_NAME, TLS_CERTIFICATES_PROVIDER_APP_NAME)
 
-        action = await requirer_unit.run_action(action_name="get-certificate")
+    _ = juju.wait(jubilant.all_active)
 
-        action_output = await ops_test.model.get_action_output(
-            action_uuid=action.entity_id, wait=60
-        )
-        assert "ca" in action_output and action_output["ca"] is not None
-        assert "certificate" in action_output and action_output["certificate"] is not None
-        assert "chain" in action_output and action_output["chain"] is not None
 
-    async def test_given_enough_time_passed_then_certificate_expired(self, ops_test: OpsTest):  # noqa: E501
-        assert ops_test.model
-        await ops_test.model.wait_for_idle(
-            apps=[
-                TLS_CERTIFICATES_REQUIRER_APP_NAME,
-            ],
-            status="blocked",
-            timeout=1000,
-        )
-        requirer_unit = ops_test.model.units[f"{TLS_CERTIFICATES_REQUIRER_APP_NAME}/0"]
-        assert requirer_unit
+def test_given_charms_deployed_when_relate_then_requirer_received_certs(
+    juju: jubilant.Juju,
+):
+    result = juju.run(
+        unit=f"{TLS_CERTIFICATES_REQUIRER_APP_NAME}/0",
+        action="get-certificate",
+    )
 
-        assert requirer_unit.workload_status_message == "Told you, now your certificate expired"
+    assert "ca" in result.results and result.results["ca"] is not None
+    assert "certificate" in result.results and result.results["certificate"] is not None
+    assert "chain" in result.results and result.results["chain"] is not None
+
+
+def test_given_additional_requirer_charm_deployed_when_relate_then_requirer_received_certs(
+    juju: jubilant.Juju,
+    requirer_charm: Path,
+):
+    new_requirer_app_name = "new-tls-requirer"
+    juju.deploy(requirer_charm, app=new_requirer_app_name, base="ubuntu@22.04")
+    juju.integrate(new_requirer_app_name, TLS_CERTIFICATES_PROVIDER_APP_NAME)
+    _ = juju.wait(jubilant.all_active)
+    result = juju.run(
+        unit=f"{new_requirer_app_name}/0",
+        action="get-certificate",
+    )
+
+    assert "ca" in result.results and result.results["ca"] is not None
+    assert "certificate" in result.results and result.results["certificate"] is not None
+    assert "chain" in result.results and result.results["chain"] is not None
+
+
+def test_given_enough_time_passed_then_certificate_expired(
+    juju: jubilant.Juju,
+):
+    juju.wait(
+        lambda status: (
+            status.apps[TLS_CERTIFICATES_REQUIRER_APP_NAME].is_blocked
+            and status.apps[TLS_CERTIFICATES_PROVIDER_APP_NAME].is_active
+        ),
+        error=jubilant.any_error,
+        timeout=1000,
+    )
+
+    status = juju.status()
+    assert (
+        status.apps[TLS_CERTIFICATES_REQUIRER_APP_NAME].app_status.message
+        == "Told you, now your certificate expired"
+    )
