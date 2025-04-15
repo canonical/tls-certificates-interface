@@ -57,8 +57,8 @@ def test_given_charms_packed_when_deploy_charm_then_status_is_blocked(
     requirer_charm: Path,
     provider_charm: Path,
 ):
-    juju.deploy(requirer_charm, app=TLS_CERTIFICATES_REQUIRER_APP_NAME, base="ubuntu@22.04")
-    juju.deploy(provider_charm, app=TLS_CERTIFICATES_PROVIDER_APP_NAME, base="ubuntu@22.04")
+    juju.deploy(requirer_charm, app=TLS_CERTIFICATES_REQUIRER_APP_NAME)
+    juju.deploy(provider_charm, app=TLS_CERTIFICATES_PROVIDER_APP_NAME)
     status = juju.wait(jubilant.all_blocked)
     assert status.apps[TLS_CERTIFICATES_REQUIRER_APP_NAME].scale == 1
     assert status.apps[TLS_CERTIFICATES_PROVIDER_APP_NAME].scale == 1
@@ -91,7 +91,7 @@ def test_given_additional_requirer_charm_deployed_when_relate_then_requirer_rece
     requirer_charm: Path,
 ):
     new_requirer_app_name = "new-tls-requirer"
-    juju.deploy(requirer_charm, app=new_requirer_app_name, base="ubuntu@22.04")
+    juju.deploy(requirer_charm, app=new_requirer_app_name)
     # Directly calling the CLI because `integrate` is not available on Juju 2
     juju.cli("relate", new_requirer_app_name, TLS_CERTIFICATES_PROVIDER_APP_NAME)
     _ = juju.wait(jubilant.all_active)
