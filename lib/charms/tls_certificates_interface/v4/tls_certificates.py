@@ -945,7 +945,7 @@ def _get_certificate_request_extensions(
         ),
         x509.Extension(
             ExtensionOID.KEY_USAGE,
-            critical=True,
+            critical=is_ca,
             value=x509.KeyUsage(
                 digital_signature=False,
                 content_commitment=False,
