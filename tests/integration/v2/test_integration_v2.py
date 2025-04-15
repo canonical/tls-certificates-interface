@@ -48,6 +48,7 @@ def provider_charm():
 @pytest.fixture(scope="module")
 def juju():
     with jubilant.temp_model() as juju:
+        juju.wait_timeout = 1000
         yield juju
 
 
@@ -66,7 +67,8 @@ def test_given_charms_packed_when_deploy_charm_then_status_is_blocked(
 def test_given_charms_deployed_when_relate_then_status_is_active(
     juju: jubilant.Juju,
 ):
-    juju.integrate(TLS_CERTIFICATES_REQUIRER_APP_NAME, TLS_CERTIFICATES_PROVIDER_APP_NAME)
+    # Directly calling the CLI because `integrate` is not available on Juju 2
+    juju.cli("relate", TLS_CERTIFICATES_REQUIRER_APP_NAME, TLS_CERTIFICATES_PROVIDER_APP_NAME)
 
     _ = juju.wait(jubilant.all_active)
 
@@ -90,7 +92,8 @@ def test_given_additional_requirer_charm_deployed_when_relate_then_requirer_rece
 ):
     new_requirer_app_name = "new-tls-requirer"
     juju.deploy(requirer_charm, app=new_requirer_app_name, base="ubuntu@22.04")
-    juju.integrate(new_requirer_app_name, TLS_CERTIFICATES_PROVIDER_APP_NAME)
+    # Directly calling the CLI because `integrate` is not available on Juju 2
+    juju.cli("relate", new_requirer_app_name, TLS_CERTIFICATES_PROVIDER_APP_NAME)
     _ = juju.wait(jubilant.all_active)
     result = juju.run(
         unit=f"{new_requirer_app_name}/0",
@@ -111,7 +114,6 @@ def test_given_enough_time_passed_then_certificate_expired(
             and status.apps[TLS_CERTIFICATES_PROVIDER_APP_NAME].is_active
         ),
         error=jubilant.any_error,
-        timeout=1000,
     )
 
     status = juju.status()
