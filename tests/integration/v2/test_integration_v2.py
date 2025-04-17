@@ -66,7 +66,7 @@ def test_given_charms_packed_when_deploy_charm_then_status_is_blocked(
             .is_blocked
             and status.apps[TLS_CERTIFICATES_PROVIDER_APP_NAME]
             .units[f"{TLS_CERTIFICATES_PROVIDER_APP_NAME}/0"]
-            .is_blocked  # noqa: E501
+            .is_blocked
         ),
         error=jubilant.any_error,
     )
@@ -120,8 +120,12 @@ def test_given_enough_time_passed_then_certificate_expired(
 ):
     juju.wait(
         lambda status: (
-            status.apps[TLS_CERTIFICATES_REQUIRER_APP_NAME].is_blocked
-            and status.apps[TLS_CERTIFICATES_PROVIDER_APP_NAME].is_active
+            status.apps[TLS_CERTIFICATES_REQUIRER_APP_NAME]
+            .units[f"{TLS_CERTIFICATES_REQUIRER_APP_NAME}/0"]
+            .is_blocked
+            and status.apps[TLS_CERTIFICATES_PROVIDER_APP_NAME]
+            .units[f"{TLS_CERTIFICATES_PROVIDER_APP_NAME}/0"]
+            .is_active
         ),
         error=jubilant.any_error,
     )
