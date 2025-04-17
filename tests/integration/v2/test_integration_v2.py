@@ -87,7 +87,7 @@ def test_given_charms_deployed_when_relate_then_status_is_active(
 def test_given_charms_deployed_when_relate_then_requirer_received_certs(
     juju: jubilant.Juju,
 ):
-    if juju.cli("version").startswith("2.9"):
+    if juju.cli("version", include_model=False).startswith("2.9"):
         result = json.loads(
             juju.cli(
                 "run-action",
@@ -119,7 +119,7 @@ def test_given_additional_requirer_charm_deployed_when_relate_then_requirer_rece
     juju.cli("relate", new_requirer_app_name, TLS_CERTIFICATES_PROVIDER_APP_NAME)
     _ = juju.wait(jubilant.all_active)
 
-    if juju.cli("version").startswith("2.9"):
+    if juju.cli("version", include_model=False).startswith("2.9"):
         result = json.loads(
             juju.cli(
                 "run-action",
