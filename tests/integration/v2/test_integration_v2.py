@@ -2,6 +2,7 @@
 # Copyright 2021 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+import json
 import logging
 import shutil
 import subprocess
@@ -86,10 +87,22 @@ def test_given_charms_deployed_when_relate_then_status_is_active(
 def test_given_charms_deployed_when_relate_then_requirer_received_certs(
     juju: jubilant.Juju,
 ):
-    result = juju.run(
-        unit=f"{TLS_CERTIFICATES_REQUIRER_APP_NAME}/0",
-        action="get-certificate",
-    )
+    if juju.cli("version").startswith("2.9"):
+        result = json.loads(
+            juju.cli(
+                "run-action",
+                f"{TLS_CERTIFICATES_REQUIRER_APP_NAME}/0",
+                "get-certificate",
+                "--wait",
+                "--format",
+                "json",
+            )
+        )
+    else:
+        result = juju.run(
+            unit=f"{TLS_CERTIFICATES_REQUIRER_APP_NAME}/0",
+            action="get-certificate",
+        )
 
     assert "ca" in result.results and result.results["ca"] is not None
     assert "certificate" in result.results and result.results["certificate"] is not None
@@ -105,10 +118,23 @@ def test_given_additional_requirer_charm_deployed_when_relate_then_requirer_rece
     # Directly calling the CLI because `integrate` is not available on Juju 2
     juju.cli("relate", new_requirer_app_name, TLS_CERTIFICATES_PROVIDER_APP_NAME)
     _ = juju.wait(jubilant.all_active)
-    result = juju.run(
-        unit=f"{new_requirer_app_name}/0",
-        action="get-certificate",
-    )
+
+    if juju.cli("version").startswith("2.9"):
+        result = json.loads(
+            juju.cli(
+                "run-action",
+                f"{new_requirer_app_name}/0",
+                "get-certificate",
+                "--wait",
+                "--format",
+                "json",
+            )
+        )
+    else:
+        result = juju.run(
+            unit=f"{new_requirer_app_name}/0",
+            action="get-certificate",
+        )
 
     assert "ca" in result.results and result.results["ca"] is not None
     assert "certificate" in result.results and result.results["certificate"] is not None
