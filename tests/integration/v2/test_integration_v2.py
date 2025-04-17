@@ -59,7 +59,17 @@ def test_given_charms_packed_when_deploy_charm_then_status_is_blocked(
 ):
     juju.deploy(requirer_charm, app=TLS_CERTIFICATES_REQUIRER_APP_NAME)
     juju.deploy(provider_charm, app=TLS_CERTIFICATES_PROVIDER_APP_NAME)
-    status = juju.wait(jubilant.all_blocked)
+    status = juju.wait(
+        lambda status: (
+            status.apps[TLS_CERTIFICATES_REQUIRER_APP_NAME]
+            .units[f"{TLS_CERTIFICATES_REQUIRER_APP_NAME}/0"]
+            .is_blocked
+            and status.apps[TLS_CERTIFICATES_PROVIDER_APP_NAME]
+            .units[f"{TLS_CERTIFICATES_PROVIDER_APP_NAME}/0"]
+            .is_blocked  # noqa: E501
+        ),
+        error=jubilant.any_error,
+    )
     assert status.apps[TLS_CERTIFICATES_REQUIRER_APP_NAME].scale == 1
     assert status.apps[TLS_CERTIFICATES_PROVIDER_APP_NAME].scale == 1
 
