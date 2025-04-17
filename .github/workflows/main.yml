@@ -45,7 +45,9 @@ jobs:
     name: Integration tests for tls interface v2 (Juju 2.9)
     runs-on: ubuntu-24.04
     needs:
-      - build
+      - unit-tests-with-coverage
+      - lint-report
+      - static-analysis
     steps:
       - uses: actions/checkout@v4
       - name: Setup operator environment
@@ -78,7 +80,9 @@ jobs:
     name: Integration tests for tls interface v2 (Juju 3.x)
     runs-on: ubuntu-24.04
     needs:
-      - build
+      - unit-tests-with-coverage
+      - lint-report
+      - static-analysis
     steps:
       - uses: actions/checkout@v4
       - name: Setup operator environment
@@ -111,7 +115,9 @@ jobs:
     name: Integration tests for tls interface v3
     runs-on: ubuntu-24.04
     needs:
-      - build
+      - unit-tests-with-coverage
+      - lint-report
+      - static-analysis
     steps:
       - uses: actions/checkout@v4
       - name: Setup operator environment
@@ -144,7 +150,9 @@ jobs:
     name: Integration tests for tls interface v4
     runs-on: ubuntu-24.04
     needs:
-      - build
+      - unit-tests-with-coverage
+      - lint-report
+      - static-analysis
     steps:
       - uses: actions/checkout@v4
       - name: Setup operator environment
