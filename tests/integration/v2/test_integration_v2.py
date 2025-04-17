@@ -132,6 +132,8 @@ def test_given_enough_time_passed_then_certificate_expired(
 
     status = juju.status()
     assert (
-        status.apps[TLS_CERTIFICATES_REQUIRER_APP_NAME].app_status.message
+        status.apps[TLS_CERTIFICATES_REQUIRER_APP_NAME]
+        .units[f"{TLS_CERTIFICATES_REQUIRER_APP_NAME}/0"]
+        .workload_status.message
         == "Told you, now your certificate expired"
     )
