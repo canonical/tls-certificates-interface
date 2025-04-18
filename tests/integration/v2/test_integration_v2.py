@@ -97,16 +97,16 @@ def test_given_charms_deployed_when_relate_then_requirer_received_certs(
                 "--format",
                 "json",
             )
-        )
+        )[f"unit-{TLS_CERTIFICATES_REQUIRER_APP_NAME}-0"]["results"]
     else:
         result = juju.run(
             unit=f"{TLS_CERTIFICATES_REQUIRER_APP_NAME}/0",
             action="get-certificate",
-        )
+        ).results
 
-    assert "ca" in result.results and result.results["ca"] is not None
-    assert "certificate" in result.results and result.results["certificate"] is not None
-    assert "chain" in result.results and result.results["chain"] is not None
+    assert "ca" in result and result["ca"] is not None
+    assert "certificate" in result and result["certificate"] is not None
+    assert "chain" in result and result["chain"] is not None
 
 
 def test_given_additional_requirer_charm_deployed_when_relate_then_requirer_received_certs(
@@ -129,16 +129,16 @@ def test_given_additional_requirer_charm_deployed_when_relate_then_requirer_rece
                 "--format",
                 "json",
             )
-        )
+        )[f"unit-{new_requirer_app_name}-0"]["results"]
     else:
         result = juju.run(
             unit=f"{new_requirer_app_name}/0",
             action="get-certificate",
-        )
+        ).results
 
-    assert "ca" in result.results and result.results["ca"] is not None
-    assert "certificate" in result.results and result.results["certificate"] is not None
-    assert "chain" in result.results and result.results["chain"] is not None
+    assert "ca" in result and result["ca"] is not None
+    assert "certificate" in result and result["certificate"] is not None
+    assert "chain" in result and result["chain"] is not None
 
 
 def test_given_enough_time_passed_then_certificate_expired(
