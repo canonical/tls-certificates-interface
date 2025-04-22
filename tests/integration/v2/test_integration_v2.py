@@ -34,14 +34,12 @@ def build_charm(path: Path) -> Path:
 
 @pytest.fixture(scope="module")
 def requirer_charm():
-    charm_path = ""
     charm_path = build_charm(Path(f"{REQUIRER_CHARM_DIR}/").absolute())
     yield charm_path
 
 
 @pytest.fixture(scope="module")
 def provider_charm():
-    charm_path = ""
     charm_path = build_charm(Path(f"{PROVIDER_CHARM_DIR}/").absolute())
     yield charm_path
 
@@ -51,6 +49,11 @@ def juju():
     with jubilant.temp_model() as juju:
         juju.wait_timeout = 1000
         yield juju
+
+
+@pytest.fixture(scope="module")
+def is_juju_29(juju: jubilant.Juju):
+    yield juju.cli("version", include_model=False).startswith("2.9")
 
 
 def test_given_charms_packed_when_deploy_charm_then_status_is_blocked(
@@ -86,8 +89,9 @@ def test_given_charms_deployed_when_relate_then_status_is_active(
 
 def test_given_charms_deployed_when_relate_then_requirer_received_certs(
     juju: jubilant.Juju,
+    is_juju_29: bool,
 ):
-    if juju.cli("version", include_model=False).startswith("2.9"):
+    if is_juju_29:
         result = json.loads(
             juju.cli(
                 "run-action",
@@ -111,6 +115,7 @@ def test_given_charms_deployed_when_relate_then_requirer_received_certs(
 
 def test_given_additional_requirer_charm_deployed_when_relate_then_requirer_received_certs(
     juju: jubilant.Juju,
+    is_juju_29: bool,
     requirer_charm: Path,
 ):
     new_requirer_app_name = "new-tls-requirer"
@@ -119,7 +124,7 @@ def test_given_additional_requirer_charm_deployed_when_relate_then_requirer_rece
     juju.cli("relate", new_requirer_app_name, TLS_CERTIFICATES_PROVIDER_APP_NAME)
     _ = juju.wait(jubilant.all_active)
 
-    if juju.cli("version", include_model=False).startswith("2.9"):
+    if is_juju_29:
         result = json.loads(
             juju.cli(
                 "run-action",
