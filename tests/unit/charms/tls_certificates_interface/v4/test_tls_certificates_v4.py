@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from ipaddress import IPv6Address
 
+import pytest
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -220,6 +221,26 @@ def test_given_email_address_when_generate_ca_then_san_is_present():
 
     assert "banana@gmail.com" in rfc822names
 
+    assert not certificate_validation.get_violations(ca_certificate)
+
+
+def test_given_no_sans_when_generate_ca_then_ca_is_generated_without_sans():
+    private_key = PrivateKey(raw=generate_private_key_helper())
+
+    ca_certificate = generate_ca(
+        private_key=private_key,
+        validity=timedelta(days=365),
+        common_name="certifier.example.com",
+        organization="Example",
+        organizational_unit="Example Unit",
+        country_name="CA",
+        state_or_province_name="Quebec",
+        locality_name="Montreal",
+    )
+
+    ca = x509.load_pem_x509_certificate(str(ca_certificate).encode())
+    with pytest.raises(x509.ExtensionNotFound):
+        ca.extensions.get_extension_for_class(x509.SubjectAlternativeName)
     assert not certificate_validation.get_violations(ca_certificate)
 
 
