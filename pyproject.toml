@@ -23,6 +23,7 @@ dev = [
     "codespell",
     "pyright",
     "ruff",
+    "pkilint",
 ]
 test-juju-2 = [
     "juju==2.9.49.1",

@@ -6,13 +6,6 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from ipaddress import IPv6Address
 
-from charms.tls_certificates_interface.v4.tls_certificates import (
-    PrivateKey,
-    generate_ca,
-    generate_certificate,
-    generate_csr,
-    generate_private_key,
-)
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -22,7 +15,13 @@ from lib.charms.tls_certificates_interface.v4.tls_certificates import (
     Certificate,
     CertificateRequestAttributes,
     CertificateSigningRequest,
+    PrivateKey,
+    generate_ca,
+    generate_certificate,
+    generate_csr,
+    generate_private_key,
 )
+from tests.unit import certificate_validation
 from tests.unit.charms.tls_certificates_interface.v4.certificates import (
     generate_private_key as generate_private_key_helper,
 )
@@ -192,6 +191,36 @@ def test_given_certificate_request_attributes_when_generate_csr_then_csr_is_gene
 
 
 # Generate CA
+def test_given_email_address_when_generate_ca_then_san_is_present():
+    # 4.1.2.6
+    # Conforming implementations generating new certificates with
+    # electronic mail addresses MUST use the rfc822Name in the subject
+    # alternative name extension (Section 4.2.1.6) to describe such
+    # identities.  Simultaneous inclusion of the emailAddress attribute in
+    # the subject distinguished name to support legacy implementations is
+    # deprecated but permitted.
+
+    private_key = PrivateKey(raw=generate_private_key_helper())
+
+    ca_certificate = generate_ca(
+        private_key=private_key,
+        validity=timedelta(days=365),
+        common_name="certifier.example.com",
+        email_address="banana@gmail.com",
+        organization="Example",
+        organizational_unit="Example Unit",
+        country_name="CA",
+        state_or_province_name="Quebec",
+        locality_name="Montreal",
+    )
+
+    ca = x509.load_pem_x509_certificate(str(ca_certificate).encode())
+    sans = ca.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+    rfc822names = sans.get_values_for_type(x509.RFC822Name)
+
+    assert "banana@gmail.com" in rfc822names
+
+    assert not certificate_validation.get_violations(ca_certificate)
 
 
 def test_given_ca_certificate_attributes_when_generate_ca_then_ca_is_generated_correctly():
@@ -229,6 +258,8 @@ def test_given_ca_certificate_attributes_when_generate_ca_then_ca_is_generated_c
     oid = next(iter(ca_certificate.sans_oid))
     assert "1.2.3.4" in str(oid)
 
+    assert not certificate_validation.get_violations(ca_certificate)
+
 
 # Generate Certificate
 
@@ -246,6 +277,7 @@ def test_given_csr_when_generate_certificate_then_certificate_generated_with_req
         private_key=ca_private_key,
         validity=timedelta(days=365),
         common_name="certifier.example.com",
+        email_address="my@email.com",
         sans_dns=frozenset(["certifier.example.com"]),
     )
 
@@ -268,6 +300,9 @@ def test_given_csr_when_generate_certificate_then_certificate_generated_with_req
     assert certificate.email_address is None
     assert certificate.country_name is None
     assert certificate.locality_name == "wherever"
+
+    assert not certificate_validation.get_violations(ca_certificate)
+    assert not certificate_validation.get_violations(certificate)
 
 
 def test_given_csr_for_ca_when_generate_certificate_then_certificate_generated_with_requested_attributes():  # noqa: E501
@@ -305,6 +340,9 @@ def test_given_csr_for_ca_when_generate_certificate_then_certificate_generated_w
     assert certificate.email_address is None
     assert certificate.country_name is None
     assert certificate.locality_name == "wherever"
+
+    assert not certificate_validation.get_violations(ca_certificate)
+    assert not certificate_validation.get_violations(certificate)
 
 
 # from_string and from_csr
@@ -400,9 +438,9 @@ def test_given_certificate_string_when_from_string_then_certificate_is_created_c
     )
     certificate_from_string = Certificate.from_string(str(certificate))
     assert certificate_from_string.common_name == "example.com"
-    expected_expiry = datetime.now(timezone.utc) + timedelta(days=200)
+    expected_expiry = datetime.now(timezone.utc) + timedelta(days=200)  # FIXME: Relies on time
     assert abs(certificate_from_string.expiry_time - expected_expiry) <= timedelta(seconds=2)
-    expected_validity_start_time = datetime.now(timezone.utc)
+    expected_validity_start_time = datetime.now(timezone.utc)  # FIXME: Relies on time
     assert abs(
         certificate_from_string.validity_start_time - expected_validity_start_time
     ) <= timedelta(seconds=2)
@@ -419,3 +457,6 @@ def test_given_certificate_string_when_from_string_then_certificate_is_created_c
     assert certificate_from_string.state_or_province_name == "Quebec"
     assert certificate_from_string.locality_name == "Montreal"
     assert certificate_from_string.is_ca is False
+
+    assert not certificate_validation.get_violations(ca_certificate)
+    assert not certificate_validation.get_violations(certificate)
