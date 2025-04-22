@@ -121,7 +121,8 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
         event.set_results(results={"certificates": certificates})
 
     def _on_set_certificate_action(self, event: ActionEvent) -> None:
-        ca_chain_str = event.params.get("ca-chain", None)
+        ca_chain_str = event.params.get("ca-chain")
+        assert ca_chain_str
         ca_chain_list = parse_ca_chain(base64.b64decode(ca_chain_str).decode())
         csr_str = base64.b64decode(event.params["certificate-signing-request"]).decode("utf-8")
         certificate_str = base64.b64decode(event.params["certificate"]).decode("utf-8")

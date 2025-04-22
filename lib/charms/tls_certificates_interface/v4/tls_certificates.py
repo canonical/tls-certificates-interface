@@ -28,10 +28,9 @@ from enum import Enum
 from typing import FrozenSet, List, MutableMapping, Optional, Tuple, Union
 
 from cryptography import x509
-from cryptography.hazmat._oid import ExtensionOID
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.x509.oid import NameOID
+from cryptography.x509.oid import ExtensionOID, NameOID
 from ops import BoundEvent, CharmBase, CharmEvents, Secret, SecretExpiredEvent, SecretRemoveEvent
 from ops.framework import EventBase, EventSource, Handle, Object
 from ops.jujuversion import JujuVersion
