@@ -14,30 +14,17 @@ dependencies = [
 [dependency-groups]
 test = [
     "coverage[toml]",
-    "pytest",
+    "jubilant==0.4.1",
+    "juju>3",
+    "ops[testing]",
     "pytest-operator",
     "pytest-asyncio==0.21.2",
-    "ops[testing]",
+    "pytest",
 ]
 dev = [
     "codespell",
     "pyright",
     "ruff",
-]
-test-juju-2 = [
-    "juju==2.9.49.1",
-    "websockets==13.1",
-]
-test-juju-3 = [
-    "juju>3"
-]
-
-[tool.uv]
-conflicts = [
-    [
-        { group = "test-juju-2" },
-        { group = "test-juju-3" },
-    ],
 ]
 
 # Testing tools configuration
