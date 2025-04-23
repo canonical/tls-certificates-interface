@@ -366,6 +366,34 @@ def test_given_csr_for_ca_when_generate_certificate_then_certificate_generated_w
     assert not certificate_validation.get_violations(certificate)
 
 
+def test_given_csr_without_email_or_sans_when_generate_certificate_then_certificate_generated_without_sans():
+    private_key = generate_private_key()
+    csr = generate_csr(
+        private_key=private_key,
+        common_name="example.com",
+    )
+    ca_private_key = generate_private_key()
+    ca_certificate = generate_ca(
+        private_key=ca_private_key,
+        validity=timedelta(days=365),
+        common_name="certifier.example.com",
+        sans_dns=frozenset(["certifier.example.com"]),
+    )
+    certificate = generate_certificate(
+        csr=csr,
+        ca=ca_certificate,
+        ca_private_key=ca_private_key,
+        validity=timedelta(days=200),
+        is_ca=False,
+    )
+
+    certificate_object = x509.load_pem_x509_certificate(str(certificate).encode())
+    with pytest.raises(x509.ExtensionNotFound):
+        certificate_object.extensions.get_extension_for_class(x509.SubjectAlternativeName)
+
+    assert not certificate_validation.get_violations(certificate)
+
+
 # from_string and from_csr
 
 
