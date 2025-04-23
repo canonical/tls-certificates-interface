@@ -475,7 +475,8 @@ version = "0.13.13"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "decorator" },
-    { name = "ipython" },
+    { name = "ipython", version = "8.35.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "ipython", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3d/1b/7e07e7b752017f7693a0f4d41c13e5ca29ce8cbcfdcc1fd6c4ad8c0a27a0/ipdb-0.13.13.tar.gz", hash = "sha256:e3ac6018ef05126d442af680aad863006ec19d02290561ac88b8b1c0b0cfc726", size = 17042 }
@@ -491,17 +492,17 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 dependencies = [
-    { name = "colorama", marker = "(python_full_version < '3.11' and sys_platform == 'win32') or (python_full_version >= '3.11' and extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3') or (sys_platform != 'win32' and extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "decorator", marker = "python_full_version < '3.11' or (extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "jedi", marker = "python_full_version < '3.11' or (extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "matplotlib-inline", marker = "python_full_version < '3.11' or (extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "pexpect", marker = "(python_full_version < '3.11' and sys_platform != 'emscripten' and sys_platform != 'win32') or (python_full_version >= '3.11' and extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3') or (sys_platform == 'emscripten' and extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3') or (sys_platform == 'win32' and extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "prompt-toolkit", marker = "python_full_version < '3.11' or (extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "pygments", marker = "python_full_version < '3.11' or (extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "stack-data", marker = "python_full_version < '3.11' or (extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "traitlets", marker = "python_full_version < '3.11' or (extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
+    { name = "colorama", marker = "python_full_version < '3.11' and sys_platform == 'win32'" },
+    { name = "decorator", marker = "python_full_version < '3.11'" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
+    { name = "jedi", marker = "python_full_version < '3.11'" },
+    { name = "matplotlib-inline", marker = "python_full_version < '3.11'" },
+    { name = "pexpect", marker = "python_full_version < '3.11' and sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "prompt-toolkit", marker = "python_full_version < '3.11'" },
+    { name = "pygments", marker = "python_full_version < '3.11'" },
+    { name = "stack-data", marker = "python_full_version < '3.11'" },
+    { name = "traitlets", marker = "python_full_version < '3.11'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0c/77/7d1501e8b539b179936e0d5969b578ed23887be0ab8c63e0120b825bda3e/ipython-8.35.0.tar.gz", hash = "sha256:d200b7d93c3f5883fc36ab9ce28a18249c7706e51347681f80a0aef9895f2520", size = 5605027 }
 wheels = [
@@ -516,17 +517,17 @@ resolution-markers = [
     "python_full_version >= '3.11'",
 ]
 dependencies = [
-    { name = "colorama", marker = "(python_full_version >= '3.11' and sys_platform == 'win32') or (python_full_version < '3.11' and extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3') or (sys_platform != 'win32' and extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "decorator", marker = "python_full_version >= '3.11' or (extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "ipython-pygments-lexers", marker = "python_full_version >= '3.11' or (extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "jedi", marker = "python_full_version >= '3.11' or (extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "matplotlib-inline", marker = "python_full_version >= '3.11' or (extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "pexpect", marker = "(python_full_version >= '3.11' and sys_platform != 'emscripten' and sys_platform != 'win32') or (python_full_version < '3.11' and extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3') or (sys_platform == 'emscripten' and extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3') or (sys_platform == 'win32' and extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "prompt-toolkit", marker = "python_full_version >= '3.11' or (extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "pygments", marker = "python_full_version >= '3.11' or (extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "stack-data", marker = "python_full_version >= '3.11' or (extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "traitlets", marker = "python_full_version >= '3.11' or (extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
-    { name = "typing-extensions", marker = "python_full_version == '3.11.*' or (extra == 'group-26-tls-certificates-interface-test-juju-2' and extra == 'group-26-tls-certificates-interface-test-juju-3')" },
+    { name = "colorama", marker = "python_full_version >= '3.11' and sys_platform == 'win32'" },
+    { name = "decorator", marker = "python_full_version >= '3.11'" },
+    { name = "ipython-pygments-lexers", marker = "python_full_version >= '3.11'" },
+    { name = "jedi", marker = "python_full_version >= '3.11'" },
+    { name = "matplotlib-inline", marker = "python_full_version >= '3.11'" },
+    { name = "pexpect", marker = "python_full_version >= '3.11' and sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "prompt-toolkit", marker = "python_full_version >= '3.11'" },
+    { name = "pygments", marker = "python_full_version >= '3.11'" },
+    { name = "stack-data", marker = "python_full_version >= '3.11'" },
+    { name = "traitlets", marker = "python_full_version >= '3.11'" },
+    { name = "typing-extensions", marker = "python_full_version == '3.11.*'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/70/9a/6b8984bedc990f3a4aa40ba8436dea27e23d26a64527de7c2e5e12e76841/ipython-9.1.0.tar.gz", hash = "sha256:a47e13a5e05e02f3b8e1e7a0f9db372199fe8c3763532fe7a1e0379e4e135f16", size = 4373688 }
 wheels = [
@@ -538,17 +539,7 @@ name = "ipython-pygments-lexers"
 version = "1.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
-    { name = "decorator" },
-    { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
-    { name = "jedi" },
-    { name = "matplotlib-inline" },
-    { name = "pexpect", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
-    { name = "prompt-toolkit" },
-    { name = "pygments" },
-    { name = "stack-data" },
-    { name = "traitlets" },
-    { name = "typing-extensions", marker = "python_full_version < '3.12'" },
+    { name = "pygments", marker = "python_full_version >= '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ef/4c/5dd1d8af08107f88c7f741ead7a40854b8ac24ddf9ae850afbcf698aa552/ipython_pygments_lexers-1.1.1.tar.gz", hash = "sha256:09c0138009e56b6854f9535736f4171d855c8c08a563a0dcd8022f78355c7e81", size = 8393 }
 wheels = [
@@ -596,26 +587,26 @@ wheels = [
 
 [[package]]
 name = "jsonschema-specifications"
-version = "2024.10.1"
+version = "2025.4.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "referencing" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/10/db/58f950c996c793472e336ff3655b13fbcf1e3b359dcf52dcf3ed3b52c352/jsonschema_specifications-2024.10.1.tar.gz", hash = "sha256:0f38b83639958ce1152d02a7f062902c41c8fd20d558b0c34344292d417ae272", size = 15561 }
+sdist = { url = "https://files.pythonhosted.org/packages/bf/ce/46fbd9c8119cfc3581ee5643ea49464d168028cfb5caff5fc0596d0cf914/jsonschema_specifications-2025.4.1.tar.gz", hash = "sha256:630159c9f4dbea161a6a2205c3011cc4f18ff381b189fff48bb39b9bf26ae608", size = 15513 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d1/0f/8910b19ac0670a0f80ce1008e5e751c4a57e14d2c4c13a482aa6079fa9d6/jsonschema_specifications-2024.10.1-py3-none-any.whl", hash = "sha256:a09a0680616357d9a0ecf05c12ad234479f549239d0f5b55f3deea67475da9bf", size = 18459 },
+    { url = "https://files.pythonhosted.org/packages/01/0e/b27cdbaccf30b890c40ed1da9fd4a3593a5cf94dae54fb34f8a4b74fcd3f/jsonschema_specifications-2025.4.1-py3-none-any.whl", hash = "sha256:4653bffbd6584f7de83a67e0d620ef16900b390ddc7939d56684d6c81e33f1af", size = 18437 },
 ]
 
 [[package]]
 name = "jubilant"
-version = "0.4.0"
+version = "0.4.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ce/2e/47b32265d66ab4d77b38954cc4f20ea2835daedbffd789edd70373127c7d/jubilant-0.4.0.tar.gz", hash = "sha256:19ba3dd640236dfba4f31a06926954befe5ef6a50affb780c119488d48589478", size = 22144 }
+sdist = { url = "https://files.pythonhosted.org/packages/2c/f1/41362d3bfb5c2c44f9bdf9a900e5899f3b9da40fa6e7b88be821dd619e27/jubilant-0.4.1.tar.gz", hash = "sha256:0acec84d6ebe48f305bf3acc484347fb2c25e9aa7451019f7a44893f95c93779", size = 22545 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7b/83/5d6bba578f5d58e38e82533444c4bd9c2a6b3d72d30c5874889b98207001/jubilant-0.4.0-py3-none-any.whl", hash = "sha256:1fce91e3012f00afe4b5db9fabb55d0306353f01564adb4edc84c2885576fbf6", size = 21211 },
+    { url = "https://files.pythonhosted.org/packages/8e/c1/c2cc03d2c0420353659388f3e646a09ea54c27357d79c6bf528bf71793ff/jubilant-0.4.1-py3-none-any.whl", hash = "sha256:d3fa4bd4bd9de28e41c81010ea0fc1cc3be98be744149a71fd906a613ea177ea", size = 21627 },
 ]
 
 [[package]]
@@ -623,6 +614,7 @@ name = "juju"
 version = "3.6.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "backports-datetime-fromisoformat" },
     { name = "backports-strenum", marker = "python_full_version < '3.11'" },
     { name = "hvac" },
     { name = "kubernetes" },
@@ -630,7 +622,6 @@ dependencies = [
     { name = "packaging" },
     { name = "paramiko" },
     { name = "pyasn1" },
-    { name = "pyrfc3339" },
     { name = "pyyaml" },
     { name = "toposort" },
     { name = "typing-extensions" },
@@ -819,31 +810,8 @@ wheels = [
 
 [[package]]
 name = "paramiko"
-version = "2.12.0"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.11'",
-    "python_full_version < '3.11'",
-]
-dependencies = [
-    { name = "bcrypt", marker = "extra == 'group-26-tls-certificates-interface-test-juju-2'" },
-    { name = "cryptography", marker = "extra == 'group-26-tls-certificates-interface-test-juju-2'" },
-    { name = "pynacl", marker = "extra == 'group-26-tls-certificates-interface-test-juju-2'" },
-    { name = "six", marker = "extra == 'group-26-tls-certificates-interface-test-juju-2'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/98/75/e78ddbe671a4a59514b59bc6a321263118e4ac3fe88175dd784d1a47a00f/paramiko-2.12.0.tar.gz", hash = "sha256:376885c05c5d6aa6e1f4608aac2a6b5b0548b1add40274477324605903d9cd49", size = 1076369 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/71/6d/95777fd66507106d2f8f81d005255c237187951644f85a5bd0baeec8a88f/paramiko-2.12.0-py2.py3-none-any.whl", hash = "sha256:b2df1a6325f6996ef55a8789d0462f5b502ea83b3c990cbb5bbe57345c6812c4", size = 213084 },
-]
-
-[[package]]
-name = "paramiko"
 version = "3.5.1"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.11'",
-    "python_full_version < '3.11'",
-]
 dependencies = [
     { name = "bcrypt" },
     { name = "cryptography" },
@@ -1470,7 +1438,7 @@ dev = [
 ]
 test = [
     { name = "coverage", extras = ["toml"] },
-    { name = "jubilant" },
+    { name = "jubilant", specifier = "==0.4.1" },
     { name = "juju", specifier = ">3" },
     { name = "ops", extras = ["testing"] },
     { name = "pytest" },
@@ -1598,9 +1566,9 @@ wheels = [
 
 [[package]]
 name = "websockets"
-version = "14.2"
+version = "15.0.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/94/54/8359678c726243d19fae38ca14a334e740782336c9f19700858c4eb64a1e/websockets-14.2.tar.gz", hash = "sha256:5059ed9c54945efb321f097084b4c7e52c246f2c869815876a69d1efc4ad6eb5", size = 164394 }
+sdist = { url = "https://files.pythonhosted.org/packages/21/e6/26d09fab466b7ca9c7737474c52be4f76a40301b08362eb2dbc19dcc16c1/websockets-15.0.1.tar.gz", hash = "sha256:82544de02076bafba038ce055ee6412d68da13ab47f0c60cab827346de828dee", size = 177016 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1e/da/6462a9f510c0c49837bbc9345aca92d767a56c1fb2939e1579df1e1cdcf7/websockets-15.0.1-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:d63efaa0cd96cf0c5fe4d581521d9fa87744540d4bc999ae6e08595a1014b45b", size = 175423 },
     { url = "https://files.pythonhosted.org/packages/1c/9f/9d11c1a4eb046a9e106483b9ff69bce7ac880443f00e5ce64261b47b07e7/websockets-15.0.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:ac60e3b188ec7574cb761b08d50fcedf9d77f1530352db4eef1707fe9dee7205", size = 173080 },
