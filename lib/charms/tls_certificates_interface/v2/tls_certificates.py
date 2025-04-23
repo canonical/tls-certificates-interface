@@ -307,7 +307,7 @@ LIBAPI = 2
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 29
+LIBPATCH = 30
 
 PYDEPS = ["cryptography", "jsonschema"]
 
