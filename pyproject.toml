@@ -25,6 +25,7 @@ dev = [
     "codespell",
     "pyright",
     "ruff",
+    "pkilint",
 ]
 
 # Testing tools configuration
@@ -74,6 +75,7 @@ extend-ignore = [
     "D409",
     "D413",
     "D107",
+    "E501",  # Rely on formatter for enforcing line length where appropriate
 ]
 per-file-ignores = {"tests/*" = ["D100","D101","D102","D103","D104"]}
 
