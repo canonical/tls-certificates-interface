@@ -25,6 +25,7 @@ from lib.charms.tls_certificates_interface.v3.tls_certificates import (
     CertificateAvailableEvent,
     ProviderCertificate,
     calculate_expiry_notification_time,
+    chain_has_valid_order,
 )
 from tests.unit.charms.tls_certificates_interface.v3.certificates import (
     generate_ca as generate_ca_helper,
@@ -602,6 +603,7 @@ def test_given_provider_certificate_with_chain_when_chain_as_pem_then_pem_contai
         csr=server_csr.decode(),
         certificate=server_cert.decode(),
         ca=ca.decode(),
+        # This order is not correct for a chain, but chain_as_pem is going to reverse it
         chain=[ca.decode(), server_cert.decode()],
         revoked=False,
         expiry_time=expiry_time,
@@ -609,6 +611,52 @@ def test_given_provider_certificate_with_chain_when_chain_as_pem_then_pem_contai
     )
 
     fullchain = provider_cert.chain_as_pem()
+    loaded = x509.load_pem_x509_certificates(fullchain.encode())
+    store = x509.verification.Store([x509.load_pem_x509_certificate(ca)])
+    builder = x509.verification.PolicyBuilder().store(store)
+    verifier = builder.build_server_verifier(x509.DNSName("my.demo.server"))
+    loaded[0].verify_directly_issued_by(loaded[1])
+    chain = verifier.verify(loaded[0], loaded[1:])
+    assert chain[0].public_bytes(encoding=Encoding.PEM) == server_cert
+
+
+def test_given_provider_certificate_with_chain_when_chain_as_pem_string_then_pem_contains_full_chain_in_the_same_order():  # noqa: E501
+    ca_private_key = generate_private_key()
+    ca = generate_ca(
+        private_key=ca_private_key,
+        subject="my.demo.ca",
+    )
+
+    server_private_key = generate_private_key()
+    server_csr = generate_csr(
+        private_key=server_private_key,
+        subject="my.demo.server",
+        sans_dns=["my.demo.server"],
+        sans_ip=[],
+    )
+    server_cert = generate_certificate(
+        csr=server_csr,
+        ca=ca,
+        ca_key=ca_private_key,
+        is_ca=False,
+    )
+
+    expiry_time = datetime.now() + timedelta(days=356)
+    expiry_notification_time = expiry_time - timedelta(days=30)
+    provider_cert = ProviderCertificate(
+        relation_id=0,
+        application_name="app",
+        csr=server_csr.decode(),
+        certificate=server_cert.decode(),
+        ca=ca.decode(),
+        # This order is correct and chain_as_pem_string will keep it
+        chain=[server_cert.decode(), ca.decode()],
+        revoked=False,
+        expiry_time=expiry_time,
+        expiry_notification_time=expiry_notification_time,
+    )
+
+    fullchain = provider_cert.chain_as_pem_string()
     loaded = x509.load_pem_x509_certificates(fullchain.encode())
     store = x509.verification.Store([x509.load_pem_x509_certificate(ca)])
     builder = x509.verification.PolicyBuilder().store(store)
@@ -644,10 +692,51 @@ def test_given_certificate_available_with_chain_when_chain_as_pem_then_pem_conta
         certificate_signing_request=server_csr.decode(),
         certificate=server_cert.decode(),
         ca=ca.decode(),
+        # This order is not correct for a chain, but chain_as_pem will reverse it
         chain=[ca.decode(), server_cert.decode()],
     )
 
     fullchain = cert_available_event.chain_as_pem()
+    loaded = x509.load_pem_x509_certificates(fullchain.encode())
+    store = x509.verification.Store([x509.load_pem_x509_certificate(ca)])
+    builder = x509.verification.PolicyBuilder().store(store)
+    verifier = builder.build_server_verifier(x509.DNSName("my.demo.server"))
+    loaded[0].verify_directly_issued_by(loaded[1])
+    chain = verifier.verify(loaded[0], loaded[1:])
+    assert chain[0].public_bytes(encoding=Encoding.PEM) == server_cert
+
+
+def test_given_certificate_available_with_chain_when_chain_as_pem_string_then_pem_contains_full_chain_in_the_same_order():  # noqa: E501
+    ca_private_key = generate_private_key()
+    ca = generate_ca(
+        private_key=ca_private_key,
+        subject="my.demo.ca",
+    )
+
+    server_private_key = generate_private_key()
+    server_csr = generate_csr(
+        private_key=server_private_key,
+        subject="my.demo.server",
+        sans_dns=["my.demo.server"],
+        sans_ip=[],
+    )
+    server_cert = generate_certificate(
+        csr=server_csr,
+        ca=ca,
+        ca_key=ca_private_key,
+        is_ca=False,
+    )
+
+    cert_available_event = CertificateAvailableEvent(
+        handle=Mock(),
+        certificate_signing_request=server_csr.decode(),
+        certificate=server_cert.decode(),
+        ca=ca.decode(),
+        # This order is correct and chain_as_pem_string will keep it
+        chain=[server_cert.decode(), ca.decode()],
+    )
+
+    fullchain = cert_available_event.chain_as_pem_string()
     loaded = x509.load_pem_x509_certificates(fullchain.encode())
     store = x509.verification.Store([x509.load_pem_x509_certificate(ca)])
     builder = x509.verification.PolicyBuilder().store(store)
@@ -850,3 +939,51 @@ def test_given_ipv6_sans_when_generate_csr_then_csr_contains_ipv6_sans():
     assert len(sans_ip) == 2
     assert IPv6Address("2001:db8::1") in sans_ip
     assert IPv6Address("2001:db8::2") in sans_ip
+
+
+def test_given_chain_with_valid_order_when_chain_has_valid_order_then_returns_true():
+    ca_private_key = generate_private_key()
+    ca = generate_ca(
+        private_key=ca_private_key,
+        subject="my.demo.ca",
+    )
+
+    server_private_key = generate_private_key()
+    server_csr = generate_csr(
+        private_key=server_private_key,
+        subject="my.demo.server",
+        sans_dns=["my.demo.server"],
+        sans_ip=[],
+    )
+    server_cert = generate_certificate(
+        csr=server_csr,
+        ca=ca,
+        ca_key=ca_private_key,
+        is_ca=False,
+    )
+    chain = [server_cert.decode(), ca.decode()]
+    assert chain_has_valid_order(chain)
+
+
+def test_given_chain_with_invalid_order_when_chain_has_valid_order_then_returns_false():
+    ca_private_key = generate_private_key()
+    ca = generate_ca(
+        private_key=ca_private_key,
+        subject="my.demo.ca",
+    )
+
+    server_private_key = generate_private_key()
+    server_csr = generate_csr(
+        private_key=server_private_key,
+        subject="my.demo.server",
+        sans_dns=["my.demo.server"],
+        sans_ip=[],
+    )
+    server_cert = generate_certificate(
+        csr=server_csr,
+        ca=ca,
+        ca_key=ca_private_key,
+        is_ca=False,
+    )
+    assert not chain_has_valid_order([ca.decode(), server_cert.decode()])
+    assert not chain_has_valid_order([server_cert.decode(), "Random string"])
