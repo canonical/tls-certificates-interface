@@ -17,6 +17,7 @@ from lib.charms.tls_certificates_interface.v4.tls_certificates import (
     CertificateRequestAttributes,
     CertificateSigningRequest,
     PrivateKey,
+    chain_has_valid_order,
     generate_ca,
     generate_certificate,
     generate_csr,
@@ -509,3 +510,69 @@ def test_given_certificate_string_when_from_string_then_certificate_is_created_c
 
     assert not certificate_validation.get_violations(ca_certificate)
     assert not certificate_validation.get_violations(certificate)
+
+
+def test_given_chain_with_valid_order_when_chain_has_valid_order_then_returns_true():
+    private_key = generate_private_key()
+    csr = generate_csr(
+        private_key=private_key,
+        common_name="example.com",
+        sans_dns=frozenset(["example.com"]),
+        sans_ip=frozenset(["1.2.3.4"]),
+        sans_oid=frozenset(["1.2.3.4"]),
+        email_address="banana@gmail.com",
+        organization="Example",
+        organizational_unit="Example Unit",
+        country_name="CA",
+        state_or_province_name="Quebec",
+        locality_name="Montreal",
+    )
+    ca_private_key = generate_private_key()
+    ca_certificate = generate_ca(
+        private_key=ca_private_key,
+        validity=timedelta(days=365),
+        common_name="certifier.example.com",
+        sans_dns=frozenset(["certifier.example.com"]),
+    )
+    certificate = generate_certificate(
+        csr=csr,
+        ca=ca_certificate,
+        ca_private_key=ca_private_key,
+        validity=timedelta(days=200),
+        is_ca=False,
+    )
+    chain = [str(certificate), str(ca_certificate)]
+    assert chain_has_valid_order(chain)
+
+
+def test_given_chain_with_invalid_order_when_chain_has_valid_order_then_returns_false():
+    private_key = generate_private_key()
+    csr = generate_csr(
+        private_key=private_key,
+        common_name="example.com",
+        sans_dns=frozenset(["example.com"]),
+        sans_ip=frozenset(["1.2.3.4"]),
+        sans_oid=frozenset(["1.2.3.4"]),
+        email_address="banana@gmail.com",
+        organization="Example",
+        organizational_unit="Example Unit",
+        country_name="CA",
+        state_or_province_name="Quebec",
+        locality_name="Montreal",
+    )
+    ca_private_key = generate_private_key()
+    ca_certificate = generate_ca(
+        private_key=ca_private_key,
+        validity=timedelta(days=365),
+        common_name="certifier.example.com",
+        sans_dns=frozenset(["certifier.example.com"]),
+    )
+    certificate = generate_certificate(
+        csr=csr,
+        ca=ca_certificate,
+        ca_private_key=ca_private_key,
+        validity=timedelta(days=200),
+        is_ca=False,
+    )
+    assert not chain_has_valid_order([str(ca_certificate), str(certificate)])
+    assert not chain_has_valid_order([str(certificate), "Random string"])
