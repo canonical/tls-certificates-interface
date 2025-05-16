@@ -9,7 +9,7 @@ interface.
 Pre-requisites:
   - Juju >= 3.0
   - cryptography >= 43.0.0
-  - pydantic >= 2.0
+  - pydantic >= 1.0
 
 Learn more on how-to use the TLS Certificates interface library by reading the documentation:
 - https://charmhub.io/tls-certificates-interface/
@@ -70,6 +70,8 @@ class DataValidationError(TLSCertificatesError):
 
 
 if int(pydantic.version.VERSION.split(".")[0]) < 2:
+    print("===Using Pydantic V1===")
+    print(pydantic.version.VERSION)
 
     class _DatabagModel(pydantic.BaseModel):  # type: ignore
         """Base databag model."""
@@ -123,17 +125,17 @@ if int(pydantic.version.VERSION.split(".")[0]) < 2:
                 databag = {}
 
             if self._NEST_UNDER:
-                databag[self._NEST_UNDER] = self.json(by_alias=True)
+                databag[self._NEST_UNDER] = self.json(by_alias=True, exclude_defaults=True)
                 return databag
 
-            dct = self.dict()
-            for key, field in self.__fields__.items():  # type: ignore
-                value = dct[key]
-                databag[field.alias or key] = json.dumps(value)
+            dct = self.dict(by_alias=True, exclude_defaults=True)
+            databag.update({k: json.dumps(v) for k, v in dct.items()})
 
             return databag
 
 else:
+    print("===Using Pydantic V2===")
+    print(pydantic.version.VERSION)
     from pydantic import ConfigDict
 
     class _DatabagModel(pydantic.BaseModel):
