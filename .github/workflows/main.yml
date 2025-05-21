@@ -232,7 +232,7 @@ jobs:
           uv pip compile tests/integration/v4/requirer_charm/requirements-pydantic-v1.in -o tests/integration/v4/requirer_charm/requirements.txt
           uv pip compile tests/integration/v4/provider_charm/requirements-pydantic-v1.in -o tests/integration/v4/provider_charm/requirements.txt
       - name: Run tests using tox
-        run: tox -e integration-v4
+        run: tox -e integration-v4-pydantic-v1 -- --no-upgrade
       - name: Archive charmcraft logs
         if: failure()
         uses: actions/upload-artifact@v4

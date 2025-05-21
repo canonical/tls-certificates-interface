@@ -70,8 +70,6 @@ class DataValidationError(TLSCertificatesError):
 
 
 if int(pydantic.version.VERSION.split(".")[0]) < 2:
-    print("===Using Pydantic V1===")
-    print(pydantic.version.VERSION)
 
     class _DatabagModel(pydantic.BaseModel):  # type: ignore
         """Base databag model."""
@@ -134,8 +132,6 @@ if int(pydantic.version.VERSION.split(".")[0]) < 2:
             return databag
 
 else:
-    print("===Using Pydantic V2===")
-    print(pydantic.version.VERSION)
     from pydantic import ConfigDict
 
     class _DatabagModel(pydantic.BaseModel):
