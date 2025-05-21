@@ -20,13 +20,39 @@ jobs:
     uses: canonical/identity-credentials-workflows/.github/workflows/static-analysis.yaml@v0
 
   unit-tests-with-coverage:
-    uses: canonical/identity-credentials-workflows/.github/workflows/unit-test.yaml@v0
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Install uv
+        run: sudo snap install --classic astral-uv
+
+      - name: Install tox
+        run: uv tool install tox --with tox-uv
+
+      - name: Run tests using tox
+        run: tox -e unit
+
+  unit-tests-with-coverage-pydantic-v1:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Install uv
+        run: sudo snap install --classic astral-uv
+
+      - name: Install tox
+        run: uv tool install tox --with tox-uv
+
+      - name: Run tests using tox
+        run: tox -e unit-pydantic-v1
 
   build:
     name: Build charm
     runs-on: ubuntu-24.04
     needs:
       - unit-tests-with-coverage
+      - unit-tests-with-coverage-pydantic-v1
       - lint-report
       - static-analysis
     steps:
@@ -179,4 +205,43 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: juju-crashdump
+          path: juju-crashdump-*.tar.xz
+
+  integration-tests-v4-pydantic-v1:
+    name: Integration tests for tls interface v4 with Pydantic v1
+    runs-on: ubuntu-24.04
+    needs:
+      - unit-tests-with-coverage
+      - lint-report
+      - static-analysis
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup operator environment
+        uses: charmed-kubernetes/actions-operator@main
+        with:
+          juju-channel: 3.6/stable
+          provider: microk8s
+          channel: 1.31-strict/stable
+      - name: Install UV and Tox
+        run: |
+          pipx uninstall tox
+          sudo snap install astral-uv --classic
+          uv tool install tox --with tox-uv
+      - name: Compile requirements
+        run: |
+          uv pip compile tests/integration/v4/requirer_charm/requirements-pydantic-v1.in -o tests/integration/v4/requirer_charm/requirements.txt
+          uv pip compile tests/integration/v4/provider_charm/requirements-pydantic-v1.in -o tests/integration/v4/provider_charm/requirements.txt
+      - name: Run tests using tox
+        run: tox -e integration-v4
+      - name: Archive charmcraft logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: charmcraft-logs
+          path: /home/runner/.local/state/charmcraft/log/*.log
+      - name: Archive juju crashdump
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: juju-crashdump-v4-pydantic-v1
           path: juju-crashdump-*.tar.xz
