@@ -671,6 +671,23 @@ def generate_private_key(
     return PrivateKey.from_string(key_bytes.decode())
 
 
+def calculate_relative_datetime(target_time: datetime, fraction: float) -> datetime:
+    """Calculate a datetime that is a given percentage from now to a target time.
+
+    Args:
+        target_time (datetime): The future datetime to interpolate towards.
+        fraction (float): Fraction of the interval from now to target_time (0.0-1.0).
+            1.0 means return target_time,
+            0.9 means return the time after 90% of the interval has passed,
+            and 0.0 means return now.
+    """
+    if fraction <= 0.0 or fraction > 1.0:
+        raise ValueError("Invalid fraction. Must be between 0.0 and 1.0")
+    now = datetime.now(timezone.utc)
+    time_until_target = target_time - now
+    return now + time_until_target * fraction
+
+
 def generate_csr(  # noqa: C901
     private_key: PrivateKey,
     common_name: str,
@@ -1062,6 +1079,7 @@ class TLSCertificatesRequiresV4(Object):
         mode: Mode = Mode.UNIT,
         refresh_events: List[BoundEvent] = [],
         private_key: Optional[PrivateKey] = None,
+        renewal_relative_time: float = 0.9,
     ):
         """Create a new instance of the TLSCertificatesRequiresV4 class.
 
@@ -1088,6 +1106,9 @@ class TLSCertificatesRequiresV4(Object):
                 Using this parameter is discouraged,
                 having to pass around private keys manually can be a security concern.
                 Allowing the library to generate and manage the key is the more secure approach.
+            renewal_relative_time (float): The time to renew the certificate relative to its
+                expiry.
+                Default is 0.9, meaning 90% of the validity period.
         """
         super().__init__(charm, relationship_name)
         if not JujuVersion.from_environ().has_secrets:
@@ -1103,7 +1124,10 @@ class TLSCertificatesRequiresV4(Object):
         self.mode = mode
         if private_key and not private_key.is_valid():
             raise TLSCertificatesError("Invalid private key")
+        if renewal_relative_time <= 0.0 or renewal_relative_time > 1.0:
+            raise TLSCertificatesError("Invalid renewal relative time. Must be between 0.0 and 1.0")
         self._private_key = private_key
+        self.renewal_relative_time = renewal_relative_time
         self.framework.observe(charm.on[relationship_name].relation_created, self._configure)
         self.framework.observe(charm.on[relationship_name].relation_changed, self._configure)
         self.framework.observe(charm.on.secret_expired, self._on_secret_expired)
@@ -1536,7 +1560,10 @@ class TLSCertificatesRequiresV4(Object):
                                 "csr": str(provider_certificate.certificate_signing_request),
                             },
                             label=secret_label,
-                            expire=provider_certificate.certificate.expiry_time,
+                            expire=calculate_relative_datetime(
+                                target_time=provider_certificate.certificate.expiry_time,
+                                fraction=self.renewal_relative_time,
+                            ),
                         )
                     self.on.certificate_available.emit(
                         certificate_signing_request=provider_certificate.certificate_signing_request,
