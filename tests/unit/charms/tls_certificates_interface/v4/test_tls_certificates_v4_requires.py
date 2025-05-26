@@ -1068,9 +1068,16 @@ class TestTLSCertificatesRequiresV4:
         secret = self.get_certificate_secret(state_out.secrets)
         days_to_expiry = validity_days * relative_renewal_time
         assert secret.expire
-        assert abs(
-            secret.expire - (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=days_to_expiry))
-        ).total_seconds() < 60
+        assert (
+            abs(
+                secret.expire
+                - (
+                    datetime.datetime.now(datetime.timezone.utc)
+                    + datetime.timedelta(days=days_to_expiry)
+                )
+            ).total_seconds()
+            < 60
+        )
 
     def test_given_certificate_secret_exists_and_certificate_is_provided_when_relation_changed_then_certificate_secret_is_updated(  # noqa: E501
         self,
