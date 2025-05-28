@@ -1,14 +1,14 @@
 [project]
 name = "tls-certificates-interface"
 version = "0.1.0"
-requires-python = ">=3.10"
+requires-python = ">=3.13.3"
 
 dependencies = [
     "cryptography",
     "jsonschema",
     "ops",
     "pydantic",
-    "rpds-py==0.22.3"
+    "rpds-py==0.25.1"
 ]
 
 [dependency-groups]
