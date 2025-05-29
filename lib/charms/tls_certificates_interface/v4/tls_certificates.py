@@ -1202,6 +1202,8 @@ class TLSCertificatesRequiresV4(Object):
             renewal_relative_time (float): The time to renew the certificate relative to its
                 expiry.
                 Default is 0.9, meaning 90% of the validity period.
+                The minimum value is 0.5, meaning 50% of the validity period.
+                If an invalid value is provided, an exception will be raised.
         """
         super().__init__(charm, relationship_name)
         if not JujuVersion.from_environ().has_secrets:
@@ -1217,7 +1219,7 @@ class TLSCertificatesRequiresV4(Object):
         self.mode = mode
         if private_key and not private_key.is_valid():
             raise TLSCertificatesError("Invalid private key")
-        if renewal_relative_time <= 0.0 or renewal_relative_time > 1.0:
+        if renewal_relative_time <= 0.5 or renewal_relative_time > 1.0:
             raise TLSCertificatesError(
                 "Invalid renewal relative time. Must be between 0.0 and 1.0"
             )

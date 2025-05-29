@@ -1003,7 +1003,7 @@ class TestTLSCertificatesRequiresV4:
         self,
         mock_relative_renewal_time: MagicMock,
     ):
-        relative_renewal_time = 0.5
+        relative_renewal_time = 0.9
         mock_relative_renewal_time.return_value = relative_renewal_time
         private_key = generate_private_key()
         csr = generate_csr(
