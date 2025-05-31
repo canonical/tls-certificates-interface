@@ -17,6 +17,7 @@ from lib.charms.tls_certificates_interface.v4.tls_certificates import (
     CertificateRequestAttributes,
     CertificateSigningRequest,
     PrivateKey,
+    calculate_relative_datetime,
     chain_has_valid_order,
     generate_ca,
     generate_certificate,
@@ -510,6 +511,15 @@ def test_given_certificate_string_when_from_string_then_certificate_is_created_c
 
     assert not certificate_validation.get_violations(ca_certificate)
     assert not certificate_validation.get_violations(certificate)
+
+
+def test_given_datetime_and_fraction_when_calculate_relative_datetime_then_datetime_is_returned():
+    now = datetime.now(timezone.utc)
+    target_time = now + timedelta(days=10)
+    fraction = 0.5
+    relative_datetime = calculate_relative_datetime(target_time, fraction)
+    expected_relative_datetime = now + timedelta(days=5)
+    assert abs((relative_datetime - expected_relative_datetime).total_seconds()) <= 60
 
 
 def test_given_chain_with_valid_order_when_chain_has_valid_order_then_returns_true():

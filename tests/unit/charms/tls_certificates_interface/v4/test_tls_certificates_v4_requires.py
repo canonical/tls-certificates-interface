@@ -998,9 +998,13 @@ class TestTLSCertificatesRequiresV4:
         with pytest.raises(ActionFailed):
             self.ctx.run(self.ctx.on.action("get-certificate"), state_in)
 
-    def test_given_certificate_is_provided_when_relation_changed_then_certificate_secret_is_created(  # noqa: E501
+    @patch(BASE_CHARM_DIR + "._relative_renewal_time")
+    def test_given_certificate_is_provided_when_relation_changed_then_certificate_secret_is_created_and_expiry_is_set_correctly(  # noqa: E501
         self,
+        mock_relative_renewal_time: MagicMock,
     ):
+        relative_renewal_time = 0.9
+        mock_relative_renewal_time.return_value = relative_renewal_time
         private_key = generate_private_key()
         csr = generate_csr(
             private_key=private_key,
@@ -1011,10 +1015,13 @@ class TestTLSCertificatesRequiresV4:
             private_key=provider_private_key,
             common_name="example.com",
         )
+        validity_days = 10
+        validity = datetime.timedelta(days=validity_days)
         certificate = generate_certificate(
             ca_key=provider_private_key,
             csr=csr,
             ca=provider_ca_certificate,
+            validity=validity,
         )
         certificates_relation = testing.Relation(
             endpoint="certificates",
@@ -1058,6 +1065,19 @@ class TestTLSCertificatesRequiresV4:
         state_out = self.ctx.run(self.ctx.on.relation_changed(certificates_relation), state_in)
 
         assert self.certificate_secret_exists(state_out.secrets)
+        secret = self.get_certificate_secret(state_out.secrets)
+        days_to_expiry = validity_days * relative_renewal_time
+        assert secret.expire
+        assert (
+            abs(
+                secret.expire
+                - (
+                    datetime.datetime.now(datetime.timezone.utc)
+                    + datetime.timedelta(days=days_to_expiry)
+                )
+            ).total_seconds()
+            < 60
+        )
 
     def test_given_certificate_secret_exists_and_certificate_is_provided_when_relation_changed_then_certificate_secret_is_updated(  # noqa: E501
         self,

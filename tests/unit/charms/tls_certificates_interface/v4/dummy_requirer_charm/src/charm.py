@@ -27,6 +27,7 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
             mode=self._app_or_unit(),
             refresh_events=[self.on.config_changed],
             private_key=self.get_private_key(),
+            renewal_relative_time=self._relative_renewal_time(),
         )
         self.framework.observe(
             self.certificates.on.certificate_available, self._on_certificate_available
@@ -135,6 +136,10 @@ class DummyTLSCertificatesRequirerCharm(CharmBase):
 
     def _get_config_is_ca(self) -> bool:
         return cast(bool, self.model.config.get("is_ca", False))
+
+    def _relative_renewal_time(self) -> float:
+        """Return renewal time for the certificates relative to its expiry."""
+        return 1.0
 
 
 if __name__ == "__main__":
