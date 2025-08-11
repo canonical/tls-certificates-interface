@@ -18,7 +18,7 @@ test = [
     "juju>3",
     "ops[testing]",
     "pytest-operator",
-    "pytest-asyncio==0.21.2",
+    "pytest-asyncio==1.1.0",
     "pytest",
 ]
 dev = [
