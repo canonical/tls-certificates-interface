@@ -174,7 +174,7 @@ class _DatabagModel(pydantic.BaseModel):
             )
             return databag
 
-        dct = self.model_dump(mode="json", by_alias=True, exclude_defaults=False)
+        dct = self.model_dump(mode="json", by_alias=True, exclude_defaults=True)
         databag.update({k: json.dumps(v) for k, v in dct.items()})
         return databag
 
@@ -187,10 +187,10 @@ class _DatabagModel(pydantic.BaseModel):
             databag = {}
 
         if self._NEST_UNDER:
-            databag[self._NEST_UNDER] = self.json(by_alias=True, exclude_defaults=False)
+            databag[self._NEST_UNDER] = self.json(by_alias=True, exclude_defaults=True)
             return databag
 
-        dct = json.loads(self.json(by_alias=True, exclude_defaults=False))
+        dct = json.loads(self.json(by_alias=True, exclude_defaults=True))
         databag.update({k: json.dumps(v) for k, v in dct.items()})
 
         return databag
