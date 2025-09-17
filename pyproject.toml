@@ -8,13 +8,13 @@ dependencies = [
     "jsonschema",
     "ops",
     "pydantic",
-    "rpds-py==0.25.1"
+    "rpds-py==0.27.1"
 ]
 
 [dependency-groups]
 test = [
     "coverage[toml]",
-    "jubilant==1.0.1",
+    "jubilant==1.4.0",
     "juju>3",
     "ops[testing]",
     "pytest-operator",
