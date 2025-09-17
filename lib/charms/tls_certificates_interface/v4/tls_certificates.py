@@ -46,7 +46,7 @@ LIBAPI = 4
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 21
+LIBPATCH = 22
 
 PYDEPS = [
     "cryptography>=43.0.0",
@@ -1649,7 +1649,10 @@ class TLSCertificatesRequiresV4(Object):
                             }
                         )
                         secret.set_info(
-                            expire=provider_certificate.certificate.expiry_time,
+                            expire=calculate_relative_datetime(
+                                target_time=provider_certificate.certificate.expiry_time,
+                                fraction=self.renewal_relative_time,
+                            ),
                         )
                         secret.get_content(refresh=True)
                     except SecretNotFoundError:
