@@ -3,7 +3,8 @@
 
 """Legacy Charmhub-hosted lib, deprecated in favour of ``charmlibs.interfaces.tls_certificates``.
 
-WARNING: This library is deprecated and soon will not receive feature updates or bugfixes.
+WARNING: This library is deprecated.
+It will not receive feature updates or bugfixes.
 ``charmlibs.interfaces.tls_certificates`` 1.0 is a bug-for-bug compatible migration of this library.
 
 To migrate:
