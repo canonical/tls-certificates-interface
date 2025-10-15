@@ -46,7 +46,7 @@ LIBAPI = 4
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 22
+LIBPATCH = 23
 
 PYDEPS = [
     "cryptography>=43.0.0",
@@ -1212,7 +1212,7 @@ class TLSCertificatesRequiresV4(Object):
             raise TLSCertificatesError("Invalid private key")
         if renewal_relative_time <= 0.5 or renewal_relative_time > 1.0:
             raise TLSCertificatesError(
-                "Invalid renewal relative time. Must be between 0.0 and 1.0"
+                "Invalid renewal relative time. Must be between 0.5 and 1.0"
             )
         self._private_key = private_key
         self.renewal_relative_time = renewal_relative_time
