@@ -1305,7 +1305,7 @@ class TLSCertificatesRequiresV4(Object):
         self.framework.observe(charm.on.secret_remove, self._on_secret_remove)
         for event in refresh_events:
             self.framework.observe(event, self._configure)
-        self._security_logger = _OWASPLogger(application=charm.app.name)
+        self._security_logger = _OWASPLogger(application=f"tls-certificates-{charm.app.name}")
 
     def _configure(self, _: Optional[EventBase] = None):
         """Handle TLS Certificates Relation Data.
@@ -1828,7 +1828,7 @@ class TLSCertificatesProvidesV4(Object):
         self.framework.observe(charm.on.update_status, self._configure)
         self.charm = charm
         self.relationship_name = relationship_name
-        self._security_logger = _OWASPLogger(application=charm.app.name)
+        self._security_logger = _OWASPLogger(application=f"tls-certificates-{charm.app.name}")
 
     def _configure(self, _: EventBase) -> None:
         """Handle update status and tls relation changed events.
