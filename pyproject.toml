@@ -41,6 +41,11 @@ log_cli_level = "INFO"
 markers = [
     "upgrade: mark a test as an upgrade test",
 ]
+pythonpath = [
+    "src",
+    "lib",
+    "tests",
+]
 
 # Linting tools configuration
 [tool.ruff]
@@ -86,6 +91,15 @@ max-complexity = 10
 skip = "build,venv,icon.svg,.tox,.git,.mypy_cache,.ruff_cache,.coverage"
 
 [tool.pyright]
-include = ["src/**", "lib/**"]
+include = ["src", "lib", "tests"]
+extraPaths = ["lib"]
+ignore = [
+    "tests/integration/v2/provider_charm/lib/charms/tls_certificates_interface/v2/tls_certificates.py",
+    "tests/integration/v2/requirer_charm/lib/charms/tls_certificates_interface/v2/tls_certificates.py",
+    "tests/integration/v3/provider_charm/lib/charms/tls_certificates_interface/v3/tls_certificates.py",
+    "tests/integration/v3/requirer_charm/lib/charms/tls_certificates_interface/v3/tls_certificates.py",
+    "tests/integration/v4/provider_charm/lib/charms/tls_certificates_interface/v4/tls_certificates.py",
+    "tests/integration/v4/requirer_charm/lib/charms/tls_certificates_interface/v4/tls_certificates.py",
+]
 pythonVersion = "3.8"
 reportMissingParameterType = true
