@@ -5,6 +5,7 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 from ipaddress import IPv6Address
+from unittest.mock import MagicMock, patch
 
 import pytest
 from cryptography import x509
@@ -246,7 +247,11 @@ def test_given_no_sans_when_generate_ca_then_ca_is_generated_without_sans():
     assert not certificate_validation.get_violations(ca_certificate)
 
 
-def test_given_ca_certificate_attributes_when_generate_ca_then_ca_is_generated_correctly():
+@patch("lib.charms.tls_certificates_interface.v4.tls_certificates.datetime")
+def test_given_ca_certificate_attributes_when_generate_ca_then_ca_is_generated_correctly(
+    mock_datetime: MagicMock,
+):
+    mock_datetime.now.return_value = datetime(2024, 3, 1, tzinfo=timezone.utc)
     private_key = PrivateKey(raw=generate_private_key_helper())
 
     ca_certificate = generate_ca(
@@ -265,9 +270,9 @@ def test_given_ca_certificate_attributes_when_generate_ca_then_ca_is_generated_c
     )
 
     assert ca_certificate.common_name == "certifier.example.com"
-    expected_expiry = datetime.now(timezone.utc) + timedelta(days=365)
+    expected_expiry = datetime(2025, 3, 1, tzinfo=timezone.utc)
     assert ca_certificate.expiry_time
-    assert abs(ca_certificate.expiry_time - expected_expiry) <= timedelta(seconds=1)
+    assert ca_certificate.expiry_time == expected_expiry
     assert ca_certificate.email_address == "banana@gmail.com"
     assert ca_certificate.organization == "Example"
     assert ca_certificate.organizational_unit == "Example Unit"
@@ -287,7 +292,11 @@ def test_given_ca_certificate_attributes_when_generate_ca_then_ca_is_generated_c
 # Generate Certificate
 
 
-def test_given_csr_when_generate_certificate_then_certificate_generated_with_requested_attributes():  # noqa: E501
+@patch("lib.charms.tls_certificates_interface.v4.tls_certificates.datetime")
+def test_given_csr_when_generate_certificate_then_certificate_generated_with_requested_attributes(
+    mock_datetime: MagicMock,
+):
+    mock_datetime.now.return_value = datetime(2024, 3, 1, tzinfo=timezone.utc)
     private_key = generate_private_key()
     csr = generate_csr(
         private_key=private_key,
@@ -314,9 +323,8 @@ def test_given_csr_when_generate_certificate_then_certificate_generated_with_req
 
     assert certificate.common_name == "example.com"
     assert certificate.is_ca is False
-    expected_expiry = datetime.now(timezone.utc) + timedelta(days=200)
-    assert certificate.expiry_time
-    assert abs(certificate.expiry_time - expected_expiry) <= timedelta(seconds=1)
+    expected_expiry = datetime(2024, 9, 17, tzinfo=timezone.utc)  # 200 days later
+    assert certificate.expiry_time == expected_expiry
     assert certificate.sans_dns == frozenset(["example.com"])
     assert certificate.sans_ip == frozenset()
     assert certificate.sans_oid == frozenset()
@@ -328,7 +336,11 @@ def test_given_csr_when_generate_certificate_then_certificate_generated_with_req
     assert not certificate_validation.get_violations(certificate)
 
 
-def test_given_csr_for_ca_when_generate_certificate_then_certificate_generated_with_requested_attributes():  # noqa: E501
+@patch("lib.charms.tls_certificates_interface.v4.tls_certificates.datetime")
+def test_given_csr_for_ca_when_generate_certificate_then_certificate_generated_with_requested_attributes(
+    mock_datetime: MagicMock,
+):
+    mock_datetime.now.return_value = datetime(2024, 3, 1, tzinfo=timezone.utc)
     private_key = generate_private_key()
     csr = generate_csr(
         private_key=private_key,
@@ -354,9 +366,8 @@ def test_given_csr_for_ca_when_generate_certificate_then_certificate_generated_w
 
     assert certificate.common_name == "example.com"
     assert certificate.is_ca is True
-    expected_expiry = datetime.now(timezone.utc) + timedelta(days=200)
-    assert certificate.expiry_time
-    assert abs(certificate.expiry_time - expected_expiry) <= timedelta(seconds=1)
+    expected_expiry = datetime(2024, 9, 17, tzinfo=timezone.utc)  # 200 days later
+    assert certificate.expiry_time == expected_expiry
     assert certificate.sans_dns == frozenset(["example.com"])
     assert certificate.sans_ip == frozenset()
     assert certificate.sans_oid == frozenset()
@@ -458,7 +469,11 @@ def test_given_certificate_signin_request_when_from_csr_then_attributes_are_corr
     assert attributes.locality_name == "Montreal"
 
 
-def test_given_certificate_string_when_from_string_then_certificate_is_created_correctly():
+@patch("lib.charms.tls_certificates_interface.v4.tls_certificates.datetime")
+def test_given_certificate_string_when_from_string_then_certificate_is_created_correctly(
+    mock_datetime: MagicMock,
+):
+    mock_datetime.now.return_value = datetime(2024, 3, 1, tzinfo=timezone.utc)
     private_key = generate_private_key()
     csr = generate_csr(
         private_key=private_key,
@@ -489,12 +504,10 @@ def test_given_certificate_string_when_from_string_then_certificate_is_created_c
     )
     certificate_from_string = Certificate.from_string(str(certificate))
     assert certificate_from_string.common_name == "example.com"
-    expected_expiry = datetime.now(timezone.utc) + timedelta(days=200)  # FIXME: Relies on time
-    assert abs(certificate_from_string.expiry_time - expected_expiry) <= timedelta(seconds=2)
-    expected_validity_start_time = datetime.now(timezone.utc)  # FIXME: Relies on time
-    assert abs(
-        certificate_from_string.validity_start_time - expected_validity_start_time
-    ) <= timedelta(seconds=2)
+    expected_expiry = datetime(2024, 9, 17, tzinfo=timezone.utc)  # 200 days later
+    assert certificate_from_string.expiry_time == expected_expiry
+    expected_validity_start_time = datetime(2024, 3, 1, tzinfo=timezone.utc)
+    assert certificate_from_string.validity_start_time == expected_validity_start_time
     assert certificate_from_string.sans_dns == frozenset(["example.com"])
     assert certificate_from_string.sans_ip == frozenset(["1.2.3.4"])
     assert certificate_from_string.sans_oid is not None
@@ -513,13 +526,17 @@ def test_given_certificate_string_when_from_string_then_certificate_is_created_c
     assert not certificate_validation.get_violations(certificate)
 
 
-def test_given_datetime_and_fraction_when_calculate_relative_datetime_then_datetime_is_returned():
-    now = datetime.now(timezone.utc)
+@patch("lib.charms.tls_certificates_interface.v4.tls_certificates.datetime")
+def test_given_datetime_and_fraction_when_calculate_relative_datetime_then_datetime_is_returned(
+    mock_datetime: MagicMock,
+):
+    now = datetime(2024, 3, 1, tzinfo=timezone.utc)
+    mock_datetime.now.return_value = now
     target_time = now + timedelta(days=10)
     fraction = 0.5
     relative_datetime = calculate_relative_datetime(target_time, fraction)
     expected_relative_datetime = now + timedelta(days=5)
-    assert abs((relative_datetime - expected_relative_datetime).total_seconds()) <= 60
+    assert relative_datetime == expected_relative_datetime
 
 
 def test_given_chain_with_valid_order_when_chain_has_valid_order_then_returns_true():
