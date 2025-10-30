@@ -73,6 +73,33 @@ def validate_induced_data_from_pfx_is_equal_to_initial_data(
     assert initial_private_key == induced_private_key
 
 
+def test_when_private_key_converted_to_string_newline_is_stripped():
+    # Regression test. This would change previous behaviour.
+    private_key = generate_private_key()
+    assert not str(private_key).endswith("\n")
+
+
+def test_when_certificate_converted_to_string_newline_is_stripped():
+    # Regression test. This would change previous behaviour.
+    private_key = generate_private_key()
+    ca_certificate = generate_ca(
+        private_key=private_key,
+        validity=timedelta(days=365),
+        common_name="example.com",
+    )
+    assert not str(ca_certificate).endswith("\n")
+
+
+def test_when_csr_converted_to_string_newline_is_stripped():
+    # Regression test. This would change previous behaviour.
+    private_key = generate_private_key()
+    csr = generate_csr(
+        private_key=private_key,
+        common_name="example.com",
+    )
+    assert not str(csr).endswith("\n")
+
+
 def test_given_no_password_when_generate_private_key_then_key_is_generated_and_loadable():
     private_key = generate_private_key()
 
