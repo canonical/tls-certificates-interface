@@ -20,10 +20,6 @@ from lib.charms.tls_certificates_interface.v4.tls_certificates import (
     PrivateKey,
     calculate_relative_datetime,
     chain_has_valid_order,
-    generate_ca,
-    generate_certificate,
-    generate_csr,
-    generate_private_key,
 )
 from tests.unit import certificate_validation
 from tests.unit.charms.tls_certificates_interface.v4.certificates import (
@@ -75,33 +71,37 @@ def validate_induced_data_from_pfx_is_equal_to_initial_data(
 
 def test_when_private_key_converted_to_string_newline_is_stripped():
     # Regression test. This would change previous behaviour.
-    private_key = generate_private_key()
+    private_key = PrivateKey.generate()
     assert not str(private_key).endswith("\n")
 
 
 def test_when_certificate_converted_to_string_newline_is_stripped():
     # Regression test. This would change previous behaviour.
-    private_key = generate_private_key()
-    ca_certificate = generate_ca(
+    private_key = PrivateKey.generate()
+    ca_certificate = Certificate.generate_self_signed_ca(
+        attributes=CertificateRequestAttributes(
+            common_name="example.com",
+        ),
         private_key=private_key,
         validity=timedelta(days=365),
-        common_name="example.com",
     )
     assert not str(ca_certificate).endswith("\n")
 
 
 def test_when_csr_converted_to_string_newline_is_stripped():
     # Regression test. This would change previous behaviour.
-    private_key = generate_private_key()
-    csr = generate_csr(
+    private_key = PrivateKey.generate()
+    csr = CertificateSigningRequest.generate(
+        attributes=CertificateRequestAttributes(
+            common_name="example.com",
+        ),
         private_key=private_key,
-        common_name="example.com",
     )
     assert not str(csr).endswith("\n")
 
 
 def test_given_no_password_when_generate_private_key_then_key_is_generated_and_loadable():
-    private_key = generate_private_key()
+    private_key = PrivateKey.generate()
 
     load_pem_private_key(data=str(private_key).encode(), password=None)
 
@@ -109,7 +109,7 @@ def test_given_no_password_when_generate_private_key_then_key_is_generated_and_l
 def test_given_key_size_provided_when_generate_private_key_then_private_key_is_generated():
     key_size = 2234
 
-    private_key = generate_private_key(key_size=key_size)
+    private_key = PrivateKey.generate(key_size=key_size)
 
     private_key_object = serialization.load_pem_private_key(
         str(private_key).encode(), password=None
@@ -125,7 +125,9 @@ def test_given_subject_and_private_key_when_generate_csr_then_csr_is_generated_w
     common_name = "whatever"
     private_key = PrivateKey(raw=generate_private_key_helper())
 
-    csr = generate_csr(private_key=private_key, common_name=common_name)
+    csr = CertificateSigningRequest.generate(
+        private_key=private_key, attributes=CertificateRequestAttributes(common_name=common_name)
+    )
 
     csr_object = x509.load_pem_x509_csr(data=str(csr).encode())
     subject_list = list(csr_object.subject)
@@ -139,8 +141,11 @@ def test_given_unique_id_set_to_false_when_generate_csr_then_csr_is_generated_wi
     private_key = PrivateKey(raw=generate_private_key_helper())
     common_name = "whatever subject"
 
-    csr = generate_csr(
-        private_key=private_key, common_name=common_name, add_unique_id_to_subject_name=False
+    csr = CertificateSigningRequest.generate(
+        private_key=private_key,
+        attributes=CertificateRequestAttributes(
+            common_name=common_name, add_unique_id_to_subject_name=False
+        ),
     )
 
     csr_object = x509.load_pem_x509_csr(data=str(csr).encode())
@@ -149,15 +154,17 @@ def test_given_unique_id_set_to_false_when_generate_csr_then_csr_is_generated_wi
 
 
 def test_given_localization_is_specified_when_generate_csr_then_csr_contains_localization():
-    private_key = generate_private_key()
+    private_key = PrivateKey.generate()
 
-    csr = generate_csr(
+    csr = CertificateSigningRequest.generate(
         private_key=private_key,
-        common_name="my.demo.server",
-        sans_dns=frozenset(["my.demo.server"]),
-        country_name="CA",
-        state_or_province_name="Quebec",
-        locality_name="Montreal",
+        attributes=CertificateRequestAttributes(
+            common_name="my.demo.server",
+            sans_dns=frozenset(["my.demo.server"]),
+            country_name="CA",
+            state_or_province_name="Quebec",
+            locality_name="Montreal",
+        ),
     )
 
     csr_object = x509.load_pem_x509_csr(str(csr).encode())
@@ -173,13 +180,15 @@ def test_given_localization_is_specified_when_generate_csr_then_csr_contains_loc
 
 
 def test_given_ipv6_sans_when_generate_csr_then_csr_contains_ipv6_sans():
-    private_key = generate_private_key()
+    private_key = PrivateKey.generate()
 
-    csr = generate_csr(
+    csr = CertificateSigningRequest.generate(
         private_key=private_key,
-        common_name="my.demo.server",
-        sans_dns=frozenset(["my.demo.server"]),
-        sans_ip=frozenset(["2001:db8::1", "2001:db8::2"]),
+        attributes=CertificateRequestAttributes(
+            common_name="my.demo.server",
+            sans_dns=frozenset(["my.demo.server"]),
+            sans_ip=frozenset(["2001:db8::1", "2001:db8::2"]),
+        ),
     )
 
     csr_object = x509.load_pem_x509_csr(str(csr).encode())
@@ -191,20 +200,22 @@ def test_given_ipv6_sans_when_generate_csr_then_csr_contains_ipv6_sans():
 
 
 def test_given_certificate_request_attributes_when_generate_csr_then_csr_is_generated_correctly():
-    private_key = generate_private_key()
+    private_key = PrivateKey.generate()
 
-    csr = generate_csr(
+    csr = CertificateSigningRequest.generate(
         private_key=private_key,
-        common_name="example.com",
-        sans_dns=frozenset(["example.com"]),
-        sans_ip=frozenset(["1.2.3.4"]),
-        sans_oid=frozenset(["1.2.3.4"]),
-        email_address="banana@gmail.com",
-        organization="Example",
-        organizational_unit="Example Unit",
-        country_name="CA",
-        state_or_province_name="Quebec",
-        locality_name="Montreal",
+        attributes=CertificateRequestAttributes(
+            common_name="example.com",
+            sans_dns=frozenset(["example.com"]),
+            sans_ip=frozenset(["1.2.3.4"]),
+            sans_oid=frozenset(["1.2.3.4"]),
+            email_address="banana@gmail.com",
+            organization="Example",
+            organizational_unit="Example Unit",
+            country_name="CA",
+            state_or_province_name="Quebec",
+            locality_name="Montreal",
+        ),
     )
     assert csr.common_name == "example.com"
     assert csr.sans_dns == frozenset(["example.com"])
@@ -233,16 +244,18 @@ def test_given_email_address_when_generate_ca_then_san_is_present():
 
     private_key = PrivateKey(raw=generate_private_key_helper())
 
-    ca_certificate = generate_ca(
+    ca_certificate = Certificate.generate_self_signed_ca(
         private_key=private_key,
         validity=timedelta(days=365),
-        common_name="certifier.example.com",
-        email_address="banana@gmail.com",
-        organization="Example",
-        organizational_unit="Example Unit",
-        country_name="CA",
-        state_or_province_name="Quebec",
-        locality_name="Montreal",
+        attributes=CertificateRequestAttributes(
+            common_name="certifier.example.com",
+            email_address="banana@gmail.com",
+            organization="Example",
+            organizational_unit="Example Unit",
+            country_name="CA",
+            state_or_province_name="Quebec",
+            locality_name="Montreal",
+        ),
     )
 
     ca = x509.load_pem_x509_certificate(str(ca_certificate).encode())
@@ -257,15 +270,17 @@ def test_given_email_address_when_generate_ca_then_san_is_present():
 def test_given_no_sans_when_generate_ca_then_ca_is_generated_without_sans():
     private_key = PrivateKey(raw=generate_private_key_helper())
 
-    ca_certificate = generate_ca(
+    ca_certificate = Certificate.generate_self_signed_ca(
         private_key=private_key,
         validity=timedelta(days=365),
-        common_name="certifier.example.com",
-        organization="Example",
-        organizational_unit="Example Unit",
-        country_name="CA",
-        state_or_province_name="Quebec",
-        locality_name="Montreal",
+        attributes=CertificateRequestAttributes(
+            common_name="certifier.example.com",
+            organization="Example",
+            organizational_unit="Example Unit",
+            country_name="CA",
+            state_or_province_name="Quebec",
+            locality_name="Montreal",
+        ),
     )
 
     ca = x509.load_pem_x509_certificate(str(ca_certificate).encode())
@@ -281,19 +296,21 @@ def test_given_ca_certificate_attributes_when_generate_ca_then_ca_is_generated_c
     mock_datetime.now.return_value = datetime(2024, 3, 1, tzinfo=timezone.utc)
     private_key = PrivateKey(raw=generate_private_key_helper())
 
-    ca_certificate = generate_ca(
+    ca_certificate = Certificate.generate_self_signed_ca(
         private_key=private_key,
         validity=timedelta(days=365),
-        common_name="certifier.example.com",
-        sans_dns=frozenset(["certifier.example.com"]),
-        sans_ip=frozenset(["1.2.3.4"]),
-        sans_oid=frozenset(["1.2.3.4"]),
-        email_address="banana@gmail.com",
-        organization="Example",
-        organizational_unit="Example Unit",
-        country_name="CA",
-        state_or_province_name="Quebec",
-        locality_name="Montreal",
+        attributes=CertificateRequestAttributes(
+            common_name="certifier.example.com",
+            sans_dns=frozenset(["certifier.example.com"]),
+            sans_ip=frozenset(["1.2.3.4"]),
+            sans_oid=frozenset(["1.2.3.4"]),
+            email_address="banana@gmail.com",
+            organization="Example",
+            organizational_unit="Example Unit",
+            country_name="CA",
+            state_or_province_name="Quebec",
+            locality_name="Montreal",
+        ),
     )
 
     assert ca_certificate.common_name == "certifier.example.com"
@@ -324,23 +341,24 @@ def test_given_csr_when_generate_certificate_then_certificate_generated_with_req
     mock_datetime: MagicMock,
 ):
     mock_datetime.now.return_value = datetime(2024, 3, 1, tzinfo=timezone.utc)
-    private_key = generate_private_key()
-    csr = generate_csr(
-        private_key=private_key,
+    private_key = PrivateKey.generate()
+    csr = CertificateRequestAttributes(
         common_name="example.com",
         sans_dns=frozenset(["example.com"]),
         locality_name="wherever",
-    )
-    ca_private_key = generate_private_key()
-    ca_certificate = generate_ca(
+    ).generate_csr(private_key=private_key)
+    ca_private_key = PrivateKey.generate()
+    ca_certificate = Certificate.generate_self_signed_ca(
+        attributes=CertificateRequestAttributes(
+            common_name="certifier.example.com",
+            email_address="my@email.com",
+            sans_dns=frozenset(["certifier.example.com"]),
+        ),
         private_key=ca_private_key,
         validity=timedelta(days=365),
-        common_name="certifier.example.com",
-        email_address="my@email.com",
-        sans_dns=frozenset(["certifier.example.com"]),
     )
 
-    certificate = generate_certificate(
+    certificate = Certificate.generate(
         csr=csr,
         ca=ca_certificate,
         ca_private_key=ca_private_key,
@@ -368,22 +386,23 @@ def test_given_csr_for_ca_when_generate_certificate_then_certificate_generated_w
     mock_datetime: MagicMock,
 ):
     mock_datetime.now.return_value = datetime(2024, 3, 1, tzinfo=timezone.utc)
-    private_key = generate_private_key()
-    csr = generate_csr(
-        private_key=private_key,
+    private_key = PrivateKey.generate()
+    csr = CertificateRequestAttributes(
         common_name="example.com",
         sans_dns=frozenset(["example.com"]),
         locality_name="wherever",
-    )
-    ca_private_key = generate_private_key()
-    ca_certificate = generate_ca(
+    ).generate_csr(private_key=private_key)
+    ca_private_key = PrivateKey.generate()
+    ca_certificate = Certificate.generate_self_signed_ca(
+        attributes=CertificateRequestAttributes(
+            common_name="certifier.example.com",
+            sans_dns=frozenset(["certifier.example.com"]),
+        ),
         private_key=ca_private_key,
         validity=timedelta(days=365),
-        common_name="certifier.example.com",
-        sans_dns=frozenset(["certifier.example.com"]),
     )
 
-    certificate = generate_certificate(
+    certificate = Certificate.generate(
         csr=csr,
         ca=ca_certificate,
         ca_private_key=ca_private_key,
@@ -407,19 +426,20 @@ def test_given_csr_for_ca_when_generate_certificate_then_certificate_generated_w
 
 
 def test_given_csr_without_email_or_sans_when_generate_certificate_then_certificate_generated_without_sans():
-    private_key = generate_private_key()
-    csr = generate_csr(
-        private_key=private_key,
+    private_key = PrivateKey.generate()
+    csr = CertificateRequestAttributes(
         common_name="example.com",
-    )
-    ca_private_key = generate_private_key()
-    ca_certificate = generate_ca(
+    ).generate_csr(private_key=private_key)
+    ca_private_key = PrivateKey.generate()
+    ca_certificate = Certificate.generate_self_signed_ca(
+        attributes=CertificateRequestAttributes(
+            common_name="certifier.example.com",
+            sans_dns=frozenset(["certifier.example.com"]),
+        ),
         private_key=ca_private_key,
         validity=timedelta(days=365),
-        common_name="certifier.example.com",
-        sans_dns=frozenset(["certifier.example.com"]),
     )
-    certificate = generate_certificate(
+    certificate = Certificate.generate(
         csr=csr,
         ca=ca_certificate,
         ca_private_key=ca_private_key,
@@ -438,9 +458,8 @@ def test_given_csr_without_email_or_sans_when_generate_certificate_then_certific
 
 
 def test_given_csr_string_when_from_string_then_certificate_signing_request_is_created_correctly():
-    private_key = generate_private_key()
-    csr = generate_csr(
-        private_key=private_key,
+    private_key = PrivateKey.generate()
+    csr = CertificateRequestAttributes(
         common_name="example.com",
         sans_dns=frozenset(["example.com"]),
         sans_ip=frozenset(["1.2.3.4"]),
@@ -452,7 +471,7 @@ def test_given_csr_string_when_from_string_then_certificate_signing_request_is_c
         state_or_province_name="Quebec",
         locality_name="Montreal",
         add_unique_id_to_subject_name=False,
-    )
+    ).generate_csr(private_key=private_key)
     csr_from_string = CertificateSigningRequest.from_string(str(csr))
     assert csr_from_string.common_name == "example.com"
     assert csr_from_string.sans_dns == frozenset(["example.com"])
@@ -467,10 +486,9 @@ def test_given_csr_string_when_from_string_then_certificate_signing_request_is_c
     assert not csr_from_string.has_unique_identifier
 
 
-def test_given_certificate_signin_request_when_from_csr_then_attributes_are_correctly_parsed():
-    private_key = generate_private_key()
-    csr = generate_csr(
-        private_key=private_key,
+def test_given_certificate_signing_request_when_from_csr_then_attributes_are_correctly_parsed():
+    private_key = PrivateKey.generate()
+    csr = CertificateRequestAttributes(
         common_name="example.com",
         sans_dns=frozenset(["example.com"]),
         sans_ip=frozenset(["1.2.3.4"]),
@@ -481,7 +499,7 @@ def test_given_certificate_signin_request_when_from_csr_then_attributes_are_corr
         country_name="CA",
         state_or_province_name="Quebec",
         locality_name="Montreal",
-    )
+    ).generate_csr(private_key=private_key)
     csr_from_string = CertificateSigningRequest.from_string(str(csr))
     attributes = CertificateRequestAttributes.from_csr(csr_from_string, is_ca=False)
     assert attributes.common_name == "example.com"
@@ -501,9 +519,8 @@ def test_given_certificate_string_when_from_string_then_certificate_is_created_c
     mock_datetime: MagicMock,
 ):
     mock_datetime.now.return_value = datetime(2024, 3, 1, tzinfo=timezone.utc)
-    private_key = generate_private_key()
-    csr = generate_csr(
-        private_key=private_key,
+    private_key = PrivateKey.generate()
+    csr = CertificateRequestAttributes(
         common_name="example.com",
         sans_dns=frozenset(["example.com"]),
         sans_ip=frozenset(["1.2.3.4"]),
@@ -514,16 +531,17 @@ def test_given_certificate_string_when_from_string_then_certificate_is_created_c
         country_name="CA",
         state_or_province_name="Quebec",
         locality_name="Montreal",
-    )
-    ca_private_key = generate_private_key()
-    ca_certificate = generate_ca(
+    ).generate_csr(private_key=private_key)
+    ca_private_key = PrivateKey.generate()
+    ca_certificate = Certificate.generate_self_signed_ca(
+        attributes=CertificateRequestAttributes(
+            common_name="certifier.example.com",
+            sans_dns=frozenset(["certifier.example.com"]),
+        ),
         private_key=ca_private_key,
         validity=timedelta(days=365),
-        common_name="certifier.example.com",
-        sans_dns=frozenset(["certifier.example.com"]),
     )
-    certificate = generate_certificate(
-        csr=csr,
+    certificate = csr.sign(
         ca=ca_certificate,
         ca_private_key=ca_private_key,
         validity=timedelta(days=200),
@@ -567,9 +585,8 @@ def test_given_datetime_and_fraction_when_calculate_relative_datetime_then_datet
 
 
 def test_given_chain_with_valid_order_when_chain_has_valid_order_then_returns_true():
-    private_key = generate_private_key()
-    csr = generate_csr(
-        private_key=private_key,
+    private_key = PrivateKey.generate()
+    csr = CertificateRequestAttributes(
         common_name="example.com",
         sans_dns=frozenset(["example.com"]),
         sans_ip=frozenset(["1.2.3.4"]),
@@ -580,16 +597,17 @@ def test_given_chain_with_valid_order_when_chain_has_valid_order_then_returns_tr
         country_name="CA",
         state_or_province_name="Quebec",
         locality_name="Montreal",
-    )
-    ca_private_key = generate_private_key()
-    ca_certificate = generate_ca(
+    ).generate_csr(private_key=private_key)
+    ca_private_key = PrivateKey.generate()
+    ca_certificate = Certificate.generate_self_signed_ca(
+        attributes=CertificateRequestAttributes(
+            common_name="certifier.example.com",
+            sans_dns=frozenset(["certifier.example.com"]),
+        ),
         private_key=ca_private_key,
         validity=timedelta(days=365),
-        common_name="certifier.example.com",
-        sans_dns=frozenset(["certifier.example.com"]),
     )
-    certificate = generate_certificate(
-        csr=csr,
+    certificate = csr.sign(
         ca=ca_certificate,
         ca_private_key=ca_private_key,
         validity=timedelta(days=200),
@@ -600,9 +618,8 @@ def test_given_chain_with_valid_order_when_chain_has_valid_order_then_returns_tr
 
 
 def test_given_chain_with_invalid_order_when_chain_has_valid_order_then_returns_false():
-    private_key = generate_private_key()
-    csr = generate_csr(
-        private_key=private_key,
+    private_key = PrivateKey.generate()
+    csr = CertificateRequestAttributes(
         common_name="example.com",
         sans_dns=frozenset(["example.com"]),
         sans_ip=frozenset(["1.2.3.4"]),
@@ -613,16 +630,17 @@ def test_given_chain_with_invalid_order_when_chain_has_valid_order_then_returns_
         country_name="CA",
         state_or_province_name="Quebec",
         locality_name="Montreal",
-    )
-    ca_private_key = generate_private_key()
-    ca_certificate = generate_ca(
+    ).generate_csr(private_key=private_key)
+    ca_private_key = PrivateKey.generate()
+    ca_certificate = Certificate.generate_self_signed_ca(
+        attributes=CertificateRequestAttributes(
+            common_name="certifier.example.com",
+            sans_dns=frozenset(["certifier.example.com"]),
+        ),
         private_key=ca_private_key,
         validity=timedelta(days=365),
-        common_name="certifier.example.com",
-        sans_dns=frozenset(["certifier.example.com"]),
     )
-    certificate = generate_certificate(
-        csr=csr,
+    certificate = csr.sign(
         ca=ca_certificate,
         ca_private_key=ca_private_key,
         validity=timedelta(days=200),
