@@ -65,7 +65,7 @@ LIBAPI = 4
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 24
+LIBPATCH = 25
 
 PYDEPS = [
     "cryptography>=43.0.0",
@@ -632,6 +632,7 @@ class CertificateRequestAttributes:
     locality_name: Optional[str] = None
     is_ca: bool = False
     add_unique_id_to_subject_name: bool = True
+    additional_critical_extensions: List[x509.ExtensionType] = field(default_factory=list)
 
     def is_valid(self) -> bool:
         """Check whether the certificate request is valid."""
@@ -664,11 +665,14 @@ class CertificateRequestAttributes:
             state_or_province_name=self.state_or_province_name,
             locality_name=self.locality_name,
             add_unique_id_to_subject_name=self.add_unique_id_to_subject_name,
+            additional_critical_extensions=self.additional_critical_extensions,
         )
 
     @classmethod
     def from_csr(cls, csr: CertificateSigningRequest, is_ca: bool):
         """Create a CertificateRequestAttributes object from a CSR."""
+        extensions = x509.load_pem_x509_csr(str(csr).encode()).extensions
+        critical_extensions = [ext.value for ext in extensions if ext.critical]
         return cls(
             common_name=csr.common_name,
             sans_dns=csr.sans_dns,
@@ -682,6 +686,7 @@ class CertificateRequestAttributes:
             locality_name=csr.locality_name,
             is_ca=is_ca,
             add_unique_id_to_subject_name=csr.has_unique_identifier,
+            additional_critical_extensions=critical_extensions,
         )
 
 
@@ -853,6 +858,7 @@ def generate_csr(  # noqa: C901
     locality_name: Optional[str] = None,
     state_or_province_name: Optional[str] = None,
     add_unique_id_to_subject_name: bool = True,
+    additional_critical_extensions: List[x509.ExtensionType] = [],
 ) -> CertificateSigningRequest:
     """Generate a CSR using private key and subject.
 
@@ -871,6 +877,8 @@ def generate_csr(  # noqa: C901
         add_unique_id_to_subject_name (bool): Whether a unique ID must be added to the CSR's
             subject name. Always leave to "True" when the CSR is used to request certificates
             using the tls-certificates relation.
+        additional_critical_extensions (Optional[List[ExtensionType]]): Additional critical
+            extensions to add to the CSR.
 
     Returns:
         CertificateSigningRequest: CSR
@@ -909,6 +917,9 @@ def generate_csr(  # noqa: C901
         _sans.extend([x509.DNSName(san) for san in sans_dns])
     if _sans:
         csr = csr.add_extension(x509.SubjectAlternativeName(set(_sans)), critical=False)
+    if additional_critical_extensions:
+        for extension in additional_critical_extensions:
+            csr = csr.add_extension(extension, critical=True)
     signed_certificate = csr.sign(signing_key, hashes.SHA256())  # type: ignore[arg-type]
     csr_str = signed_certificate.public_bytes(serialization.Encoding.PEM).decode()
     return CertificateSigningRequest.from_string(csr_str)
