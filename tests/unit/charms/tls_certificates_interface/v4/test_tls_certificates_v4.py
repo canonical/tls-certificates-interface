@@ -199,6 +199,37 @@ def test_given_ipv6_sans_when_generate_csr_then_csr_contains_ipv6_sans():
     assert IPv6Address("2001:db8::2") in sans_ip
 
 
+def test_given_additional_critical_extensions_when_generate_csr_then_csr_contains_critical_extensions():
+    private_key = PrivateKey.generate()
+
+    additional_critical_extensions = [
+        x509.KeyUsage(
+            digital_signature=True,
+            content_commitment=False,
+            key_encipherment=True,
+            data_encipherment=False,
+            key_agreement=True,
+            key_cert_sign=False,
+            crl_sign=False,
+            encipher_only=False,
+            decipher_only=False,
+        ),
+        x509.ExtendedKeyUsage({x509.OID_SERVER_AUTH, x509.OID_CLIENT_AUTH}),
+    ]
+
+    csr = CertificateSigningRequest.generate(
+        private_key=private_key,
+        attributes=CertificateRequestAttributes(
+            common_name="my.demo.server",
+            additional_critical_extensions=additional_critical_extensions,
+        ),
+    )
+
+    csr_object = x509.load_pem_x509_csr(str(csr).encode())
+    for ext in additional_critical_extensions:
+        assert csr_object.extensions.get_extension_for_class(ext.__class__).value == ext
+
+
 def test_given_certificate_request_attributes_when_generate_csr_then_csr_is_generated_correctly():
     private_key = PrivateKey.generate()
 
@@ -230,6 +261,59 @@ def test_given_certificate_request_attributes_when_generate_csr_then_csr_is_gene
     assert csr.country_name == "CA"
     assert csr.state_or_province_name == "Quebec"
     assert csr.locality_name == "Montreal"
+
+
+def test_given_certificate_request_attributes_with_critical_extensions_when_generate_csr_then_csr_is_generated_correctly():
+    private_key = PrivateKey.generate()
+
+    additional_critical_extensions = [
+        x509.KeyUsage(
+            digital_signature=True,
+            content_commitment=False,
+            key_encipherment=True,
+            data_encipherment=False,
+            key_agreement=True,
+            key_cert_sign=False,
+            crl_sign=False,
+            encipher_only=False,
+            decipher_only=False,
+        ),
+        x509.ExtendedKeyUsage({x509.OID_SERVER_AUTH, x509.OID_CLIENT_AUTH}),
+    ]
+
+    csr = CertificateSigningRequest.generate(
+        private_key=private_key,
+        attributes=CertificateRequestAttributes(
+            common_name="example.com",
+            sans_dns=frozenset(["example.com"]),
+            sans_ip=frozenset(["1.2.3.4"]),
+            sans_oid=frozenset(["1.2.3.4"]),
+            email_address="banana@gmail.com",
+            organization="Example",
+            organizational_unit="Example Unit",
+            country_name="CA",
+            state_or_province_name="Quebec",
+            locality_name="Montreal",
+            additional_critical_extensions=additional_critical_extensions,
+        ),
+    )
+    assert csr.common_name == "example.com"
+    assert csr.sans_dns == frozenset(["example.com"])
+    assert csr.sans_ip == frozenset(["1.2.3.4"])
+    assert csr.sans_oid is not None
+    assert len(csr.sans_oid) == 1
+    oid = next(iter(csr.sans_oid))
+    assert "1.2.3.4" in str(oid)
+    assert csr.email_address == "banana@gmail.com"
+    assert csr.organization == "Example"
+    assert csr.organizational_unit == "Example Unit"
+    assert csr.country_name == "CA"
+    assert csr.state_or_province_name == "Quebec"
+    assert csr.locality_name == "Montreal"
+
+    csr_object = x509.load_pem_x509_csr(str(csr).encode())
+    for ext in additional_critical_extensions:
+        assert csr_object.extensions.get_extension_for_class(ext.__class__).value == ext
 
 
 # Generate CA
@@ -512,6 +596,50 @@ def test_given_certificate_signing_request_when_from_csr_then_attributes_are_cor
     assert attributes.country_name == "CA"
     assert attributes.state_or_province_name == "Quebec"
     assert attributes.locality_name == "Montreal"
+
+
+def test_given_certificate_signing_request_with_critical_extensions_when_from_csr_then_attributes_are_correctly_parsed():
+    private_key = PrivateKey.generate()
+    critical_extensions = [
+        x509.KeyUsage(
+            digital_signature=True,
+            content_commitment=False,
+            key_encipherment=True,
+            data_encipherment=False,
+            key_agreement=True,
+            key_cert_sign=False,
+            crl_sign=False,
+            encipher_only=False,
+            decipher_only=False,
+        ),
+        x509.ExtendedKeyUsage({x509.OID_SERVER_AUTH, x509.OID_CLIENT_AUTH}),
+    ]
+    csr = CertificateRequestAttributes(
+        common_name="example.com",
+        sans_dns=frozenset(["example.com"]),
+        sans_ip=frozenset(["1.2.3.4"]),
+        sans_oid=frozenset(["1.2.3.4"]),
+        email_address="banana@gmail.com",
+        organization="Example",
+        organizational_unit="Example Unit",
+        country_name="CA",
+        state_or_province_name="Quebec",
+        locality_name="Montreal",
+        additional_critical_extensions=critical_extensions,
+    ).generate_csr(private_key=private_key)
+    csr_from_string = CertificateSigningRequest.from_string(str(csr))
+    attributes = CertificateRequestAttributes.from_csr(csr_from_string, is_ca=False)
+    assert attributes.common_name == "example.com"
+    assert attributes.sans_dns == frozenset(["example.com"])
+    assert attributes.sans_ip == frozenset(["1.2.3.4"])
+    assert attributes.sans_oid == frozenset(["1.2.3.4"])
+    assert attributes.email_address == "banana@gmail.com"
+    assert attributes.organization == "Example"
+    assert attributes.organizational_unit == "Example Unit"
+    assert attributes.country_name == "CA"
+    assert attributes.state_or_province_name == "Quebec"
+    assert attributes.locality_name == "Montreal"
+    assert attributes.additional_critical_extensions == critical_extensions
 
 
 @patch("lib.charms.tls_certificates_interface.v4.tls_certificates.datetime")
