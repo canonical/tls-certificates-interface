@@ -12,6 +12,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, pkcs12
+from cryptography.x509.oid import ExtendedKeyUsageOID
 
 from lib.charms.tls_certificates_interface.v4.tls_certificates import (
     Certificate,
@@ -648,3 +649,134 @@ def test_given_chain_with_invalid_order_when_chain_has_valid_order_then_returns_
     )
     assert not chain_has_valid_order([str(ca_certificate), str(certificate)])
     assert not chain_has_valid_order([str(certificate), "Random string"])
+
+
+def test_given_additional_critical_extensions_when_generate_csr_then_extensions_are_added_to_csr():
+    private_key = PrivateKey.generate()
+    critical_extensions = [
+        x509.KeyUsage(
+            digital_signature=True,
+            content_commitment=False,
+            key_encipherment=True,
+            data_encipherment=False,
+            key_agreement=True,
+            key_cert_sign=False,
+            crl_sign=False,
+            encipher_only=False,
+            decipher_only=False,
+        ),
+        x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH, ExtendedKeyUsageOID.CLIENT_AUTH]),
+    ]
+
+    csr = CertificateRequestAttributes(
+        common_name="example.com",
+        sans_dns=frozenset(["example.com"]),
+        additional_critical_extensions=critical_extensions,
+    ).generate_csr(private_key=private_key)
+
+    csr_object = x509.load_pem_x509_csr(str(csr).encode())
+    key_usage = csr_object.extensions.get_extension_for_class(x509.KeyUsage)
+    assert key_usage.critical is True
+    assert key_usage.value.digital_signature is True
+    assert key_usage.value.key_encipherment is True
+    assert key_usage.value.key_cert_sign is False
+
+    eku = csr_object.extensions.get_extension_for_class(x509.ExtendedKeyUsage)
+    assert eku.critical is True
+    assert ExtendedKeyUsageOID.SERVER_AUTH in eku.value
+    assert ExtendedKeyUsageOID.CLIENT_AUTH in eku.value
+
+
+def test_given_csr_with_critical_extensions_when_from_csr_then_attributes_are_correctly_parsed():
+    private_key = PrivateKey.generate()
+    critical_extensions = [
+        x509.KeyUsage(
+            digital_signature=True,
+            content_commitment=False,
+            key_encipherment=True,
+            data_encipherment=False,
+            key_agreement=True,
+            key_cert_sign=False,
+            crl_sign=False,
+            encipher_only=False,
+            decipher_only=False,
+        ),
+        x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH, ExtendedKeyUsageOID.CLIENT_AUTH]),
+    ]
+
+    csr = CertificateRequestAttributes(
+        common_name="example.com",
+        sans_dns=frozenset(["example.com"]),
+        sans_ip=frozenset(["1.2.3.4"]),
+        sans_oid=frozenset(["1.2.3.4"]),
+        email_address="banana@gmail.com",
+        organization="Example",
+        organizational_unit="Example Unit",
+        country_name="CA",
+        state_or_province_name="Quebec",
+        locality_name="Montreal",
+        additional_critical_extensions=critical_extensions,
+    ).generate_csr(private_key=private_key)
+
+    csr_from_string = CertificateSigningRequest.from_string(str(csr))
+    attributes = CertificateRequestAttributes.from_csr(csr_from_string, is_ca=False)
+
+    assert attributes.common_name == "example.com"
+    assert attributes.sans_dns == frozenset(["example.com"])
+    assert attributes.sans_ip == frozenset(["1.2.3.4"])
+    assert attributes.sans_oid == frozenset(["1.2.3.4"])
+    assert attributes.email_address == "banana@gmail.com"
+    assert attributes.organization == "Example"
+    assert attributes.organizational_unit == "Example Unit"
+    assert attributes.country_name == "CA"
+    assert attributes.state_or_province_name == "Quebec"
+    assert attributes.locality_name == "Montreal"
+    assert attributes.additional_critical_extensions == critical_extensions
+
+
+def test_given_csr_with_critical_extensions_when_generate_certificate_then_extensions_propagate():
+    private_key = PrivateKey.generate()
+    critical_extensions = [
+        x509.KeyUsage(
+            digital_signature=True,
+            content_commitment=False,
+            key_encipherment=True,
+            data_encipherment=False,
+            key_agreement=True,
+            key_cert_sign=False,
+            crl_sign=False,
+            encipher_only=False,
+            decipher_only=False,
+        ),
+        x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH, ExtendedKeyUsageOID.CLIENT_AUTH]),
+    ]
+    csr = CertificateRequestAttributes(
+        common_name="example.com",
+        sans_dns=frozenset(["example.com"]),
+        additional_critical_extensions=critical_extensions,
+    ).generate_csr(private_key=private_key)
+
+    ca_private_key = PrivateKey.generate()
+    ca_certificate = Certificate.generate_self_signed_ca(
+        attributes=CertificateRequestAttributes(common_name="certifier.example.com"),
+        private_key=ca_private_key,
+        validity=timedelta(days=365),
+    )
+    cert = csr.sign(
+        ca=ca_certificate,
+        ca_private_key=ca_private_key,
+        validity=timedelta(days=200),
+        is_ca=False,
+    )
+
+    cert_obj = x509.load_pem_x509_certificate(str(cert).encode())
+    key_usage = cert_obj.extensions.get_extension_for_class(x509.KeyUsage)
+    assert key_usage.critical is True
+    assert key_usage.value.digital_signature is True
+    assert key_usage.value.key_encipherment is True
+    assert key_usage.value.key_cert_sign is False
+
+    eku = cert_obj.extensions.get_extension_for_class(x509.ExtendedKeyUsage)
+    assert eku.critical is True
+    assert ExtendedKeyUsageOID.SERVER_AUTH in eku.value
+    assert ExtendedKeyUsageOID.CLIENT_AUTH in eku.value
