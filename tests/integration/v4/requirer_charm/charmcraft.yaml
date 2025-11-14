@@ -20,12 +20,18 @@ bases:
 
 parts:
   charm:
+    source: .
+    plugin: uv
     build-packages:
-      - cargo
       - libffi-dev
       - libssl-dev
       - pkg-config
-      - rustc
+    build-snaps:
+      - astral-uv
+      - rustup
+    override-build: |
+      rustup default stable
+      craftctl default
 
 config:
   options:
