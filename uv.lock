@@ -1476,11 +1476,11 @@ wheels = [
 
 [[package]]
 name = "python-iso639"
-version = "2025.11.11"
+version = "2025.11.16"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/89/6f/45bc5ae1c132ab7852a8642d66d25ffff6e4b398195127ac66158d3b5f4d/python_iso639-2025.11.11.tar.gz", hash = "sha256:75fab30f1a0f46b4e8161eafb84afe4ecd07eaada05e2c5364f14b0f9c864477", size = 173897, upload-time = "2025-11-11T15:23:00.893Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a1/3b/3e07aadeeb7bbb2574d6aa6ccacbc58b17bd2b1fb6c7196bf96ab0e45129/python_iso639-2025.11.16.tar.gz", hash = "sha256:aabe941267898384415a509f5236d7cfc191198c84c5c6f73dac73d9783f5169", size = 174186, upload-time = "2025-11-16T21:53:37.031Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/03/69/081960288e4cd541cbdb90e1768373e1198b040bf2ae40cd25b9c9799205/python_iso639-2025.11.11-py3-none-any.whl", hash = "sha256:02ea4cfca2c189b5665e4e8adc8c17c62ab6e4910932541a23baddea33207ea2", size = 167723, upload-time = "2025-11-11T15:22:59.819Z" },
+    { url = "https://files.pythonhosted.org/packages/b5/2d/563849c31e58eb2e273fa0c391a7d9987db32f4d9152fe6ecdac0a8ffe93/python_iso639-2025.11.16-py3-none-any.whl", hash = "sha256:65f6ac6c6d8e8207f6175f8bf7fff7db486c6dc5c1d8866c2b77d2a923370896", size = 167818, upload-time = "2025-11-16T21:53:35.36Z" },
 ]
 
 [[package]]
