@@ -21,6 +21,10 @@ from lib.charms.tls_certificates_interface.v4.tls_certificates import (
     PrivateKey,
     calculate_relative_datetime,
     chain_has_valid_order,
+    generate_ca,
+    generate_certificate,
+    generate_csr,
+    generate_private_key,
 )
 from tests.unit import certificate_validation
 from tests.unit.charms.tls_certificates_interface.v4.certificates import (
@@ -780,3 +784,192 @@ def test_given_csr_with_critical_extensions_when_generate_certificate_then_exten
     assert eku.critical is True
     assert ExtendedKeyUsageOID.SERVER_AUTH in eku.value
     assert ExtendedKeyUsageOID.CLIENT_AUTH in eku.value
+
+
+@patch("lib.charms.tls_certificates_interface.v4.tls_certificates.CertificateRequestAttributes")
+def test_when_generate_csr_deprecated_function_called_then_certificate_request_attributes_called(
+    mock_attrs_class: MagicMock,
+):
+    """Test that the deprecated generate_csr() function properly calls CertificateRequestAttributes.generate_csr()."""
+    private_key = PrivateKey.generate()
+    mock_attrs_instance = MagicMock()
+    mock_attrs_class.return_value = mock_attrs_instance
+
+    generate_csr(
+        private_key=private_key,
+        common_name="example.com",
+        sans_dns=frozenset(["example.com", "www.example.com"]),
+        sans_ip=frozenset(["1.2.3.4", "5.6.7.8"]),
+        sans_oid=frozenset(["1.2.3.4"]),
+        organization="Example Org",
+        organizational_unit="Example Unit",
+        email_address="test@example.com",
+        country_name="US",
+        locality_name="New York",
+        state_or_province_name="NY",
+        add_unique_id_to_subject_name=False,
+    )
+
+    mock_attrs_class.assert_called_once_with(
+        common_name="example.com",
+        sans_dns=frozenset(["example.com", "www.example.com"]),
+        sans_ip=frozenset(["1.2.3.4", "5.6.7.8"]),
+        sans_oid=frozenset(["1.2.3.4"]),
+        organization="Example Org",
+        organizational_unit="Example Unit",
+        email_address="test@example.com",
+        country_name="US",
+        state_or_province_name="NY",
+        locality_name="New York",
+        add_unique_id_to_subject_name=False,
+    )
+
+    mock_attrs_instance.generate_csr.assert_called_once_with(private_key=private_key)
+
+
+def test_when_generate_csr_deprecated_function_called_raises_deprecation_warning():
+    """Test that the deprecated generate_csr() function raises a DeprecationWarning."""
+    private_key = PrivateKey.generate()
+
+    with pytest.warns(DeprecationWarning, match="generate_csr\\(\\) is deprecated"):
+        generate_csr(
+            private_key=private_key,
+            common_name="example.com",
+        )
+
+
+@patch("lib.charms.tls_certificates_interface.v4.tls_certificates.Certificate")
+@patch("lib.charms.tls_certificates_interface.v4.tls_certificates.CertificateRequestAttributes")
+def test_when_generate_ca_deprecated_function_called_then_certificate_generate_self_signed_ca_called(
+    mock_attrs_class: MagicMock,
+    mock_cert_class: MagicMock,
+):
+    """Test that the deprecated generate_ca() function properly calls Certificate.generate_self_signed_ca()."""
+    private_key = PrivateKey.generate()
+    validity = timedelta(days=365)
+    mock_attrs_instance = MagicMock()
+    mock_attrs_class.return_value = mock_attrs_instance
+
+    # Call the deprecated function with all parameters
+    generate_ca(
+        private_key=private_key,
+        validity=validity,
+        common_name="ca.example.com",
+        sans_dns=frozenset(["ca.example.com"]),
+        sans_ip=frozenset(["1.2.3.4"]),
+        sans_oid=frozenset(["1.2.3.4"]),
+        organization="Example Org",
+        organizational_unit="Example Unit",
+        email_address="ca@example.com",
+        country_name="US",
+        state_or_province_name="NY",
+        locality_name="New York",
+    )
+
+    mock_attrs_class.assert_called_once_with(
+        common_name="ca.example.com",
+        sans_dns=frozenset(["ca.example.com"]),
+        sans_ip=frozenset(["1.2.3.4"]),
+        sans_oid=frozenset(["1.2.3.4"]),
+        organization="Example Org",
+        organizational_unit="Example Unit",
+        email_address="ca@example.com",
+        country_name="US",
+        state_or_province_name="NY",
+        locality_name="New York",
+        is_ca=True,
+    )
+
+    mock_cert_class.generate_self_signed_ca.assert_called_once_with(
+        mock_attrs_instance, private_key, validity
+    )
+
+
+def test_when_generate_ca_deprecated_function_called_raises_deprecation_warning():
+    """Test that the deprecated generate_ca() function raises a DeprecationWarning."""
+    private_key = PrivateKey.generate()
+
+    with pytest.warns(DeprecationWarning, match="generate_ca\\(\\) is deprecated"):
+        generate_ca(
+            private_key=private_key,
+            validity=timedelta(days=365),
+            common_name="ca.example.com",
+        )
+
+
+@patch("lib.charms.tls_certificates_interface.v4.tls_certificates.Certificate")
+def test_when_generate_certificate_deprecated_function_called_then_certificate_generate_called(
+    mock_cert_class: MagicMock,
+):
+    """Test that the deprecated generate_certificate() function properly calls Certificate.generate()."""
+    private_key = PrivateKey.generate()
+    csr = CertificateRequestAttributes(
+        common_name="example.com",
+    ).generate_csr(private_key=private_key)
+    ca_private_key = PrivateKey.generate()
+    ca_certificate = Certificate.generate_self_signed_ca(
+        attributes=CertificateRequestAttributes(
+            common_name="ca.example.com",
+        ),
+        private_key=ca_private_key,
+        validity=timedelta(days=365),
+    )
+    validity = timedelta(days=200)
+
+    # Call the deprecated function with all parameters
+    generate_certificate(
+        csr=csr,
+        ca=ca_certificate,
+        ca_private_key=ca_private_key,
+        validity=validity,
+        is_ca=True,
+    )
+
+    # Verify Certificate.generate was called with correct parameters
+    mock_cert_class.generate.assert_called_once_with(
+        csr=csr,
+        ca=ca_certificate,
+        ca_private_key=ca_private_key,
+        validity=validity,
+        is_ca=True,
+    )
+
+
+def test_when_generate_certificate_deprecated_function_called_raises_deprecation_warning():
+    """Test that the deprecated generate_certificate() function raises a DeprecationWarning."""
+    private_key = PrivateKey.generate()
+    csr = CertificateRequestAttributes(
+        common_name="example.com",
+    ).generate_csr(private_key=private_key)
+    ca_private_key = PrivateKey.generate()
+    ca_certificate = Certificate.generate_self_signed_ca(
+        attributes=CertificateRequestAttributes(
+            common_name="ca.example.com",
+        ),
+        private_key=ca_private_key,
+        validity=timedelta(days=365),
+    )
+
+    with pytest.warns(DeprecationWarning, match="generate_certificate\\(\\) is deprecated"):
+        generate_certificate(
+            csr=csr,
+            ca=ca_certificate,
+            ca_private_key=ca_private_key,
+            validity=timedelta(days=200),
+        )
+
+
+@patch("lib.charms.tls_certificates_interface.v4.tls_certificates.PrivateKey")
+def test_when_generate_private_key_deprecated_function_called_then_private_key_generate_called(
+    mock_private_key_class: MagicMock,
+):
+    """Test that the deprecated generate_private_key() function properly calls PrivateKey.generate()."""
+    generate_private_key(key_size=4096, public_exponent=3)
+
+    mock_private_key_class.generate.assert_called_once_with(key_size=4096, public_exponent=3)
+
+
+def test_when_generate_private_key_deprecated_function_called_raises_deprecation_warning():
+    """Test that the deprecated generate_private_key() function raises a DeprecationWarning."""
+    with pytest.warns(DeprecationWarning, match="generate_private_key\\(\\) is deprecated"):
+        generate_private_key()
