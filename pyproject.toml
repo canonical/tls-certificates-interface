@@ -1,14 +1,14 @@
 [project]
 name = "tls-certificates-interface"
 version = "0.1.0"
-requires-python = ">=3.10"
+requires-python = ">=3.8"
 
 dependencies = [
     "cryptography",
     "jsonschema",
     "ops",
     "pydantic",
-    "rpds-py==0.29.0"
+    "rpds-py"
 ]
 
 [dependency-groups]
@@ -101,5 +101,4 @@ ignore = [
     "tests/integration/v4/provider_charm/lib/charms/tls_certificates_interface/v4/tls_certificates.py",
     "tests/integration/v4/requirer_charm/lib/charms/tls_certificates_interface/v4/tls_certificates.py",
 ]
-pythonVersion = "3.8"
 reportMissingParameterType = true
