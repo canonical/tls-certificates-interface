@@ -114,7 +114,7 @@ jobs:
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
-          juju-channel: 3.4/stable
+          juju-channel: 3/stable
           provider: microk8s
           channel: 1.31-strict/stable
       - name: Install UV and Tox
@@ -149,7 +149,7 @@ jobs:
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
-          juju-channel: 3.4/stable
+          juju-channel: 3/stable
           provider: microk8s
           channel: 1.31-strict/stable
       - name: Install UV and Tox
