@@ -22,7 +22,7 @@ jobs:
   unit-tests-with-coverage:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
 
       - name: Install uv
         run: sudo snap install --classic astral-uv
@@ -36,7 +36,7 @@ jobs:
   unit-tests-with-coverage-pydantic-v1:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
 
       - name: Install uv
         run: sudo snap install --classic astral-uv
@@ -57,7 +57,7 @@ jobs:
       - static-analysis
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Setup LXD
         uses: canonical/setup-lxd@main
         with:
@@ -75,7 +75,7 @@ jobs:
       - lint-report
       - static-analysis
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
@@ -110,7 +110,7 @@ jobs:
       - lint-report
       - static-analysis
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
@@ -145,7 +145,7 @@ jobs:
       - lint-report
       - static-analysis
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
@@ -180,7 +180,7 @@ jobs:
       - lint-report
       - static-analysis
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
@@ -215,7 +215,7 @@ jobs:
       - lint-report
       - static-analysis
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
