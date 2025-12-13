@@ -91,13 +91,13 @@ jobs:
         run: tox -e integration-v2
       - name: Archive charmcraft logs
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: charmcraft-logs
           path: /home/runner/.local/state/charmcraft/log/*.log
       - name: Archive juju crashdump
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: juju-crashdump
           path: juju-crashdump-*.tar.xz
@@ -126,13 +126,13 @@ jobs:
         run: tox -e integration-v2
       - name: Archive charmcraft logs
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: charmcraft-logs
           path: /home/runner/.local/state/charmcraft/log/*.log
       - name: Archive juju crashdump
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: juju-crashdump
           path: juju-crashdump-*.tar.xz
@@ -161,13 +161,13 @@ jobs:
         run: tox -e integration-v3
       - name: Archive charmcraft logs
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: charmcraft-logs
           path: /home/runner/.local/state/charmcraft/log/*.log
       - name: Archive juju crashdump
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: juju-crashdump
           path: juju-crashdump-*.tar.xz
@@ -196,13 +196,13 @@ jobs:
         run: tox -e integration-v4
       - name: Archive charmcraft logs
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: charmcraft-logs
           path: /home/runner/.local/state/charmcraft/log/*.log
       - name: Archive juju crashdump
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: juju-crashdump
           path: juju-crashdump-*.tar.xz
@@ -235,13 +235,13 @@ jobs:
         run: tox -e integration-v4-pydantic-v1 -- --no-upgrade
       - name: Archive charmcraft logs
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: charmcraft-logs
           path: /home/runner/.local/state/charmcraft/log/*.log
       - name: Archive juju crashdump
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: juju-crashdump-v4-pydantic-v1
           path: juju-crashdump-*.tar.xz
