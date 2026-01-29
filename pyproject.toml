@@ -14,7 +14,7 @@ dependencies = [
 [dependency-groups]
 test = [
     "coverage[toml]",
-    "jubilant==1.6.2",
+    "jubilant==1.7.0",
     "juju>3",
     "ops[testing]",
     "pytest-operator",
