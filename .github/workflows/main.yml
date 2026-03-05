@@ -116,7 +116,7 @@ jobs:
         with:
           juju-channel: 3/stable
           provider: microk8s
-          channel: 1.31-strict/stable
+          channel: 1.35-strict/stable
       - name: Install UV and Tox
         run: |
           pipx uninstall tox
@@ -151,7 +151,7 @@ jobs:
         with:
           juju-channel: 3/stable
           provider: microk8s
-          channel: 1.31-strict/stable
+          channel: 1.35-strict/stable
       - name: Install UV and Tox
         run: |
           pipx uninstall tox
@@ -186,7 +186,7 @@ jobs:
         with:
           juju-channel: 3.6/stable
           provider: microk8s
-          channel: 1.31-strict/stable
+          channel: 1.35-strict/stable
       - name: Install UV and Tox
         run: |
           pipx uninstall tox
@@ -221,7 +221,7 @@ jobs:
         with:
           juju-channel: 3.6/stable
           provider: microk8s
-          channel: 1.31-strict/stable
+          channel: 1.35-strict/stable
       - name: Install UV and Tox
         run: |
           pipx uninstall tox
