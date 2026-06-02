@@ -9,6 +9,8 @@ jobs:
   charmhub-upload:
     runs-on: ubuntu-24.04
     name: Charmhub upload lib
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
