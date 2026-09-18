@@ -14,15 +14,15 @@ concurrency:
 
 jobs:
   lint-report:
-    uses: canonical/identity-credentials-workflows/.github/workflows/lint-report.yaml@v2.0.3
+    uses: canonical/identity-credentials-workflows/.github/workflows/lint-report.yaml@v3.1.5
 
   static-analysis:
-    uses: canonical/identity-credentials-workflows/.github/workflows/static-analysis.yaml@v2.0.3
+    uses: canonical/identity-credentials-workflows/.github/workflows/static-analysis.yaml@v3.1.5
 
   unit-tests-with-coverage:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install uv
         run: sudo snap install --classic astral-uv
@@ -34,9 +34,9 @@ jobs:
         run: tox -e unit
 
   unit-tests-with-coverage-pydantic-v1:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install uv
         run: sudo snap install --classic astral-uv
@@ -49,7 +49,7 @@ jobs:
 
   build:
     name: Build charm
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs:
       - unit-tests-with-coverage
       - unit-tests-with-coverage-pydantic-v1
@@ -57,7 +57,7 @@ jobs:
       - static-analysis
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup LXD
         uses: canonical/setup-lxd@main
         with:
@@ -69,13 +69,13 @@ jobs:
 
   integration-tests-v2-juju-2:
     name: Integration tests for tls interface v2 (Juju 2.9)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs:
       - unit-tests-with-coverage
       - lint-report
       - static-analysis
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
@@ -104,13 +104,13 @@ jobs:
 
   integration-tests-v2-juju-3:
     name: Integration tests for tls interface v2 (Juju 3.x)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs:
       - unit-tests-with-coverage
       - lint-report
       - static-analysis
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
@@ -139,13 +139,13 @@ jobs:
 
   integration-tests-v3:
     name: Integration tests for tls interface v3
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs:
       - unit-tests-with-coverage
       - lint-report
       - static-analysis
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
@@ -174,13 +174,13 @@ jobs:
 
   integration-tests-v4:
     name: Integration tests for tls interface v4
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs:
       - unit-tests-with-coverage
       - lint-report
       - static-analysis
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
@@ -209,13 +209,13 @@ jobs:
 
   integration-tests-v4-pydantic-v1:
     name: Integration tests for tls interface v4 with Pydantic v1
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs:
       - unit-tests-with-coverage
       - lint-report
       - static-analysis
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
